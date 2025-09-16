@@ -5,7 +5,7 @@ import { storage } from "./storage";
 import { aiService } from "./services/ai";
 import bcrypt from "bcrypt";
 import session from "express-session";
-import { insertUserSchema, loginUserSchema, insertDocumentAnalysisSchema, insertSupportTicketSchema, insertTicketMessageSchema, adminTicketMessageSchema, assignRoleSchema } from "@shared/schema";
+import { insertUserSchema, loginUserSchema, insertDocumentAnalysisSchema, insertSupportTicketSchema, insertTicketMessageSchema, adminTicketMessageSchema, assignRoleSchema, adminUserUpdateSchema } from "@shared/schema";
 import multer from "multer";
 import { z } from "zod";
 
@@ -41,6 +41,13 @@ if (!process.env.STRIPE_SECRET_KEY) {
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: "2025-08-27.basil",
 });
+
+// Helper function to sanitize user objects by removing sensitive fields
+function toSafeUser(user: any) {
+  if (!user) return user;
+  const { password, ...safeUser } = user;
+  return safeUser;
+}
 
 // Configure multer for file uploads
 const upload = multer({
@@ -564,6 +571,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const updatedTicket = await storage.updateSupportTicketStatus(id, status);
       res.json(updatedTicket);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Admin user management routes
+  app.get("/api/admin/users", requireAdmin, async (req, res) => {
+    try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20;
+      
+      const result = await storage.getAllUsers(page, limit);
+      // Sanitize user objects to remove password fields
+      const sanitizedResult = {
+        ...result,
+        users: result.users.map(toSafeUser)
+      };
+      res.json(sanitizedResult);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/admin/users/:id", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Validate request body using Zod schema
+      const validatedData = adminUserUpdateSchema.parse(req.body);
+      const { role, credits } = validatedData;
+      
+      let updatedUser;
+      
+      if (role !== undefined) {
+        updatedUser = await storage.updateUserRole(id, role);
+      }
+      
+      if (credits !== undefined) {
+        updatedUser = await storage.updateUserCredits(id, credits);
+      }
+      
+      if (!updatedUser) {
+        // If no specific update was made, just get the user
+        updatedUser = await storage.getUser(id);
+        if (!updatedUser) {
+          return res.status(404).json({ message: "User not found" });
+        }
+      }
+      
+      res.json(toSafeUser(updatedUser));
+    } catch (error: any) {
+      // Handle Zod validation errors
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ 
+          message: "Validation error", 
+          errors: error.errors 
+        });
+      }
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Admin analytics routes
+  app.get("/api/admin/analytics", requireAdmin, async (req, res) => {
+    try {
+      const analytics = await storage.getPlatformAnalytics();
+      res.json(analytics);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/admin/ai-usage", requireAdmin, async (req, res) => {
+    try {
+      const aiUsage = await storage.getAiUsageAnalytics();
+      res.json(aiUsage);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }

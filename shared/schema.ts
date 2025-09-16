@@ -87,6 +87,15 @@ export const assignRoleSchema = z.object({
   role: z.enum(["user", "admin", "support"]),
 });
 
+// Admin user update schema with proper validation
+export const adminUserUpdateSchema = z.object({
+  role: z.enum(["user", "admin", "support"]).optional(),
+  credits: z.number().int().min(0, "Credits must be a non-negative integer").optional(),
+}).strict().refine(
+  (data) => data.role !== undefined || data.credits !== undefined,
+  { message: "At least one field (role or credits) must be provided" }
+);
+
 // Admin message schema with proper validation
 export const adminTicketMessageSchema = z.object({
   message: z.string().min(1, "Message is required"),

@@ -1,7 +1,7 @@
 import { type User, type InsertUser, type LoginUser, type AiProvider, type InsertAiProvider, type DocumentAnalysis, type InsertDocumentAnalysis, type CreditTransaction, type SupportTicket, type InsertSupportTicket, type TicketMessage, type InsertTicketMessage } from "@shared/schema";
 import { db } from "./db";
 import { users, aiProviders, documentAnalyses, creditTransactions, supportTickets, ticketMessages } from "@shared/schema";
-import { eq, desc, and, limit as drizzleLimit } from "drizzle-orm";
+import { eq, desc, and, limit as drizzleLimit, count, sum, gte, sql } from "drizzle-orm";
 
 export interface IStorage {
   // User management
@@ -12,6 +12,24 @@ export interface IStorage {
   updateUserCredits(id: string, credits: number): Promise<User>;
   updateUserRole(id: string, role: string): Promise<User>;
   updateStripeCustomerId(id: string, customerId: string): Promise<User>;
+
+  // Admin-specific user management
+  getAllUsers(page?: number, limit?: number): Promise<{users: User[], total: number}>;
+  getPlatformAnalytics(): Promise<{
+    totalUsers: number;
+    totalAnalyses: number;
+    totalCreditsUsed: number;
+    totalCreditsPurchased: number;
+    totalRevenue: number;
+    userGrowth: Array<{date: string, count: number}>;
+    analysisGrowth: Array<{date: string, count: number}>;
+    supportTicketsStats: {open: number, pending: number, resolved: number, closed: number};
+  }>;
+  getAiUsageAnalytics(): Promise<{
+    providerUsage: Array<{provider: string, model: string, count: number, totalCredits: number}>;
+    analysisTypes: Array<{type: string, count: number}>;
+    errorRates: Array<{provider: string, model: string, successRate: number}>;
+  }>;
 
   // AI Provider management
   getAiProviders(userId: string): Promise<AiProvider[]>;
@@ -279,6 +297,171 @@ export class DatabaseStorage implements IStorage {
       .values(ticketMessage)
       .returning();
     return message;
+  }
+
+  // Admin-specific user management
+  async getAllUsers(page: number = 1, limit: number = 20): Promise<{users: User[], total: number}> {
+    const offset = (page - 1) * limit;
+    
+    const [usersResult, totalResult] = await Promise.all([
+      db.select({
+        id: users.id,
+        username: users.username,
+        email: users.email,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        role: users.role,
+        credits: users.credits,
+        stripeCustomerId: users.stripeCustomerId,
+        createdAt: users.createdAt,
+        updatedAt: users.updatedAt,
+      }).from(users).orderBy(desc(users.createdAt)).limit(limit).offset(offset),
+      db.select({ count: count() }).from(users)
+    ]);
+    
+    return {
+      users: usersResult,
+      total: totalResult[0].count
+    };
+  }
+
+  async getPlatformAnalytics(): Promise<{
+    totalUsers: number;
+    totalAnalyses: number;
+    totalCreditsUsed: number;
+    totalCreditsPurchased: number;
+    totalRevenue: number;
+    userGrowth: Array<{date: string, count: number}>;
+    analysisGrowth: Array<{date: string, count: number}>;
+    supportTicketsStats: {open: number, pending: number, resolved: number, closed: number};
+  }> {
+    // Get basic counts
+    const [userCount, analysisCount] = await Promise.all([
+      db.select({ count: count() }).from(users),
+      db.select({ count: count() }).from(documentAnalyses)
+    ]);
+
+    // Get credit statistics
+    const creditStats = await db.select({
+      totalUsed: sum(creditTransactions.amount),
+      type: creditTransactions.type
+    }).from(creditTransactions).groupBy(creditTransactions.type);
+
+    let totalCreditsUsed = 0;
+    let totalCreditsPurchased = 0;
+    let totalRevenue = 0;
+
+    creditStats.forEach(stat => {
+      if (stat.type === 'usage') {
+        totalCreditsUsed = Math.abs(Number(stat.totalUsed) || 0);
+      } else if (stat.type === 'purchase') {
+        totalCreditsPurchased = Number(stat.totalUsed) || 0;
+        // Assuming each credit costs R$0.10 (adjust as needed)
+        totalRevenue = totalCreditsPurchased * 0.10;
+      }
+    });
+
+    // Get user growth over last 30 days
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const userGrowth = await db.select({
+      date: sql<string>`DATE(${users.createdAt})`,
+      count: count()
+    }).from(users)
+      .where(gte(users.createdAt, thirtyDaysAgo))
+      .groupBy(sql`DATE(${users.createdAt})`)
+      .orderBy(sql`DATE(${users.createdAt})`);
+
+    // Get analysis growth over last 30 days
+    const analysisGrowth = await db.select({
+      date: sql<string>`DATE(${documentAnalyses.createdAt})`,
+      count: count()
+    }).from(documentAnalyses)
+      .where(gte(documentAnalyses.createdAt, thirtyDaysAgo))
+      .groupBy(sql`DATE(${documentAnalyses.createdAt})`)
+      .orderBy(sql`DATE(${documentAnalyses.createdAt})`);
+
+    // Get support ticket stats
+    const ticketStats = await db.select({
+      status: supportTickets.status,
+      count: count()
+    }).from(supportTickets).groupBy(supportTickets.status);
+
+    const supportTicketsStats = {
+      open: 0,
+      pending: 0,
+      resolved: 0,
+      closed: 0
+    };
+
+    ticketStats.forEach(stat => {
+      if (stat.status in supportTicketsStats) {
+        supportTicketsStats[stat.status as keyof typeof supportTicketsStats] = Number(stat.count);
+      }
+    });
+
+    return {
+      totalUsers: userCount[0].count,
+      totalAnalyses: analysisCount[0].count,
+      totalCreditsUsed,
+      totalCreditsPurchased,
+      totalRevenue,
+      userGrowth: userGrowth.map(g => ({ date: g.date, count: Number(g.count) })),
+      analysisGrowth: analysisGrowth.map(g => ({ date: g.date, count: Number(g.count) })),
+      supportTicketsStats
+    };
+  }
+
+  async getAiUsageAnalytics(): Promise<{
+    providerUsage: Array<{provider: string, model: string, count: number, totalCredits: number}>;
+    analysisTypes: Array<{type: string, count: number}>;
+    errorRates: Array<{provider: string, model: string, successRate: number}>;
+  }> {
+    // Get provider usage statistics
+    const providerUsage = await db.select({
+      provider: documentAnalyses.aiProvider,
+      model: documentAnalyses.aiModel,
+      count: count(),
+      totalCredits: sum(documentAnalyses.creditsUsed)
+    }).from(documentAnalyses)
+      .groupBy(documentAnalyses.aiProvider, documentAnalyses.aiModel)
+      .orderBy(desc(count()));
+
+    // Get analysis types statistics
+    const analysisTypes = await db.select({
+      type: documentAnalyses.analysisType,
+      count: count()
+    }).from(documentAnalyses)
+      .groupBy(documentAnalyses.analysisType)
+      .orderBy(desc(count()));
+
+    // Get error rates (success rates)
+    const errorRates = await db.select({
+      provider: documentAnalyses.aiProvider,
+      model: documentAnalyses.aiModel,
+      total: count(),
+      successful: sum(sql<number>`CASE WHEN ${documentAnalyses.status} = 'completed' THEN 1 ELSE 0 END`)
+    }).from(documentAnalyses)
+      .groupBy(documentAnalyses.aiProvider, documentAnalyses.aiModel);
+
+    return {
+      providerUsage: providerUsage.map(p => ({
+        provider: p.provider,
+        model: p.model,
+        count: Number(p.count),
+        totalCredits: Number(p.totalCredits) || 0
+      })),
+      analysisTypes: analysisTypes.map(a => ({
+        type: a.type,
+        count: Number(a.count)
+      })),
+      errorRates: errorRates.map(e => ({
+        provider: e.provider,
+        model: e.model,
+        successRate: Number(e.successful) / Number(e.total) * 100
+      }))
+    };
   }
 }
 

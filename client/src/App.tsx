@@ -13,6 +13,7 @@ import Billing from "@/pages/billing";
 import Support from "@/pages/support";
 import Checkout from "@/pages/checkout";
 import Analyses from "@/pages/analyses";
+import Admin from "@/pages/admin";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -27,6 +28,7 @@ function Router() {
       <Route path="/support" component={Support} />
       <Route path="/checkout" component={Checkout} />
       <Route path="/analyses" component={Analyses} />
+      <Route path="/admin" component={Admin} />
       <Route component={NotFound} />
     </Switch>
   );
