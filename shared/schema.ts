@@ -33,7 +33,7 @@ export const documentAnalyses = pgTable("document_analyses", {
   aiProvider: text("ai_provider").notNull(),
   aiModel: text("ai_model").notNull(),
   analysisType: text("analysis_type").notNull(), // 'general', 'contract', 'legal', 'compliance'
-  result: jsonb("result").notNull(),
+  result: jsonb("result"),
   creditsUsed: integer("credits_used").notNull(),
   status: text("status").notNull().default("completed"), // 'pending', 'processing', 'completed', 'failed'
   createdAt: timestamp("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
@@ -124,3 +124,46 @@ export type InsertAiProvider = z.infer<typeof insertAiProviderSchema>;
 export type InsertDocumentAnalysis = z.infer<typeof insertDocumentAnalysisSchema>;
 export type InsertSupportTicket = z.infer<typeof insertSupportTicketSchema>;
 export type InsertTicketMessage = z.infer<typeof insertTicketMessageSchema>;
+
+// Relations
+import { relations } from "drizzle-orm";
+
+export const usersRelations = relations(users, ({ many }) => ({
+  aiProviders: many(aiProviders),
+  documentAnalyses: many(documentAnalyses),
+  creditTransactions: many(creditTransactions),
+  supportTickets: many(supportTickets),
+}));
+
+export const aiProvidersRelations = relations(aiProviders, ({ one }) => ({
+  user: one(users, {
+    fields: [aiProviders.userId],
+    references: [users.id],
+  }),
+}));
+
+export const documentAnalysesRelations = relations(documentAnalyses, ({ one }) => ({
+  user: one(users, {
+    fields: [documentAnalyses.userId],
+    references: [users.id],
+  }),
+}));
+
+export const supportTicketsRelations = relations(supportTickets, ({ one, many }) => ({
+  user: one(users, {
+    fields: [supportTickets.userId],
+    references: [users.id],
+  }),
+  messages: many(ticketMessages),
+}));
+
+export const ticketMessagesRelations = relations(ticketMessages, ({ one }) => ({
+  ticket: one(supportTickets, {
+    fields: [ticketMessages.ticketId],
+    references: [supportTickets.id],
+  }),
+  user: one(users, {
+    fields: [ticketMessages.userId],
+    references: [users.id],
+  }),
+}));

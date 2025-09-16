@@ -1,5 +1,7 @@
 import { type User, type InsertUser, type LoginUser, type AiProvider, type InsertAiProvider, type DocumentAnalysis, type InsertDocumentAnalysis, type CreditTransaction, type SupportTicket, type InsertSupportTicket, type TicketMessage, type InsertTicketMessage } from "@shared/schema";
-import { randomUUID } from "crypto";
+import { db } from "./db";
+import { users, aiProviders, documentAnalyses, creditTransactions, supportTickets, ticketMessages } from "@shared/schema";
+import { eq, desc, and, limit as drizzleLimit } from "drizzle-orm";
 
 export interface IStorage {
   // User management
@@ -37,206 +39,213 @@ export interface IStorage {
   createTicketMessage(ticketMessage: InsertTicketMessage): Promise<TicketMessage>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<string, User>;
-  private aiProviders: Map<string, AiProvider>;
-  private documentAnalyses: Map<string, DocumentAnalysis>;
-  private creditTransactions: Map<string, CreditTransaction>;
-  private supportTickets: Map<string, SupportTicket>;
-  private ticketMessages: Map<string, TicketMessage>;
-
-  constructor() {
-    this.users = new Map();
-    this.aiProviders = new Map();
-    this.documentAnalyses = new Map();
-    this.creditTransactions = new Map();
-    this.supportTickets = new Map();
-    this.ticketMessages = new Map();
-  }
-
+export class DatabaseStorage implements IStorage {
+  // User management
   async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(user => user.email === email);
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user || undefined;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = {
-      ...insertUser,
-      id,
-      credits: 10, // Free tier starts with 10 credits
-      stripeCustomerId: null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    this.users.set(id, user);
+    const [user] = await db
+      .insert(users)
+      .values({
+        ...insertUser,
+        credits: 10, // Free tier starts with 10 credits
+      })
+      .returning();
     return user;
   }
 
   async updateUserCredits(id: string, credits: number): Promise<User> {
-    const user = this.users.get(id);
+    const [user] = await db
+      .update(users)
+      .set({ credits, updatedAt: new Date() })
+      .where(eq(users.id, id))
+      .returning();
     if (!user) throw new Error("User not found");
-    
-    const updatedUser = { ...user, credits, updatedAt: new Date() };
-    this.users.set(id, updatedUser);
-    return updatedUser;
+    return user;
   }
 
   async updateStripeCustomerId(id: string, customerId: string): Promise<User> {
-    const user = this.users.get(id);
+    const [user] = await db
+      .update(users)
+      .set({ stripeCustomerId: customerId, updatedAt: new Date() })
+      .where(eq(users.id, id))
+      .returning();
     if (!user) throw new Error("User not found");
-    
-    const updatedUser = { ...user, stripeCustomerId: customerId, updatedAt: new Date() };
-    this.users.set(id, updatedUser);
-    return updatedUser;
+    return user;
   }
 
+  // AI Provider management
   async getAiProviders(userId: string): Promise<AiProvider[]> {
-    return Array.from(this.aiProviders.values()).filter(provider => provider.userId === userId);
+    return await db
+      .select()
+      .from(aiProviders)
+      .where(eq(aiProviders.userId, userId));
   }
 
   async getAiProvider(userId: string, provider: string): Promise<AiProvider | undefined> {
-    return Array.from(this.aiProviders.values()).find(p => p.userId === userId && p.provider === provider);
+    const [result] = await db
+      .select()
+      .from(aiProviders)
+      .where(and(eq(aiProviders.userId, userId), eq(aiProviders.provider, provider)));
+    return result || undefined;
   }
 
   async createAiProvider(userId: string, providerData: InsertAiProvider): Promise<AiProvider> {
-    const id = randomUUID();
-    const provider: AiProvider = {
-      ...providerData,
-      id,
-      userId,
-      isActive: providerData.isActive ?? true,
-      createdAt: new Date(),
-    };
-    this.aiProviders.set(id, provider);
+    const [provider] = await db
+      .insert(aiProviders)
+      .values({
+        ...providerData,
+        userId,
+      })
+      .returning();
     return provider;
   }
 
   async updateAiProvider(id: string, providerData: Partial<InsertAiProvider>): Promise<AiProvider> {
-    const provider = this.aiProviders.get(id);
+    const [provider] = await db
+      .update(aiProviders)
+      .set(providerData)
+      .where(eq(aiProviders.id, id))
+      .returning();
     if (!provider) throw new Error("AI Provider not found");
-    
-    const updatedProvider = { ...provider, ...providerData };
-    this.aiProviders.set(id, updatedProvider);
-    return updatedProvider;
+    return provider;
   }
 
   async deleteAiProvider(id: string): Promise<void> {
-    this.aiProviders.delete(id);
+    await db.delete(aiProviders).where(eq(aiProviders.id, id));
   }
 
+  // Document Analysis
   async getDocumentAnalyses(userId: string, limit?: number): Promise<DocumentAnalysis[]> {
-    const analyses = Array.from(this.documentAnalyses.values())
-      .filter(analysis => analysis.userId === userId)
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    let query = db
+      .select()
+      .from(documentAnalyses)
+      .where(eq(documentAnalyses.userId, userId))
+      .orderBy(desc(documentAnalyses.createdAt));
     
-    return limit ? analyses.slice(0, limit) : analyses;
+    if (limit) {
+      query = query.limit(limit);
+    }
+    
+    return await query;
   }
 
   async getDocumentAnalysis(id: string, userId: string): Promise<DocumentAnalysis | undefined> {
-    const analysis = this.documentAnalyses.get(id);
-    return analysis && analysis.userId === userId ? analysis : undefined;
+    const [analysis] = await db
+      .select()
+      .from(documentAnalyses)
+      .where(and(eq(documentAnalyses.id, id), eq(documentAnalyses.userId, userId)));
+    return analysis || undefined;
   }
 
   async createDocumentAnalysis(userId: string, analysisData: InsertDocumentAnalysis): Promise<DocumentAnalysis> {
-    const id = randomUUID();
-    const analysis: DocumentAnalysis = {
-      ...analysisData,
-      id,
-      userId,
-      status: "pending",
-      createdAt: new Date(),
-    };
-    this.documentAnalyses.set(id, analysis);
+    const [analysis] = await db
+      .insert(documentAnalyses)
+      .values({
+        ...analysisData,
+        userId,
+        status: "pending",
+      })
+      .returning();
     return analysis;
   }
 
   async updateDocumentAnalysisResult(id: string, result: any, status: string): Promise<DocumentAnalysis> {
-    const analysis = this.documentAnalyses.get(id);
+    const [analysis] = await db
+      .update(documentAnalyses)
+      .set({ result, status })
+      .where(eq(documentAnalyses.id, id))
+      .returning();
     if (!analysis) throw new Error("Document analysis not found");
-    
-    const updatedAnalysis = { ...analysis, result, status };
-    this.documentAnalyses.set(id, updatedAnalysis);
-    return updatedAnalysis;
+    return analysis;
   }
 
+  // Credit Transactions
   async getCreditTransactions(userId: string): Promise<CreditTransaction[]> {
-    return Array.from(this.creditTransactions.values())
-      .filter(transaction => transaction.userId === userId)
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    return await db
+      .select()
+      .from(creditTransactions)
+      .where(eq(creditTransactions.userId, userId))
+      .orderBy(desc(creditTransactions.createdAt));
   }
 
   async createCreditTransaction(userId: string, type: string, amount: number, description: string, stripePaymentIntentId?: string): Promise<CreditTransaction> {
-    const id = randomUUID();
-    const transaction: CreditTransaction = {
-      id,
-      userId,
-      type,
-      amount,
-      description,
-      stripePaymentIntentId: stripePaymentIntentId || null,
-      createdAt: new Date(),
-    };
-    this.creditTransactions.set(id, transaction);
+    const [transaction] = await db
+      .insert(creditTransactions)
+      .values({
+        userId,
+        type,
+        amount,
+        description,
+        stripePaymentIntentId: stripePaymentIntentId || null,
+      })
+      .returning();
     return transaction;
   }
 
+  // Support Tickets
   async getSupportTickets(userId: string): Promise<SupportTicket[]> {
-    return Array.from(this.supportTickets.values())
-      .filter(ticket => ticket.userId === userId)
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    return await db
+      .select()
+      .from(supportTickets)
+      .where(eq(supportTickets.userId, userId))
+      .orderBy(desc(supportTickets.createdAt));
   }
 
   async getSupportTicket(id: string, userId: string): Promise<SupportTicket | undefined> {
-    const ticket = this.supportTickets.get(id);
-    return ticket && ticket.userId === userId ? ticket : undefined;
+    const [ticket] = await db
+      .select()
+      .from(supportTickets)
+      .where(and(eq(supportTickets.id, id), eq(supportTickets.userId, userId)));
+    return ticket || undefined;
   }
 
   async createSupportTicket(userId: string, ticketData: InsertSupportTicket): Promise<SupportTicket> {
-    const id = randomUUID();
-    const ticket: SupportTicket = {
-      ...ticketData,
-      id,
-      userId,
-      status: "open",
-      priority: ticketData.priority || "normal",
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    this.supportTickets.set(id, ticket);
+    const [ticket] = await db
+      .insert(supportTickets)
+      .values({
+        ...ticketData,
+        userId,
+        status: "open",
+      })
+      .returning();
     return ticket;
   }
 
   async updateSupportTicketStatus(id: string, status: string): Promise<SupportTicket> {
-    const ticket = this.supportTickets.get(id);
+    const [ticket] = await db
+      .update(supportTickets)
+      .set({ status, updatedAt: new Date() })
+      .where(eq(supportTickets.id, id))
+      .returning();
     if (!ticket) throw new Error("Support ticket not found");
-    
-    const updatedTicket = { ...ticket, status, updatedAt: new Date() };
-    this.supportTickets.set(id, updatedTicket);
-    return updatedTicket;
+    return ticket;
   }
 
+  // Ticket Messages
   async getTicketMessages(ticketId: string): Promise<TicketMessage[]> {
-    return Array.from(this.ticketMessages.values())
-      .filter(message => message.ticketId === ticketId)
-      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+    return await db
+      .select()
+      .from(ticketMessages)
+      .where(eq(ticketMessages.ticketId, ticketId))
+      .orderBy(ticketMessages.createdAt);
   }
 
-  async createTicketMessage(messageData: InsertTicketMessage): Promise<TicketMessage> {
-    const id = randomUUID();
-    const message: TicketMessage = {
-      ...messageData,
-      id,
-      userId: messageData.userId || null,
-      isFromSupport: messageData.isFromSupport ?? false,
-      createdAt: new Date(),
-    };
-    this.ticketMessages.set(id, message);
+  async createTicketMessage(ticketMessage: InsertTicketMessage): Promise<TicketMessage> {
+    const [message] = await db
+      .insert(ticketMessages)
+      .values(ticketMessage)
+      .returning();
     return message;
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
