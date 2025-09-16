@@ -5,6 +5,7 @@ import Stripe from "stripe";
 import { storage } from "./storage";
 import { aiService } from "./services/ai";
 import { batchProcessor } from "./services/batchProcessor";
+import { requireSupabaseAuth, requireSupabaseAdmin } from "./middleware/supabase-auth";
 import bcrypt from "bcrypt";
 import session from "express-session";
 import MemoryStore from "memorystore";
@@ -448,7 +449,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
-  app.get("/api/auth/me", requireAuth, (req, res) => {
+  app.get("/api/auth/me", requireSupabaseAuth, (req, res) => {
     // Prevent caching to avoid 304 responses that break JSON parsing
     res.set({
       'Cache-Control': 'no-store, no-cache, must-revalidate',
@@ -460,7 +461,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Document analysis routes
-  app.post("/api/analyze", requireAuth, upload.single('file'), async (req, res) => {
+  app.post("/api/analyze", requireSupabaseAuth, upload.single('file'), async (req, res) => {
     try {
       let content = '';
       
@@ -601,7 +602,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/analyses", requireAuth, async (req, res) => {
+  app.get("/api/analyses", requireSupabaseAuth, async (req, res) => {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
       const analyses = await storage.getDocumentAnalyses(req.user.id, limit);
@@ -611,7 +612,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/analyses/:id", requireAuth, async (req, res) => {
+  app.get("/api/analyses/:id", requireSupabaseAuth, async (req, res) => {
     try {
       const analysis = await storage.getDocumentAnalysis(req.params.id, req.user.id);
       if (!analysis) {
@@ -624,7 +625,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Soft delete analysis (move to trash)
-  app.delete("/api/analyses/:id", requireAuth, async (req, res) => {
+  app.delete("/api/analyses/:id", requireSupabaseAuth, async (req, res) => {
     try {
       const analysis = await storage.softDeleteAnalysis(req.params.id, req.user.id, req.user.id);
       res.json({ 
@@ -637,7 +638,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get deleted analyses (trash)
-  app.get("/api/analyses/trash/list", requireAuth, async (req, res) => {
+  app.get("/api/analyses/trash/list", requireSupabaseAuth, async (req, res) => {
     try {
       const deletedAnalyses = await storage.getDeletedAnalyses(req.user.id);
       res.json(deletedAnalyses);
@@ -647,7 +648,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Restore analysis from trash
-  app.post("/api/analyses/:id/restore", requireAuth, async (req, res) => {
+  app.post("/api/analyses/:id/restore", requireSupabaseAuth, async (req, res) => {
     try {
       const analysis = await storage.restoreAnalysis(req.params.id, req.user.id);
       res.json({ 
@@ -660,7 +661,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // AI Provider management routes
-  app.get("/api/ai-providers", requireAuth, async (req, res) => {
+  app.get("/api/ai-providers", requireSupabaseAuth, async (req, res) => {
     try {
       const providers = await storage.getAiProviders(req.user.id);
       // Don't return API keys in the response
@@ -674,7 +675,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/ai-providers", requireAuth, async (req, res) => {
+  app.post("/api/ai-providers", requireSupabaseAuth, async (req, res) => {
     try {
       const { provider, apiKey } = req.body;
       
@@ -698,7 +699,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/ai-providers/:id", requireAuth, async (req, res) => {
+  app.delete("/api/ai-providers/:id", requireSupabaseAuth, async (req, res) => {
     try {
       const { id } = req.params;
       
@@ -718,7 +719,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Credit purchase routes
-  app.post("/api/create-payment-intent", requireAuth, async (req, res) => {
+  app.post("/api/create-payment-intent", requireSupabaseAuth, async (req, res) => {
     try {
       const { packageId } = req.body;
       
@@ -751,7 +752,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/confirm-payment", requireAuth, async (req, res) => {
+  app.post("/api/confirm-payment", requireSupabaseAuth, async (req, res) => {
     try {
       const { paymentIntentId } = req.body;
       
@@ -800,7 +801,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/credit-transactions", requireAuth, async (req, res) => {
+  app.get("/api/credit-transactions", requireSupabaseAuth, async (req, res) => {
     try {
       const transactions = await storage.getCreditTransactions(req.user.id);
       res.json(transactions);
@@ -810,7 +811,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Credit analytics for users
-  app.get("/api/credit-analytics", requireAuth, async (req, res) => {
+  app.get("/api/credit-analytics", requireSupabaseAuth, async (req, res) => {
     try {
       const [transactions, analyses] = await Promise.all([
         storage.getCreditTransactions(req.user.id),
@@ -864,7 +865,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Support ticket routes
-  app.get("/api/support/tickets", requireAuth, async (req, res) => {
+  app.get("/api/support/tickets", requireSupabaseAuth, async (req, res) => {
     try {
       const tickets = await storage.getSupportTickets(req.user.id);
       res.json(tickets);
@@ -873,7 +874,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/support/tickets", requireAuth, async (req, res) => {
+  app.post("/api/support/tickets", requireSupabaseAuth, async (req, res) => {
     try {
       const ticketData = insertSupportTicketSchema.parse(req.body);
       const ticket = await storage.createSupportTicket(req.user.id, ticketData);
@@ -892,7 +893,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/support/tickets/:id", requireAuth, async (req, res) => {
+  app.get("/api/support/tickets/:id", requireSupabaseAuth, async (req, res) => {
     try {
       const ticket = await storage.getSupportTicket(req.params.id, req.user.id);
       if (!ticket) {
@@ -906,7 +907,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/support/tickets/:id/messages", requireAuth, async (req, res) => {
+  app.post("/api/support/tickets/:id/messages", requireSupabaseAuth, async (req, res) => {
     try {
       const ticket = await storage.getSupportTicket(req.params.id, req.user.id);
       if (!ticket) {
@@ -927,7 +928,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update ticket status (limited for users)
-  app.patch("/api/support/tickets/:id", requireAuth, async (req, res) => {
+  app.patch("/api/support/tickets/:id", requireSupabaseAuth, async (req, res) => {
     try {
       const ticket = await storage.getSupportTicket(req.params.id, req.user.id);
       if (!ticket) {
@@ -999,7 +1000,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   };
 
   // Admin routes
-  app.get("/api/admin/tickets", requireAdmin, async (req, res) => {
+  app.get("/api/admin/tickets", requireSupabaseAdmin, async (req, res) => {
     try {
       // Get all tickets from all users (admin view)
       const { userId } = req.query;
@@ -1018,7 +1019,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/tickets/:id/messages", requireAdmin, async (req, res) => {
+  app.post("/api/admin/tickets/:id/messages", requireSupabaseAdmin, async (req, res) => {
     try {
       // Admin can reply to any ticket
       const { id } = req.params;
@@ -1047,7 +1048,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/admin/tickets/:id/status", requireAdmin, async (req, res) => {
+  app.patch("/api/admin/tickets/:id/status", requireSupabaseAdmin, async (req, res) => {
     try {
       const { id } = req.params;
       const { status } = req.body;
@@ -1066,7 +1067,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin user management routes
-  app.get("/api/admin/users", requireAdmin, async (req, res) => {
+  app.get("/api/admin/users", requireSupabaseAdmin, async (req, res) => {
     try {
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 20;
@@ -1083,7 +1084,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/admin/users/:id", requireAdmin, async (req, res) => {
+  app.patch("/api/admin/users/:id", requireSupabaseAdmin, async (req, res) => {
     try {
       const { id } = req.params;
       
@@ -1123,7 +1124,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin analytics routes
-  app.get("/api/admin/analytics", requireAdmin, async (req, res) => {
+  app.get("/api/admin/analytics", requireSupabaseAdmin, async (req, res) => {
     try {
       const analytics = await storage.getPlatformAnalytics();
       res.json(analytics);
@@ -1132,7 +1133,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/admin/ai-usage", requireAdmin, async (req, res) => {
+  app.get("/api/admin/ai-usage", requireSupabaseAdmin, async (req, res) => {
     try {
       const aiUsage = await storage.getAiUsageAnalytics();
       res.json(aiUsage);
@@ -1142,7 +1143,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin financial analytics endpoints
-  app.get("/api/admin/financial-details", requireAdmin, async (req, res) => {
+  app.get("/api/admin/financial-details", requireSupabaseAdmin, async (req, res) => {
     try {
       const [
         transactions, 
@@ -1209,7 +1210,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/admin/credit-trends", requireAdmin, async (req, res) => {
+  app.get("/api/admin/credit-trends", requireSupabaseAdmin, async (req, res) => {
     try {
       const days = parseInt(req.query.days as string) || 30;
       const startDate = new Date();
@@ -1272,7 +1273,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin data seeding endpoints
-  app.post("/api/admin/seed-data", requireAdmin, async (req, res) => {
+  app.post("/api/admin/seed-data", requireSupabaseAdmin, async (req, res) => {
     try {
       // Seed AI Provider Configs
       const aiProviderConfigsData = [
@@ -1459,7 +1460,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/templates", requireAdmin, async (req, res) => {
+  app.post("/api/templates", requireSupabaseAdmin, async (req, res) => {
     try {
       const templateData = insertDocumentTemplateSchema.parse(req.body);
       const template = await storage.createDocumentTemplate(templateData);
@@ -1472,7 +1473,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/templates/:id", requireAdmin, async (req, res) => {
+  app.put("/api/templates/:id", requireSupabaseAdmin, async (req, res) => {
     try {
       const { id } = req.params;
       const templateData = insertDocumentTemplateSchema.partial().parse(req.body);
@@ -1489,7 +1490,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/templates/:id", requireAdmin, async (req, res) => {
+  app.delete("/api/templates/:id", requireSupabaseAdmin, async (req, res) => {
     try {
       const { id } = req.params;
       await storage.deleteDocumentTemplate(id);
@@ -1529,7 +1530,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/legal-clauses", requireAdmin, async (req, res) => {
+  app.post("/api/legal-clauses", requireSupabaseAdmin, async (req, res) => {
     try {
       const clauseData = insertLegalClauseSchema.parse(req.body);
       const clause = await storage.createLegalClause(clauseData);
@@ -1542,7 +1543,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/legal-clauses/:id", requireAdmin, async (req, res) => {
+  app.put("/api/legal-clauses/:id", requireSupabaseAdmin, async (req, res) => {
     try {
       const { id } = req.params;
       const clauseData = insertLegalClauseSchema.partial().parse(req.body);
@@ -1559,7 +1560,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/legal-clauses/:id", requireAdmin, async (req, res) => {
+  app.delete("/api/legal-clauses/:id", requireSupabaseAdmin, async (req, res) => {
     try {
       const { id } = req.params;
       await storage.deleteLegalClause(id);
@@ -1570,7 +1571,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Template Prompts Routes
-  app.get("/api/templates/:templateId/prompts", requireAdmin, async (req, res) => {
+  app.get("/api/templates/:templateId/prompts", requireSupabaseAdmin, async (req, res) => {
     try {
       const { templateId } = req.params;
       const template = await storage.getDocumentTemplateById(templateId);
@@ -1584,7 +1585,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/template-prompts", requireAdmin, async (req, res) => {
+  app.post("/api/template-prompts", requireSupabaseAdmin, async (req, res) => {
     try {
       const promptData = insertTemplatePromptSchema.parse(req.body);
       const prompt = await storage.createTemplatePrompt(promptData);
@@ -1597,7 +1598,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/template-prompts/:id", requireAdmin, async (req, res) => {
+  app.put("/api/template-prompts/:id", requireSupabaseAdmin, async (req, res) => {
     try {
       const { id } = req.params;
       const promptData = insertTemplatePromptSchema.partial().parse(req.body);
@@ -1614,7 +1615,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/template-prompts/:id", requireAdmin, async (req, res) => {
+  app.delete("/api/template-prompts/:id", requireSupabaseAdmin, async (req, res) => {
     try {
       const { id } = req.params;
       await storage.deleteTemplatePrompt(id);
@@ -1625,7 +1626,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Template Analysis Rules Routes
-  app.get("/api/templates/:templateId/analysis-rules", requireAdmin, async (req, res) => {
+  app.get("/api/templates/:templateId/analysis-rules", requireSupabaseAdmin, async (req, res) => {
     try {
       const { templateId } = req.params;
       const template = await storage.getDocumentTemplateById(templateId);
@@ -1639,7 +1640,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/template-analysis-rules", requireAdmin, async (req, res) => {
+  app.post("/api/template-analysis-rules", requireSupabaseAdmin, async (req, res) => {
     try {
       const ruleData = insertTemplateAnalysisRuleSchema.parse(req.body);
       const rule = await storage.createTemplateAnalysisRule(ruleData);
@@ -1652,7 +1653,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/template-analysis-rules/:id", requireAdmin, async (req, res) => {
+  app.put("/api/template-analysis-rules/:id", requireSupabaseAdmin, async (req, res) => {
     try {
       const { id } = req.params;
       const ruleData = insertTemplateAnalysisRuleSchema.partial().parse(req.body);
@@ -1669,7 +1670,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/template-analysis-rules/:id", requireAdmin, async (req, res) => {
+  app.delete("/api/template-analysis-rules/:id", requireSupabaseAdmin, async (req, res) => {
     try {
       const { id } = req.params;
       await storage.deleteTemplateAnalysisRule(id);
@@ -2032,7 +2033,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin endpoints for batch management
-  app.get("/api/admin/batch/jobs", requireAdmin, async (req, res) => {
+  app.get("/api/admin/batch/jobs", requireSupabaseAdmin, async (req, res) => {
     try {
       const page = req.query.page ? parseInt(req.query.page as string) : 1;
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
@@ -2043,7 +2044,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/admin/batch/statistics", requireAdmin, async (req, res) => {
+  app.get("/api/admin/batch/statistics", requireSupabaseAdmin, async (req, res) => {
     try {
       const statistics = await storage.getBatchJobStatistics(); // No userId for admin view
       res.json(statistics);
@@ -2053,7 +2054,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Queue management endpoints
-  app.get("/api/admin/queue/jobs", requireAdmin, async (req, res) => {
+  app.get("/api/admin/queue/jobs", requireSupabaseAdmin, async (req, res) => {
     try {
       const status = req.query.status as string;
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
@@ -2064,7 +2065,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/queue/jobs/:id/retry", requireAdmin, async (req, res) => {
+  app.post("/api/admin/queue/jobs/:id/retry", requireSupabaseAdmin, async (req, res) => {
     try {
       const { id } = req.params;
       const retryJob = await storage.retryFailedQueueJob(id);
@@ -2074,7 +2075,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/admin/queue/jobs/:id", requireAdmin, async (req, res) => {
+  app.delete("/api/admin/queue/jobs/:id", requireSupabaseAdmin, async (req, res) => {
     try {
       const { id } = req.params;
       await storage.deleteQueueJob(id);
