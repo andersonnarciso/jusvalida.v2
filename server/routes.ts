@@ -7,7 +7,7 @@ import { aiService } from "./services/ai";
 import bcrypt from "bcrypt";
 import session from "express-session";
 import MemoryStore from "memorystore";
-import { insertUserSchema, loginUserSchema, insertDocumentAnalysisSchema, insertSupportTicketSchema, insertTicketMessageSchema, adminTicketMessageSchema, assignRoleSchema, adminUserUpdateSchema, insertAiProviderConfigSchema, insertCreditPackageSchema } from "@shared/schema";
+import { insertUserSchema, loginUserSchema, insertDocumentAnalysisSchema, insertSupportTicketSchema, insertTicketMessageSchema, adminTicketMessageSchema, assignRoleSchema, adminUserUpdateSchema, insertAiProviderConfigSchema, insertCreditPackageSchema, insertDocumentTemplateSchema, insertLegalClauseSchema, insertTemplatePromptSchema, insertTemplateAnalysisRuleSchema } from "@shared/schema";
 import multer from "multer";
 import { z } from "zod";
 
@@ -357,7 +357,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "No content provided" });
       }
 
-      const { analysisType, aiProvider, aiModel } = req.body;
+      const { analysisType, aiProvider, aiModel, templateId } = req.body;
+      
+      // Validate template if provided
+      let templateData = null;
+      if (templateId) {
+        templateData = await storage.getTemplateWithPrompts(templateId);
+        if (!templateData) {
+          return res.status(404).json({ message: "Template not found" });
+        }
+      }
       
       // Validate free tier limits
       if (req.user.credits === 0) {
@@ -378,25 +387,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(402).json({ message: "Insufficient credits" });
       }
 
-      // Create analysis record
+      // Create analysis record with template reference
       const analysis = await storage.createDocumentAnalysis(req.user.id, {
         title: req.body.title || `Document Analysis ${new Date().toISOString()}`,
         content,
         aiProvider,
         aiModel,
         analysisType,
+        templateId: templateData?.template.id || null,
         result: {},
         creditsUsed: creditsNeeded,
       });
 
       try {
-        // Perform AI analysis
+        // Perform AI analysis with template support
         const result = await aiService.analyzeDocument(
           content,
           analysisType,
           aiProvider,
           aiModel,
-          userApiKey
+          userApiKey,
+          templateId
         );
 
         // Update analysis with result
@@ -1211,6 +1222,263 @@ export async function registerRoutes(app: Express): Promise<Server> {
         aiProviderConfigs: existingConfigs.length === 0 ? aiProviderConfigsData.length : 0,
         creditPackages: existingPackages.length === 0 ? creditPackagesData.length : 0,
       });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ============================================================================
+  // TEMPLATE MANAGEMENT API ROUTES
+  // ============================================================================
+
+  // Document Templates Routes
+  app.get("/api/templates", async (req, res) => {
+    try {
+      const templates = await storage.getDocumentTemplates();
+      res.json(templates);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/templates/:templateId", async (req, res) => {
+    try {
+      const { templateId } = req.params;
+      const templateData = await storage.getTemplateWithPrompts(templateId);
+      if (!templateData) {
+        return res.status(404).json({ message: "Template not found" });
+      }
+      res.json(templateData);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/templates/category/:category", async (req, res) => {
+    try {
+      const { category } = req.params;
+      const templates = await storage.getDocumentTemplatesByCategory(category);
+      res.json(templates);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/templates", requireAdmin, async (req, res) => {
+    try {
+      const templateData = insertDocumentTemplateSchema.parse(req.body);
+      const template = await storage.createDocumentTemplate(templateData);
+      res.status(201).json(template);
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: "Invalid template data", errors: error.errors });
+      }
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.put("/api/templates/:id", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const templateData = insertDocumentTemplateSchema.partial().parse(req.body);
+      const template = await storage.updateDocumentTemplate(id, templateData);
+      res.json(template);
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: "Invalid template data", errors: error.errors });
+      }
+      if (error.message === "Document Template not found") {
+        return res.status(404).json({ message: error.message });
+      }
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/templates/:id", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteDocumentTemplate(id);
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Legal Clauses Routes
+  app.get("/api/legal-clauses", async (req, res) => {
+    try {
+      const clauses = await storage.getLegalClauses();
+      res.json(clauses);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/legal-clauses/category/:category", async (req, res) => {
+    try {
+      const { category } = req.params;
+      const clauses = await storage.getLegalClausesByCategory(category);
+      res.json(clauses);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/legal-clauses/template/:templateId", async (req, res) => {
+    try {
+      const { templateId } = req.params;
+      const clauses = await storage.getLegalClausesByTemplate(templateId);
+      res.json(clauses);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/legal-clauses", requireAdmin, async (req, res) => {
+    try {
+      const clauseData = insertLegalClauseSchema.parse(req.body);
+      const clause = await storage.createLegalClause(clauseData);
+      res.status(201).json(clause);
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: "Invalid clause data", errors: error.errors });
+      }
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.put("/api/legal-clauses/:id", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const clauseData = insertLegalClauseSchema.partial().parse(req.body);
+      const clause = await storage.updateLegalClause(id, clauseData);
+      res.json(clause);
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: "Invalid clause data", errors: error.errors });
+      }
+      if (error.message === "Legal Clause not found") {
+        return res.status(404).json({ message: error.message });
+      }
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/legal-clauses/:id", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteLegalClause(id);
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Template Prompts Routes
+  app.get("/api/templates/:templateId/prompts", requireAdmin, async (req, res) => {
+    try {
+      const { templateId } = req.params;
+      const template = await storage.getDocumentTemplateById(templateId);
+      if (!template) {
+        return res.status(404).json({ message: "Template not found" });
+      }
+      const prompts = await storage.getTemplatePrompts(templateId);
+      res.json(prompts);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/template-prompts", requireAdmin, async (req, res) => {
+    try {
+      const promptData = insertTemplatePromptSchema.parse(req.body);
+      const prompt = await storage.createTemplatePrompt(promptData);
+      res.status(201).json(prompt);
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: "Invalid prompt data", errors: error.errors });
+      }
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.put("/api/template-prompts/:id", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const promptData = insertTemplatePromptSchema.partial().parse(req.body);
+      const prompt = await storage.updateTemplatePrompt(id, promptData);
+      res.json(prompt);
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: "Invalid prompt data", errors: error.errors });
+      }
+      if (error.message === "Template Prompt not found") {
+        return res.status(404).json({ message: error.message });
+      }
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/template-prompts/:id", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteTemplatePrompt(id);
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Template Analysis Rules Routes
+  app.get("/api/templates/:templateId/analysis-rules", requireAdmin, async (req, res) => {
+    try {
+      const { templateId } = req.params;
+      const template = await storage.getDocumentTemplateById(templateId);
+      if (!template) {
+        return res.status(404).json({ message: "Template not found" });
+      }
+      const rules = await storage.getTemplateAnalysisRules(templateId);
+      res.json(rules);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/template-analysis-rules", requireAdmin, async (req, res) => {
+    try {
+      const ruleData = insertTemplateAnalysisRuleSchema.parse(req.body);
+      const rule = await storage.createTemplateAnalysisRule(ruleData);
+      res.status(201).json(rule);
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: "Invalid rule data", errors: error.errors });
+      }
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.put("/api/template-analysis-rules/:id", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const ruleData = insertTemplateAnalysisRuleSchema.partial().parse(req.body);
+      const rule = await storage.updateTemplateAnalysisRule(id, ruleData);
+      res.json(rule);
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: "Invalid rule data", errors: error.errors });
+      }
+      if (error.message === "Template Analysis Rule not found") {
+        return res.status(404).json({ message: error.message });
+      }
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/template-analysis-rules/:id", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteTemplateAnalysisRule(id);
+      res.status(204).send();
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }

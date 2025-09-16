@@ -1,6 +1,6 @@
-import { type User, type InsertUser, type LoginUser, type AiProvider, type InsertAiProvider, type DocumentAnalysis, type InsertDocumentAnalysis, type CreditTransaction, type SupportTicket, type InsertSupportTicket, type TicketMessage, type InsertTicketMessage, type AiProviderConfig, type InsertAiProviderConfig, type CreditPackage, type InsertCreditPackage, type PlatformStats, type InsertPlatformStats } from "@shared/schema";
+import { type User, type InsertUser, type LoginUser, type AiProvider, type InsertAiProvider, type DocumentAnalysis, type InsertDocumentAnalysis, type CreditTransaction, type SupportTicket, type InsertSupportTicket, type TicketMessage, type InsertTicketMessage, type AiProviderConfig, type InsertAiProviderConfig, type CreditPackage, type InsertCreditPackage, type PlatformStats, type InsertPlatformStats, type DocumentTemplate, type InsertDocumentTemplate, type LegalClause, type InsertLegalClause, type TemplatePrompt, type InsertTemplatePrompt, type TemplateAnalysisRule, type InsertTemplateAnalysisRule } from "@shared/schema";
 import { db } from "./db";
-import { users, aiProviders, documentAnalyses, creditTransactions, supportTickets, ticketMessages, aiProviderConfigs, creditPackages, platformStats } from "@shared/schema";
+import { users, aiProviders, documentAnalyses, creditTransactions, supportTickets, ticketMessages, aiProviderConfigs, creditPackages, platformStats, documentTemplates, legalClauses, templatePrompts, templateAnalysisRules } from "@shared/schema";
 import { eq, desc, and, limit as drizzleLimit, count, sum, gte, sql } from "drizzle-orm";
 
 export interface IStorage {
@@ -88,6 +88,50 @@ export interface IStorage {
   getPlatformStats(): Promise<PlatformStats | undefined>;
   updatePlatformStats(stats: InsertPlatformStats): Promise<PlatformStats>;
   computeAndUpdatePlatformStats(): Promise<PlatformStats>;
+
+  // Document Templates
+  getDocumentTemplates(): Promise<DocumentTemplate[]>;
+  getDocumentTemplate(templateId: string): Promise<DocumentTemplate | undefined>;
+  getDocumentTemplateById(id: string): Promise<DocumentTemplate | undefined>;
+  getDocumentTemplatesByCategory(category: string): Promise<DocumentTemplate[]>;
+  createDocumentTemplate(template: InsertDocumentTemplate): Promise<DocumentTemplate>;
+  updateDocumentTemplate(id: string, template: Partial<InsertDocumentTemplate>): Promise<DocumentTemplate>;
+  deleteDocumentTemplate(id: string): Promise<void>;
+
+  // Legal Clauses
+  getLegalClauses(): Promise<LegalClause[]>;
+  getLegalClause(clauseId: string): Promise<LegalClause | undefined>;
+  getLegalClauseById(id: string): Promise<LegalClause | undefined>;
+  getLegalClausesByCategory(category: string): Promise<LegalClause[]>;
+  getLegalClausesByTemplate(templateId: string): Promise<LegalClause[]>;
+  createLegalClause(clause: InsertLegalClause): Promise<LegalClause>;
+  updateLegalClause(id: string, clause: Partial<InsertLegalClause>): Promise<LegalClause>;
+  deleteLegalClause(id: string): Promise<void>;
+
+  // Template Prompts
+  getTemplatePrompts(templateId: string): Promise<TemplatePrompt[]>;
+  getTemplatePrompt(id: string): Promise<TemplatePrompt | undefined>;
+  getTemplatePromptsByProvider(templateId: string, aiProvider: string): Promise<TemplatePrompt[]>;
+  createTemplatePrompt(prompt: InsertTemplatePrompt): Promise<TemplatePrompt>;
+  updateTemplatePrompt(id: string, prompt: Partial<InsertTemplatePrompt>): Promise<TemplatePrompt>;
+  deleteTemplatePrompt(id: string): Promise<void>;
+
+  // Template Analysis Rules
+  getTemplateAnalysisRules(templateId: string): Promise<TemplateAnalysisRule[]>;
+  getTemplateAnalysisRule(id: string): Promise<TemplateAnalysisRule | undefined>;
+  getTemplateAnalysisRulesByType(templateId: string, ruleType: string): Promise<TemplateAnalysisRule[]>;
+  createTemplateAnalysisRule(rule: InsertTemplateAnalysisRule): Promise<TemplateAnalysisRule>;
+  updateTemplateAnalysisRule(id: string, rule: Partial<InsertTemplateAnalysisRule>): Promise<TemplateAnalysisRule>;
+  deleteTemplateAnalysisRule(id: string): Promise<void>;
+
+  // Enhanced Analysis Methods
+  getTemplateWithPrompts(templateId: string, aiProvider?: string): Promise<{
+    template: DocumentTemplate;
+    prompts: TemplatePrompt[];
+    analysisRules: TemplateAnalysisRule[];
+    requiredClauses: LegalClause[];
+    optionalClauses: LegalClause[];
+  } | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -669,6 +713,278 @@ export class DatabaseStorage implements IStorage {
     };
 
     return await this.updatePlatformStats(stats);
+  }
+
+  // Document Templates
+  async getDocumentTemplates(): Promise<DocumentTemplate[]> {
+    return await db
+      .select()
+      .from(documentTemplates)
+      .where(eq(documentTemplates.isActive, true))
+      .orderBy(documentTemplates.sortOrder, documentTemplates.createdAt);
+  }
+
+  async getDocumentTemplate(templateId: string): Promise<DocumentTemplate | undefined> {
+    const [template] = await db
+      .select()
+      .from(documentTemplates)
+      .where(eq(documentTemplates.templateId, templateId));
+    return template || undefined;
+  }
+
+  async getDocumentTemplateById(id: string): Promise<DocumentTemplate | undefined> {
+    const [template] = await db
+      .select()
+      .from(documentTemplates)
+      .where(eq(documentTemplates.id, id));
+    return template || undefined;
+  }
+
+  async getDocumentTemplatesByCategory(category: string): Promise<DocumentTemplate[]> {
+    return await db
+      .select()
+      .from(documentTemplates)
+      .where(and(eq(documentTemplates.category, category), eq(documentTemplates.isActive, true)))
+      .orderBy(documentTemplates.sortOrder, documentTemplates.createdAt);
+  }
+
+  async createDocumentTemplate(template: InsertDocumentTemplate): Promise<DocumentTemplate> {
+    const [result] = await db
+      .insert(documentTemplates)
+      .values(template)
+      .returning();
+    return result;
+  }
+
+  async updateDocumentTemplate(id: string, template: Partial<InsertDocumentTemplate>): Promise<DocumentTemplate> {
+    const [result] = await db
+      .update(documentTemplates)
+      .set({ ...template, updatedAt: new Date() })
+      .where(eq(documentTemplates.id, id))
+      .returning();
+    if (!result) throw new Error("Document Template not found");
+    return result;
+  }
+
+  async deleteDocumentTemplate(id: string): Promise<void> {
+    await db.delete(documentTemplates).where(eq(documentTemplates.id, id));
+  }
+
+  // Legal Clauses
+  async getLegalClauses(): Promise<LegalClause[]> {
+    return await db
+      .select()
+      .from(legalClauses)
+      .where(eq(legalClauses.isActive, true))
+      .orderBy(legalClauses.category, legalClauses.createdAt);
+  }
+
+  async getLegalClause(clauseId: string): Promise<LegalClause | undefined> {
+    const [clause] = await db
+      .select()
+      .from(legalClauses)
+      .where(eq(legalClauses.clauseId, clauseId));
+    return clause || undefined;
+  }
+
+  async getLegalClauseById(id: string): Promise<LegalClause | undefined> {
+    const [clause] = await db
+      .select()
+      .from(legalClauses)
+      .where(eq(legalClauses.id, id));
+    return clause || undefined;
+  }
+
+  async getLegalClausesByCategory(category: string): Promise<LegalClause[]> {
+    return await db
+      .select()
+      .from(legalClauses)
+      .where(and(eq(legalClauses.category, category), eq(legalClauses.isActive, true)))
+      .orderBy(legalClauses.createdAt);
+  }
+
+  async getLegalClausesByTemplate(templateId: string): Promise<LegalClause[]> {
+    // Find clauses that are applicable to this template
+    return await db
+      .select()
+      .from(legalClauses)
+      .where(
+        and(
+          eq(legalClauses.isActive, true),
+          sql`${legalClauses.applicableTemplates} ? ${templateId}`
+        )
+      )
+      .orderBy(legalClauses.category, legalClauses.createdAt);
+  }
+
+  async createLegalClause(clause: InsertLegalClause): Promise<LegalClause> {
+    const [result] = await db
+      .insert(legalClauses)
+      .values(clause)
+      .returning();
+    return result;
+  }
+
+  async updateLegalClause(id: string, clause: Partial<InsertLegalClause>): Promise<LegalClause> {
+    const [result] = await db
+      .update(legalClauses)
+      .set({ ...clause, updatedAt: new Date() })
+      .where(eq(legalClauses.id, id))
+      .returning();
+    if (!result) throw new Error("Legal Clause not found");
+    return result;
+  }
+
+  async deleteLegalClause(id: string): Promise<void> {
+    await db.delete(legalClauses).where(eq(legalClauses.id, id));
+  }
+
+  // Template Prompts
+  async getTemplatePrompts(templateId: string): Promise<TemplatePrompt[]> {
+    return await db
+      .select()
+      .from(templatePrompts)
+      .where(and(eq(templatePrompts.templateId, templateId), eq(templatePrompts.isActive, true)))
+      .orderBy(templatePrompts.priority, templatePrompts.createdAt);
+  }
+
+  async getTemplatePrompt(id: string): Promise<TemplatePrompt | undefined> {
+    const [prompt] = await db
+      .select()
+      .from(templatePrompts)
+      .where(eq(templatePrompts.id, id));
+    return prompt || undefined;
+  }
+
+  async getTemplatePromptsByProvider(templateId: string, aiProvider: string): Promise<TemplatePrompt[]> {
+    return await db
+      .select()
+      .from(templatePrompts)
+      .where(
+        and(
+          eq(templatePrompts.templateId, templateId),
+          eq(templatePrompts.isActive, true),
+          sql`${templatePrompts.aiProvider} = ${aiProvider} OR ${templatePrompts.aiProvider} = 'all'`
+        )
+      )
+      .orderBy(templatePrompts.priority, templatePrompts.createdAt);
+  }
+
+  async createTemplatePrompt(prompt: InsertTemplatePrompt): Promise<TemplatePrompt> {
+    const [result] = await db
+      .insert(templatePrompts)
+      .values(prompt)
+      .returning();
+    return result;
+  }
+
+  async updateTemplatePrompt(id: string, prompt: Partial<InsertTemplatePrompt>): Promise<TemplatePrompt> {
+    const [result] = await db
+      .update(templatePrompts)
+      .set({ ...prompt, updatedAt: new Date() })
+      .where(eq(templatePrompts.id, id))
+      .returning();
+    if (!result) throw new Error("Template Prompt not found");
+    return result;
+  }
+
+  async deleteTemplatePrompt(id: string): Promise<void> {
+    await db.delete(templatePrompts).where(eq(templatePrompts.id, id));
+  }
+
+  // Template Analysis Rules
+  async getTemplateAnalysisRules(templateId: string): Promise<TemplateAnalysisRule[]> {
+    return await db
+      .select()
+      .from(templateAnalysisRules)
+      .where(and(eq(templateAnalysisRules.templateId, templateId), eq(templateAnalysisRules.isActive, true)))
+      .orderBy(templateAnalysisRules.createdAt);
+  }
+
+  async getTemplateAnalysisRule(id: string): Promise<TemplateAnalysisRule | undefined> {
+    const [rule] = await db
+      .select()
+      .from(templateAnalysisRules)
+      .where(eq(templateAnalysisRules.id, id));
+    return rule || undefined;
+  }
+
+  async getTemplateAnalysisRulesByType(templateId: string, ruleType: string): Promise<TemplateAnalysisRule[]> {
+    return await db
+      .select()
+      .from(templateAnalysisRules)
+      .where(
+        and(
+          eq(templateAnalysisRules.templateId, templateId),
+          eq(templateAnalysisRules.ruleType, ruleType),
+          eq(templateAnalysisRules.isActive, true)
+        )
+      )
+      .orderBy(templateAnalysisRules.createdAt);
+  }
+
+  async createTemplateAnalysisRule(rule: InsertTemplateAnalysisRule): Promise<TemplateAnalysisRule> {
+    const [result] = await db
+      .insert(templateAnalysisRules)
+      .values(rule)
+      .returning();
+    return result;
+  }
+
+  async updateTemplateAnalysisRule(id: string, rule: Partial<InsertTemplateAnalysisRule>): Promise<TemplateAnalysisRule> {
+    const [result] = await db
+      .update(templateAnalysisRules)
+      .set({ ...rule, updatedAt: new Date() })
+      .where(eq(templateAnalysisRules.id, id))
+      .returning();
+    if (!result) throw new Error("Template Analysis Rule not found");
+    return result;
+  }
+
+  async deleteTemplateAnalysisRule(id: string): Promise<void> {
+    await db.delete(templateAnalysisRules).where(eq(templateAnalysisRules.id, id));
+  }
+
+  // Enhanced Analysis Methods
+  async getTemplateWithPrompts(templateId: string, aiProvider?: string): Promise<{
+    template: DocumentTemplate;
+    prompts: TemplatePrompt[];
+    analysisRules: TemplateAnalysisRule[];
+    requiredClauses: LegalClause[];
+    optionalClauses: LegalClause[];
+  } | undefined> {
+    const template = await this.getDocumentTemplate(templateId);
+    if (!template) return undefined;
+
+    const [prompts, analysisRules] = await Promise.all([
+      aiProvider 
+        ? this.getTemplatePromptsByProvider(template.id, aiProvider)
+        : this.getTemplatePrompts(template.id),
+      this.getTemplateAnalysisRules(template.id)
+    ]);
+
+    // Get required and optional clauses based on template configuration
+    const requiredClauseIds = Array.isArray(template.requiredClauses) ? template.requiredClauses : [];
+    const optionalClauseIds = Array.isArray(template.optionalClauses) ? template.optionalClauses : [];
+
+    const [requiredClauses, optionalClauses] = await Promise.all([
+      Promise.all(requiredClauseIds.map(async (clauseId: string) => {
+        const clause = await this.getLegalClause(clauseId);
+        return clause;
+      })).then(clauses => clauses.filter(clause => clause !== undefined) as LegalClause[]),
+      Promise.all(optionalClauseIds.map(async (clauseId: string) => {
+        const clause = await this.getLegalClause(clauseId);
+        return clause;
+      })).then(clauses => clauses.filter(clause => clause !== undefined) as LegalClause[])
+    ]);
+
+    return {
+      template,
+      prompts,
+      analysisRules,
+      requiredClauses,
+      optionalClauses
+    };
   }
 }
 

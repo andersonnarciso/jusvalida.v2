@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { FileUpload } from '@/components/ui/file-upload';
 import { AIProviderSelector } from '@/components/ui/ai-provider-selector';
+import { TemplateSelector } from '@/components/ui/template-selector';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
@@ -38,6 +39,7 @@ interface DocumentAnalysis {
   aiProvider: string;
   aiModel: string;
   analysisType: string;
+  templateId?: string | null;
   result: AnalysisResult;
   creditsUsed: number;
   status: string;
@@ -54,6 +56,7 @@ export default function Dashboard() {
   const [textContent, setTextContent] = useState('');
   const [analysisType, setAnalysisType] = useState('general');
   const [selectedProvider, setSelectedProvider] = useState('');
+  const [selectedTemplate, setSelectedTemplate] = useState('');
   const [currentTab, setCurrentTab] = useState('upload');
 
   if (!user) {
@@ -108,6 +111,7 @@ export default function Dashboard() {
       // Reset form
       setSelectedFile(null);
       setTextContent('');
+      setSelectedTemplate('');
     },
     onError: (error: any) => {
       toast({
@@ -140,6 +144,11 @@ export default function Dashboard() {
     formData.append('analysisType', analysisType);
     formData.append('aiProvider', selectedProvider.split('-')[0]);
     formData.append('aiModel', selectedProvider.split('-').slice(1).join('-'));
+    
+    // Include template ID if selected
+    if (selectedTemplate) {
+      formData.append('templateId', selectedTemplate);
+    }
 
     analyzeDocumentMutation.mutate(formData);
   };
@@ -268,6 +277,13 @@ export default function Dashboard() {
               selectedProvider={selectedProvider}
               onProviderChange={setSelectedProvider}
               userCredits={user.credits}
+            />
+
+            {/* Template Selection */}
+            <TemplateSelector
+              selectedTemplate={selectedTemplate}
+              onTemplateChange={setSelectedTemplate}
+              data-testid="template-selector"
             />
 
             {/* Upload Tabs */}

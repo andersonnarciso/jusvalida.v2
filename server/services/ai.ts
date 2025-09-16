@@ -1,6 +1,8 @@
 import OpenAI from "openai";
 import Anthropic from '@anthropic-ai/sdk';
 import { GoogleGenAI } from "@google/genai";
+import { storage } from '../storage';
+import type { DocumentTemplate, LegalClause, TemplatePrompt, TemplateAnalysisRule } from '@shared/schema';
 
 /*
 <important_code_snippet_instructions>
@@ -21,6 +23,36 @@ export interface AnalysisResult {
   };
   recommendations: string[];
   riskLevel: 'low' | 'medium' | 'high' | 'critical';
+  // Template-specific analysis results
+  templateAnalysis?: {
+    templateId: string;
+    templateName: string;
+    missingClauses: Array<{
+      clauseId: string;
+      name: string;
+      importance: 'required' | 'recommended';
+      description: string;
+    }>;
+    identifiedClauses: Array<{
+      clauseId: string;
+      name: string;
+      status: 'complete' | 'incomplete' | 'problematic';
+      issues?: string[];
+    }>;
+    validationResults: Array<{
+      ruleName: string;
+      status: 'passed' | 'failed' | 'warning';
+      message: string;
+      recommendation?: string;
+    }>;
+    templateSpecificRisks: Array<{
+      category: string;
+      level: 'low' | 'medium' | 'high' | 'critical';
+      description: string;
+      mitigation: string;
+    }>;
+    complianceScore: number;
+  };
 }
 
 export class AIService {
@@ -68,16 +100,125 @@ Analyze the provided legal document and return a comprehensive analysis in JSON 
     return basePrompt + "\n\n" + (typeSpecificPrompts[analysisType as keyof typeof typeSpecificPrompts] || typeSpecificPrompts.general);
   }
 
-  async analyzeWithOpenAI(content: string, analysisType: string, apiKey?: string): Promise<AnalysisResult> {
+  private async getTemplateSpecificPrompt(
+    templateData: {
+      template: DocumentTemplate;
+      prompts: TemplatePrompt[];
+      analysisRules: TemplateAnalysisRule[];
+      requiredClauses: LegalClause[];
+      optionalClauses: LegalClause[];
+    },
+    aiProvider: string
+  ): Promise<string> {
+    const { template, prompts, analysisRules, requiredClauses, optionalClauses } = templateData;
+    
+    // Find prompts for this AI provider
+    const applicablePrompts = prompts.filter(p => 
+      p.aiProvider === aiProvider || p.aiProvider === 'all'
+    ).sort((a, b) => a.priority - b.priority);
+
+    let templatePrompt = `You are analyzing a ${template.name} document. This analysis requires specialized attention to specific clauses and validation rules.
+
+DOCUMENT TYPE: ${template.category} - ${template.subcategory}
+DESCRIPTION: ${template.description}
+
+REQUIRED CLAUSES CHECKLIST:
+${requiredClauses.map(clause => `- ${clause.name}: ${clause.description}`).join('\n')}
+
+RECOMMENDED CLAUSES:
+${optionalClauses.map(clause => `- ${clause.name}: ${clause.description}`).join('\n')}
+
+VALIDATION RULES TO APPLY:
+${analysisRules.map(rule => `- ${rule.ruleName}: ${rule.errorMessage}`).join('\n')}
+
+TEMPLATE-SPECIFIC ANALYSIS REQUIREMENTS:
+${applicablePrompts.map(prompt => prompt.promptText).join('\n\n')}
+
+Return analysis in JSON format with the following enhanced structure that includes template-specific findings:
+{
+  "summary": "Brief summary of the document and main findings",
+  "criticalFlaws": ["Critical legal flaws that must be addressed immediately"],
+  "warnings": ["Important issues that need attention"], 
+  "improvements": ["Suggestions for enhancing the document"],
+  "legalCompliance": {
+    "score": 85,
+    "issues": ["Specific compliance issues found"]
+  },
+  "recommendations": ["Specific actionable recommendations"],
+  "riskLevel": "medium",
+  "templateAnalysis": {
+    "templateId": "${template.templateId}",
+    "templateName": "${template.name}",
+    "missingClauses": [
+      {
+        "clauseId": "clause_id",
+        "name": "Clause Name",
+        "importance": "required|recommended",
+        "description": "Why this clause is important"
+      }
+    ],
+    "identifiedClauses": [
+      {
+        "clauseId": "clause_id", 
+        "name": "Clause Name",
+        "status": "complete|incomplete|problematic",
+        "issues": ["Any issues found with this clause"]
+      }
+    ],
+    "validationResults": [
+      {
+        "ruleName": "Rule Name",
+        "status": "passed|failed|warning", 
+        "message": "Validation result message",
+        "recommendation": "How to fix if failed"
+      }
+    ],
+    "templateSpecificRisks": [
+      {
+        "category": "Risk Category",
+        "level": "low|medium|high|critical",
+        "description": "Risk description",
+        "mitigation": "How to mitigate this risk"
+      }
+    ],
+    "complianceScore": 85
+  }
+}`;
+
+    return templatePrompt;
+  }
+
+  async loadTemplateData(templateId: string, aiProvider: string): Promise<{
+    template: DocumentTemplate;
+    prompts: TemplatePrompt[];
+    analysisRules: TemplateAnalysisRule[];
+    requiredClauses: LegalClause[];
+    optionalClauses: LegalClause[];
+  } | null> {
+    try {
+      const templateData = await storage.getTemplateWithPrompts(templateId, aiProvider);
+      return templateData || null;
+    } catch (error) {
+      console.error(`Error loading template data for ${templateId}:`, error);
+      return null;
+    }
+  }
+
+  async analyzeWithOpenAI(content: string, analysisType: string, apiKey?: string, templateData?: any): Promise<AnalysisResult> {
     const client = apiKey ? new OpenAI({ apiKey }) : this.openai;
     if (!client) throw new Error("OpenAI API key not configured");
+
+    // Use template-specific prompt if available, otherwise use standard prompt
+    const systemPrompt = templateData 
+      ? await this.getTemplateSpecificPrompt(templateData, 'openai')
+      : this.getSystemPrompt(analysisType);
 
     const response = await client.chat.completions.create({
       model: "gpt-5", // the newest OpenAI model is "gpt-5" which was released August 7, 2025
       messages: [
         {
           role: "system",
-          content: this.getSystemPrompt(analysisType)
+          content: systemPrompt
         },
         {
           role: "user",
@@ -92,13 +233,18 @@ Analyze the provided legal document and return a comprehensive analysis in JSON 
     return result as AnalysisResult;
   }
 
-  async analyzeWithAnthropic(content: string, analysisType: string, apiKey?: string): Promise<AnalysisResult> {
+  async analyzeWithAnthropic(content: string, analysisType: string, apiKey?: string, templateData?: any): Promise<AnalysisResult> {
     const client = apiKey ? new Anthropic({ apiKey }) : this.anthropic;
     if (!client) throw new Error("Anthropic API key not configured");
 
+    // Use template-specific prompt if available, otherwise use standard prompt
+    const systemPrompt = templateData 
+      ? await this.getTemplateSpecificPrompt(templateData, 'anthropic')
+      : this.getSystemPrompt(analysisType);
+
     const response = await client.messages.create({
       model: "claude-sonnet-4-20250514", // newest Anthropic model
-      system: this.getSystemPrompt(analysisType),
+      system: systemPrompt,
       messages: [
         {
           role: "user",
@@ -117,14 +263,19 @@ Analyze the provided legal document and return a comprehensive analysis in JSON 
     return result as AnalysisResult;
   }
 
-  async analyzeWithGemini(content: string, analysisType: string, apiKey?: string): Promise<AnalysisResult> {
+  async analyzeWithGemini(content: string, analysisType: string, apiKey?: string, templateData?: any): Promise<AnalysisResult> {
     const client = apiKey ? new GoogleGenAI({ apiKey }) : this.gemini;
     if (!client) throw new Error("Gemini API key not configured");
+
+    // Use template-specific prompt if available, otherwise use standard prompt
+    const systemPrompt = templateData 
+      ? await this.getTemplateSpecificPrompt(templateData, 'gemini')
+      : this.getSystemPrompt(analysisType);
 
     const response = await client.models.generateContent({
       model: "gemini-2.5-pro", // newest Gemini model
       config: {
-        systemInstruction: this.getSystemPrompt(analysisType),
+        systemInstruction: systemPrompt,
         responseMimeType: "application/json",
       },
       contents: `Please analyze the following legal document:\n\n${content}`,
@@ -134,15 +285,15 @@ Analyze the provided legal document and return a comprehensive analysis in JSON 
     return result as AnalysisResult;
   }
 
-  async analyzeWithFreeAI(content: string, analysisType: string): Promise<AnalysisResult> {
-    // Simplified analysis for free tier
+  async analyzeWithFreeAI(content: string, analysisType: string, templateData?: any): Promise<AnalysisResult> {
+    // Simplified analysis for free tier with basic template support
     await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate processing time
     
     const wordCount = content.split(' ').length;
     const hasContracts = content.toLowerCase().includes('contrato') || content.toLowerCase().includes('contract');
     const hasLegalTerms = /\b(lei|artigo|parágrafo|cláusula|disposição)\b/i.test(content);
     
-    return {
+    let baseResult = {
       summary: `Documento analisado com ${wordCount} palavras. ${hasContracts ? 'Documento contratual identificado.' : ''} ${hasLegalTerms ? 'Termos legais detectados.' : ''}`,
       criticalFlaws: wordCount > 5000 ? ["Documento muito extenso para análise gratuita"] : [],
       warnings: hasLegalTerms ? [] : ["Poucos termos legais identificados no documento"],
@@ -158,8 +309,34 @@ Analyze the provided legal document and return a comprehensive analysis in JSON 
         "Utilize análise premium com IA especializada para resultados mais precisos",
         "Consulte um advogado para validação final"
       ],
-      riskLevel: wordCount > 3000 ? 'medium' : 'low'
+      riskLevel: wordCount > 3000 ? 'medium' : 'low' as 'low' | 'medium' | 'high' | 'critical'
     };
+
+    // Add basic template analysis if template data is provided
+    if (templateData) {
+      baseResult.summary += ` Análise baseada no template: ${templateData.template.name}.`;
+      (baseResult as any).templateAnalysis = {
+        templateId: templateData.template.templateId,
+        templateName: templateData.template.name,
+        missingClauses: [], // Free tier doesn't provide detailed clause analysis
+        identifiedClauses: [],
+        validationResults: [{
+          ruleName: "Análise Básica",
+          status: "warning",
+          message: "Análise básica realizada. Use análise premium para validação completa de template.",
+          recommendation: "Upgrade para análise detalhada com validação de cláusulas específicas"
+        }],
+        templateSpecificRisks: [{
+          category: "Limitações da Análise Gratuita",
+          level: "medium",
+          description: "Análise gratuita não incluiu validação específica de template",
+          mitigation: "Considere upgrade para análise premium com validação completa"
+        }],
+        complianceScore: 50
+      };
+    }
+
+    return baseResult as AnalysisResult;
   }
 
   getProviderCredits(provider: string): number {
@@ -180,18 +357,25 @@ Analyze the provided legal document and return a comprehensive analysis in JSON 
     analysisType: string,
     provider: string,
     model: string,
-    apiKey?: string
+    apiKey?: string,
+    templateId?: string
   ): Promise<AnalysisResult> {
     try {
+      // Load template data if templateId is provided
+      let templateData = null;
+      if (templateId) {
+        templateData = await this.loadTemplateData(templateId, provider);
+      }
+
       switch (provider) {
         case 'openai':
-          return await this.analyzeWithOpenAI(content, analysisType, apiKey);
+          return await this.analyzeWithOpenAI(content, analysisType, apiKey, templateData);
         case 'anthropic':
-          return await this.analyzeWithAnthropic(content, analysisType, apiKey);
+          return await this.analyzeWithAnthropic(content, analysisType, apiKey, templateData);
         case 'gemini':
-          return await this.analyzeWithGemini(content, analysisType, apiKey);
+          return await this.analyzeWithGemini(content, analysisType, apiKey, templateData);
         case 'free':
-          return await this.analyzeWithFreeAI(content, analysisType);
+          return await this.analyzeWithFreeAI(content, analysisType, templateData);
         default:
           throw new Error(`Unsupported AI provider: ${provider}`);
       }
