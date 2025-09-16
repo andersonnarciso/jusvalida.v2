@@ -429,6 +429,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/auth/me", requireAuth, (req, res) => {
+    // Prevent caching to avoid 304 responses that break JSON parsing
+    res.set({
+      'Cache-Control': 'no-store, no-cache, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0',
+      'ETag': ''
+    });
     res.json({ user: req.user });
   });
 

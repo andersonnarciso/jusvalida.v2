@@ -22,11 +22,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const checkAuth = async () => {
     try {
-      const response = await apiRequest('GET', '/api/auth/me');
+      const response = await fetch('/api/auth/me', {
+        method: 'GET',
+        credentials: 'include',
+        cache: 'no-store' // Prevent 304 responses
+      });
+      
+      // Handle 304 Not Modified - user state unchanged
+      if (response.status === 304) {
+        return; // Keep existing user state
+      }
+      
+      // Handle non-OK responses
+      if (!response.ok) {
+        setUser(null);
+        return;
+      }
+      
+      // Only parse JSON for successful responses
       const data = await response.json();
       setUser(data.user);
     } catch (error) {
-      // User not authenticated
+      // Network error or JSON parsing error
+      console.error('Auth check failed:', error);
       setUser(null);
     } finally {
       setIsLoading(false);

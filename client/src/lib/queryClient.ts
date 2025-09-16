@@ -20,6 +20,7 @@ export async function apiRequest(
     headers: isFormData ? {} : (data ? { "Content-Type": "application/json" } : {}),
     body: isFormData ? data as FormData : (data ? JSON.stringify(data) : undefined),
     credentials: "include",
+    cache: url.includes('/api/auth/') ? 'no-store' : 'default', // Prevent auth caching
   });
 
   await throwIfResNotOk(res);
