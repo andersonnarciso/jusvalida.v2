@@ -1,6 +1,7 @@
-import { type User, type InsertUser, type LoginUser, type AiProvider, type InsertAiProvider, type DocumentAnalysis, type InsertDocumentAnalysis, type CreditTransaction, type SupportTicket, type InsertSupportTicket, type TicketMessage, type InsertTicketMessage, type AiProviderConfig, type InsertAiProviderConfig, type CreditPackage, type InsertCreditPackage, type PlatformStats, type InsertPlatformStats, type DocumentTemplate, type InsertDocumentTemplate, type LegalClause, type InsertLegalClause, type TemplatePrompt, type InsertTemplatePrompt, type TemplateAnalysisRule, type InsertTemplateAnalysisRule } from "@shared/schema";
+import { type User, type InsertUser, type LoginUser, type AiProvider, type InsertAiProvider, type DocumentAnalysis, type InsertDocumentAnalysis, type CreditTransaction, type SupportTicket, type InsertSupportTicket, type TicketMessage, type InsertTicketMessage, type AiProviderConfig, type InsertAiProviderConfig, type CreditPackage, type InsertCreditPackage, type PlatformStats, type InsertPlatformStats, type DocumentTemplate, type InsertDocumentTemplate, type LegalClause, type InsertLegalClause, type TemplatePrompt, type InsertTemplatePrompt, type TemplateAnalysisRule, type InsertTemplateAnalysisRule, type BatchJob, type InsertBatchJob, type BatchDocument, type InsertBatchDocument, type QueueJob, type InsertQueueJob, type BatchDocumentMetadata } from "@shared/schema";
+import type { Express } from "express";
 import { db } from "./db";
-import { users, aiProviders, documentAnalyses, creditTransactions, supportTickets, ticketMessages, aiProviderConfigs, creditPackages, platformStats, documentTemplates, legalClauses, templatePrompts, templateAnalysisRules } from "@shared/schema";
+import { users, aiProviders, documentAnalyses, creditTransactions, supportTickets, ticketMessages, aiProviderConfigs, creditPackages, platformStats, documentTemplates, legalClauses, templatePrompts, templateAnalysisRules, batchJobs, batchDocuments, queueJobs } from "@shared/schema";
 import { eq, desc, and, limit as drizzleLimit, count, sum, gte, sql } from "drizzle-orm";
 
 export interface IStorage {
@@ -10,6 +11,7 @@ export interface IStorage {
   getUsersByRole(role: string): Promise<User[]>;
   createUser(user: InsertUser): Promise<User>;
   updateUserCredits(id: string, credits: number): Promise<User>;
+  deductUserCredits(userId: string, amount: number, description: string): Promise<void>;
   updateUserRole(id: string, role: string): Promise<User>;
   updateStripeCustomerId(id: string, customerId: string): Promise<User>;
 
@@ -57,6 +59,20 @@ export interface IStorage {
     stripePaymentIntentId: string;
     newCreditBalance: number;
   }): Promise<{ user: User; transaction: CreditTransaction }>;
+
+  // ATOMIC: Process batch creation with upfront credit deduction in single DB transaction
+  processBatchCreationTransaction(
+    userId: string, 
+    batchMeta: InsertBatchJob,
+    files: Express.Multer.File[], 
+    creditsPerDoc: number
+  ): Promise<{ 
+    batchJob: BatchJob; 
+    batchDocuments: BatchDocument[]; 
+    queueJob: QueueJob; 
+    user: User;
+    transaction: CreditTransaction;
+  }>;
 
   // Support Tickets
   getSupportTickets(userId: string): Promise<SupportTicket[]>;
@@ -132,6 +148,52 @@ export interface IStorage {
     requiredClauses: LegalClause[];
     optionalClauses: LegalClause[];
   } | undefined>;
+
+  // Batch Jobs Management
+  getBatchJobs(userId: string, limit?: number): Promise<BatchJob[]>;
+  getBatchJob(id: string, userId: string): Promise<BatchJob | undefined>;
+  getBatchJobById(id: string): Promise<BatchJob | undefined>;
+  createBatchJob(userId: string, batchJob: InsertBatchJob): Promise<BatchJob>;
+  updateBatchJob(id: string, updates: Partial<BatchJob>): Promise<BatchJob>;
+  updateBatchJobStatus(id: string, status: string, errorMessage?: string): Promise<BatchJob>;
+  deleteBatchJob(id: string): Promise<void>;
+
+  // Batch Documents Management
+  getBatchDocuments(batchJobId: string): Promise<BatchDocument[]>;
+  getBatchDocument(id: string): Promise<BatchDocument | undefined>;
+  createBatchDocument(batchDocument: InsertBatchDocument): Promise<BatchDocument>;
+  updateBatchDocument(id: string, updates: Partial<BatchDocument>): Promise<BatchDocument>;
+  updateBatchDocumentStatus(id: string, status: string, errorMessage?: string): Promise<BatchDocument>;
+  linkBatchDocumentToAnalysis(batchDocumentId: string, analysisId: string): Promise<BatchDocument>;
+  deleteBatchDocument(id: string): Promise<void>;
+
+  // Queue Jobs Management
+  getQueueJobs(status?: string, limit?: number): Promise<QueueJob[]>;
+  getQueueJob(id: string): Promise<QueueJob | undefined>;
+  createQueueJob(queueJob: InsertQueueJob): Promise<QueueJob>;
+  updateQueueJob(id: string, updates: Partial<QueueJob>): Promise<QueueJob>;
+  updateQueueJobStatus(id: string, status: string, errorMessage?: string): Promise<QueueJob>;
+  getNextQueueJob(): Promise<QueueJob | undefined>;
+  retryFailedQueueJob(id: string): Promise<QueueJob>;
+  deleteQueueJob(id: string): Promise<void>;
+
+  // Batch Processing Analytics
+  getBatchJobStatistics(userId?: string): Promise<{
+    totalBatches: number;
+    completedBatches: number;
+    failedBatches: number;
+    averageProcessingTime: number;
+    totalDocumentsProcessed: number;
+  }>;
+  
+  // Admin Batch Management
+  getAllBatchJobs(page?: number, limit?: number): Promise<{jobs: BatchJob[], total: number}>;
+  getBatchJobsWithDetails(userId?: string): Promise<Array<BatchJob & {
+    documents: BatchDocument[];
+    totalDocuments: number;
+    completedDocuments: number;
+    failedDocuments: number;
+  }>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -170,6 +232,28 @@ export class DatabaseStorage implements IStorage {
       .returning();
     if (!user) throw new Error("User not found");
     return user;
+  }
+
+  async deductUserCredits(userId: string, amount: number, description: string): Promise<void> {
+    // Get current user credits
+    const user = await this.getUser(userId);
+    if (!user) {
+      throw new Error(`User not found: ${userId}`);
+    }
+
+    if (user.credits < amount) {
+      throw new Error(`Insufficient credits: ${user.credits} available, ${amount} required`);
+    }
+
+    const newCredits = user.credits - amount;
+
+    // Update user credits and create transaction atomically
+    await this.processPaymentTransaction(userId, {
+      type: "usage",
+      amount: -amount,
+      description,
+      newCreditBalance: newCredits
+    });
   }
 
   async updateUserRole(id: string, role: string): Promise<User> {
@@ -346,6 +430,111 @@ export class DatabaseStorage implements IStorage {
         .returning();
       
       return { user: updatedUser, transaction };
+    });
+  }
+
+  // ATOMIC: Process batch creation with upfront credit deduction in single DB transaction
+  async processBatchCreationTransaction(
+    userId: string, 
+    batchMeta: InsertBatchJob,
+    files: Express.Multer.File[], 
+    creditsPerDoc: number
+  ): Promise<{ 
+    batchJob: BatchJob; 
+    batchDocuments: BatchDocument[]; 
+    queueJob: QueueJob; 
+    user: User;
+    transaction: CreditTransaction;
+  }> {
+    const totalCreditsNeeded = files.length * creditsPerDoc;
+    
+    // Use database transaction to ensure atomicity and prevent race conditions
+    return await db.transaction(async (tx) => {
+      // First, get current user and assert sufficient credits
+      const [currentUser] = await tx
+        .select()
+        .from(users)
+        .where(eq(users.id, userId));
+      
+      if (!currentUser) {
+        throw new Error(`User not found: ${userId}`);
+      }
+
+      if (currentUser.credits < totalCreditsNeeded) {
+        throw new Error(`Insufficient credits: ${currentUser.credits} available, ${totalCreditsNeeded} required`);
+      }
+
+      // Deduct credits upfront
+      const newCreditBalance = currentUser.credits - totalCreditsNeeded;
+      const [updatedUser] = await tx
+        .update(users)
+        .set({ 
+          credits: newCreditBalance,
+          updatedAt: sql`CURRENT_TIMESTAMP`
+        })
+        .where(eq(users.id, userId))
+        .returning();
+
+      // Create credit transaction record
+      const [transaction] = await tx
+        .insert(creditTransactions)
+        .values({
+          userId,
+          type: 'deduction',
+          amount: -totalCreditsNeeded, // Negative for deduction
+          description: `Batch processing: ${files.length} documents (${creditsPerDoc} credits each)`,
+        })
+        .returning();
+
+      // Create batch job
+      const [batchJob] = await tx
+        .insert(batchJobs)
+        .values(batchMeta)
+        .returning();
+
+      // Create batch documents with temp file paths
+      const batchDocumentInserts = files.map(file => ({
+        batchJobId: batchJob.id,
+        originalFileName: file.originalname,
+        fileSize: file.size,
+        mimeType: file.mimetype,
+        status: 'pending' as const,
+        metadata: {
+          filePath: file.path, // Store temp file path for processing
+          tempFile: true,
+          uploadedAt: new Date().toISOString()
+        } as BatchDocumentMetadata & { filePath: string; tempFile: boolean; uploadedAt: string }
+      }));
+
+      const createdBatchDocuments = await tx
+        .insert(batchDocuments)
+        .values(batchDocumentInserts)
+        .returning();
+
+      // Create queue job for processing
+      const [queueJob] = await tx
+        .insert(queueJobs)
+        .values({
+          jobType: 'batch_processing',
+          status: 'pending',
+          jobData: {
+            batchJobId: batchJob.id,
+            userId,
+            aiProvider: batchMeta.aiProvider,
+            aiModel: batchMeta.aiModel,
+            analysisType: batchMeta.analysisType,
+            templateId: batchMeta.templateId
+          }
+        })
+        .returning();
+
+      return { 
+        batchJob, 
+        batchDocuments: createdBatchDocuments, 
+        queueJob,
+        user: updatedUser,
+        transaction
+      };
     });
   }
 
@@ -985,6 +1174,283 @@ export class DatabaseStorage implements IStorage {
       requiredClauses,
       optionalClauses
     };
+  }
+
+  // Batch Jobs Management
+  async getBatchJobs(userId: string, limit?: number): Promise<BatchJob[]> {
+    const query = db.select().from(batchJobs).where(eq(batchJobs.userId, userId)).orderBy(desc(batchJobs.createdAt));
+    if (limit) {
+      query.limit(limit);
+    }
+    return await query;
+  }
+
+  async getBatchJob(id: string, userId: string): Promise<BatchJob | undefined> {
+    const [batchJob] = await db.select().from(batchJobs).where(and(eq(batchJobs.id, id), eq(batchJobs.userId, userId)));
+    return batchJob || undefined;
+  }
+
+  async getBatchJobById(id: string): Promise<BatchJob | undefined> {
+    const [batchJob] = await db.select().from(batchJobs).where(eq(batchJobs.id, id));
+    return batchJob || undefined;
+  }
+
+  async createBatchJob(userId: string, batchJob: InsertBatchJob): Promise<BatchJob> {
+    const [result] = await db
+      .insert(batchJobs)
+      .values({ ...batchJob, userId })
+      .returning();
+    return result;
+  }
+
+  async updateBatchJob(id: string, updates: Partial<BatchJob>): Promise<BatchJob> {
+    const [result] = await db
+      .update(batchJobs)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(batchJobs.id, id))
+      .returning();
+    if (!result) throw new Error("Batch job not found");
+    return result;
+  }
+
+  async updateBatchJobStatus(id: string, status: string, errorMessage?: string): Promise<BatchJob> {
+    const updates: any = { status, updatedAt: new Date() };
+    if (errorMessage) updates.errorMessage = errorMessage;
+    if (status === 'processing') updates.processingStartedAt = new Date();
+    if (status === 'completed' || status === 'failed') updates.processingCompletedAt = new Date();
+
+    const [result] = await db
+      .update(batchJobs)
+      .set(updates)
+      .where(eq(batchJobs.id, id))
+      .returning();
+    if (!result) throw new Error("Batch job not found");
+    return result;
+  }
+
+  async deleteBatchJob(id: string): Promise<void> {
+    await db.delete(batchJobs).where(eq(batchJobs.id, id));
+  }
+
+  // Batch Documents Management
+  async getBatchDocuments(batchJobId: string): Promise<BatchDocument[]> {
+    return await db.select().from(batchDocuments).where(eq(batchDocuments.batchJobId, batchJobId)).orderBy(batchDocuments.sortOrder);
+  }
+
+  async getBatchDocument(id: string): Promise<BatchDocument | undefined> {
+    const [batchDocument] = await db.select().from(batchDocuments).where(eq(batchDocuments.id, id));
+    return batchDocument || undefined;
+  }
+
+  async createBatchDocument(batchDocument: InsertBatchDocument): Promise<BatchDocument> {
+    const [result] = await db
+      .insert(batchDocuments)
+      .values(batchDocument)
+      .returning();
+    return result;
+  }
+
+  async updateBatchDocument(id: string, updates: Partial<BatchDocument>): Promise<BatchDocument> {
+    const [result] = await db
+      .update(batchDocuments)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(batchDocuments.id, id))
+      .returning();
+    if (!result) throw new Error("Batch document not found");
+    return result;
+  }
+
+  async updateBatchDocumentStatus(id: string, status: string, errorMessage?: string): Promise<BatchDocument> {
+    const updates: any = { status, updatedAt: new Date() };
+    if (errorMessage) updates.errorMessage = errorMessage;
+    if (status === 'processing') updates.processingStartedAt = new Date();
+    if (status === 'completed' || status === 'failed') updates.processingCompletedAt = new Date();
+
+    const [result] = await db
+      .update(batchDocuments)
+      .set(updates)
+      .where(eq(batchDocuments.id, id))
+      .returning();
+    if (!result) throw new Error("Batch document not found");
+    return result;
+  }
+
+  async linkBatchDocumentToAnalysis(batchDocumentId: string, analysisId: string): Promise<BatchDocument> {
+    const [result] = await db
+      .update(batchDocuments)
+      .set({ documentAnalysisId: analysisId, updatedAt: new Date() })
+      .where(eq(batchDocuments.id, batchDocumentId))
+      .returning();
+    if (!result) throw new Error("Batch document not found");
+    return result;
+  }
+
+  async deleteBatchDocument(id: string): Promise<void> {
+    await db.delete(batchDocuments).where(eq(batchDocuments.id, id));
+  }
+
+  // Queue Jobs Management
+  async getQueueJobs(status?: string, limit?: number): Promise<QueueJob[]> {
+    let query = db.select().from(queueJobs);
+    if (status) {
+      query = query.where(eq(queueJobs.status, status));
+    }
+    query = query.orderBy(desc(queueJobs.priority), queueJobs.scheduledFor);
+    if (limit) {
+      query = query.limit(limit);
+    }
+    return await query;
+  }
+
+  async getQueueJob(id: string): Promise<QueueJob | undefined> {
+    const [queueJob] = await db.select().from(queueJobs).where(eq(queueJobs.id, id));
+    return queueJob || undefined;
+  }
+
+  async createQueueJob(queueJob: InsertQueueJob): Promise<QueueJob> {
+    const [result] = await db
+      .insert(queueJobs)
+      .values(queueJob)
+      .returning();
+    return result;
+  }
+
+  async updateQueueJob(id: string, updates: Partial<QueueJob>): Promise<QueueJob> {
+    const [result] = await db
+      .update(queueJobs)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(queueJobs.id, id))
+      .returning();
+    if (!result) throw new Error("Queue job not found");
+    return result;
+  }
+
+  async updateQueueJobStatus(id: string, status: string, errorMessage?: string): Promise<QueueJob> {
+    const updates: any = { status, updatedAt: new Date() };
+    if (errorMessage) updates.errorMessage = errorMessage;
+    if (status === 'processing') updates.processingStartedAt = new Date();
+    if (status === 'completed' || status === 'failed') updates.processingCompletedAt = new Date();
+
+    const [result] = await db
+      .update(queueJobs)
+      .set(updates)
+      .where(eq(queueJobs.id, id))
+      .returning();
+    if (!result) throw new Error("Queue job not found");
+    return result;
+  }
+
+  async getNextQueueJob(): Promise<QueueJob | undefined> {
+    const [queueJob] = await db
+      .select()
+      .from(queueJobs)
+      .where(and(
+        eq(queueJobs.status, 'pending'),
+        gte(queueJobs.scheduledFor, new Date())
+      ))
+      .orderBy(desc(queueJobs.priority), queueJobs.scheduledFor)
+      .limit(1);
+    return queueJob || undefined;
+  }
+
+  async retryFailedQueueJob(id: string): Promise<QueueJob> {
+    const [result] = await db
+      .update(queueJobs)
+      .set({ 
+        status: 'pending', 
+        attempts: sql`${queueJobs.attempts} + 1`,
+        errorMessage: null,
+        scheduledFor: new Date(),
+        updatedAt: new Date()
+      })
+      .where(eq(queueJobs.id, id))
+      .returning();
+    if (!result) throw new Error("Queue job not found");
+    return result;
+  }
+
+  async deleteQueueJob(id: string): Promise<void> {
+    await db.delete(queueJobs).where(eq(queueJobs.id, id));
+  }
+
+  // Batch Processing Analytics
+  async getBatchJobStatistics(userId?: string): Promise<{
+    totalBatches: number;
+    completedBatches: number;
+    failedBatches: number;
+    averageProcessingTime: number;
+    totalDocumentsProcessed: number;
+  }> {
+    let query = db.select({
+      total: count(),
+      completed: sum(sql`CASE WHEN ${batchJobs.status} = 'completed' THEN 1 ELSE 0 END`).mapWith(Number),
+      failed: sum(sql`CASE WHEN ${batchJobs.status} = 'failed' THEN 1 ELSE 0 END`).mapWith(Number),
+      totalDocs: sum(batchJobs.processedDocuments).mapWith(Number),
+      avgTime: sql`AVG(EXTRACT(epoch FROM (${batchJobs.processingCompletedAt} - ${batchJobs.processingStartedAt})))`.mapWith(Number)
+    }).from(batchJobs);
+
+    if (userId) {
+      query = query.where(eq(batchJobs.userId, userId));
+    }
+
+    const [stats] = await query;
+    
+    return {
+      totalBatches: stats?.total || 0,
+      completedBatches: stats?.completed || 0,
+      failedBatches: stats?.failed || 0,
+      averageProcessingTime: stats?.avgTime || 0,
+      totalDocumentsProcessed: stats?.totalDocs || 0
+    };
+  }
+
+  // Admin Batch Management
+  async getAllBatchJobs(page = 1, limit = 20): Promise<{jobs: BatchJob[], total: number}> {
+    const offset = (page - 1) * limit;
+    
+    const [jobs, totalResult] = await Promise.all([
+      db.select().from(batchJobs).orderBy(desc(batchJobs.createdAt)).limit(limit).offset(offset),
+      db.select({ count: count() }).from(batchJobs)
+    ]);
+
+    return {
+      jobs,
+      total: totalResult[0]?.count || 0
+    };
+  }
+
+  async getBatchJobsWithDetails(userId?: string): Promise<Array<BatchJob & {
+    documents: BatchDocument[];
+    totalDocuments: number;
+    completedDocuments: number;
+    failedDocuments: number;
+  }>> {
+    let query = db.select().from(batchJobs);
+    if (userId) {
+      query = query.where(eq(batchJobs.userId, userId));
+    }
+    query = query.orderBy(desc(batchJobs.createdAt));
+
+    const jobs = await query;
+    
+    const jobsWithDetails = await Promise.all(
+      jobs.map(async (job) => {
+        const documents = await this.getBatchDocuments(job.id);
+        const totalDocuments = documents.length;
+        const completedDocuments = documents.filter(doc => doc.status === 'completed').length;
+        const failedDocuments = documents.filter(doc => doc.status === 'failed').length;
+
+        return {
+          ...job,
+          documents,
+          totalDocuments,
+          completedDocuments,
+          failedDocuments
+        };
+      })
+    );
+
+    return jobsWithDetails;
   }
 }
 

@@ -173,6 +173,64 @@ export const platformStats = pgTable("platform_stats", {
   lastUpdated: timestamp("last_updated").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
+export const batchJobs = pgTable("batch_jobs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  name: text("name").notNull(), // User-provided batch name
+  description: text("description"), // Optional description
+  analysisType: text("analysis_type").notNull(), // 'general', 'contract', 'legal', 'compliance'
+  templateId: varchar("template_id").references(() => documentTemplates.id, { onDelete: "set null" }), // Optional template reference
+  aiProvider: text("ai_provider").notNull(),
+  aiModel: text("ai_model").notNull(),
+  status: text("status").notNull().default("pending"), // 'pending', 'processing', 'completed', 'failed', 'partial'
+  totalDocuments: integer("total_documents").notNull().default(0),
+  processedDocuments: integer("processed_documents").notNull().default(0),
+  successfulDocuments: integer("successful_documents").notNull().default(0),
+  failedDocuments: integer("failed_documents").notNull().default(0),
+  totalCreditsEstimated: integer("total_credits_estimated").notNull().default(0),
+  totalCreditsUsed: integer("total_credits_used").notNull().default(0),
+  processingStartedAt: timestamp("processing_started_at"),
+  processingCompletedAt: timestamp("processing_completed_at"),
+  errorMessage: text("error_message"), // General batch error if any
+  metadata: jsonb("metadata").notNull().default({}), // Additional batch metadata
+  createdAt: timestamp("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const batchDocuments = pgTable("batch_documents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  batchJobId: varchar("batch_job_id").notNull().references(() => batchJobs.id, { onDelete: "cascade" }),
+  documentAnalysisId: varchar("document_analysis_id").references(() => documentAnalyses.id, { onDelete: "set null" }), // Reference to analysis once created
+  originalFileName: text("original_file_name").notNull(),
+  fileSize: integer("file_size").notNull(), // File size in bytes
+  fileMimeType: text("file_mime_type").notNull(),
+  status: text("status").notNull().default("pending"), // 'pending', 'processing', 'completed', 'failed', 'skipped'
+  errorMessage: text("error_message"), // Specific error for this document
+  creditsUsed: integer("credits_used").notNull().default(0),
+  processingStartedAt: timestamp("processing_started_at"),
+  processingCompletedAt: timestamp("processing_completed_at"),
+  sortOrder: integer("sort_order").notNull().default(0), // Order in batch
+  metadata: jsonb("metadata").notNull().default({}), // Document-specific metadata
+  createdAt: timestamp("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const queueJobs = pgTable("queue_jobs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  jobType: text("job_type").notNull(), // 'batch_processing', 'document_analysis', etc.
+  jobData: jsonb("job_data").notNull(), // Serialized job parameters
+  priority: integer("priority").notNull().default(0), // Higher numbers = higher priority
+  status: text("status").notNull().default("pending"), // 'pending', 'processing', 'completed', 'failed', 'retrying'
+  attempts: integer("attempts").notNull().default(0),
+  maxAttempts: integer("max_attempts").notNull().default(3),
+  errorMessage: text("error_message"),
+  scheduledFor: timestamp("scheduled_for").notNull().default(sql`CURRENT_TIMESTAMP`), // When to process this job
+  processingStartedAt: timestamp("processing_started_at"),
+  processingCompletedAt: timestamp("processing_completed_at"),
+  createdAt: timestamp("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -276,6 +334,44 @@ export const insertTemplateAnalysisRuleSchema = createInsertSchema(templateAnaly
   updatedAt: true,
 });
 
+export const insertBatchJobSchema = createInsertSchema(batchJobs).omit({
+  id: true,
+  userId: true,
+  status: true,
+  processedDocuments: true,
+  successfulDocuments: true,
+  failedDocuments: true,
+  totalCreditsUsed: true,
+  processingStartedAt: true,
+  processingCompletedAt: true,
+  errorMessage: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertBatchDocumentSchema = createInsertSchema(batchDocuments).omit({
+  id: true,
+  documentAnalysisId: true,
+  status: true,
+  errorMessage: true,
+  creditsUsed: true,
+  processingStartedAt: true,
+  processingCompletedAt: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertQueueJobSchema = createInsertSchema(queueJobs).omit({
+  id: true,
+  status: true,
+  attempts: true,
+  errorMessage: true,
+  processingStartedAt: true,
+  processingCompletedAt: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type LoginUser = z.infer<typeof loginUserSchema>;
@@ -292,6 +388,39 @@ export type DocumentTemplate = typeof documentTemplates.$inferSelect;
 export type LegalClause = typeof legalClauses.$inferSelect;
 export type TemplatePrompt = typeof templatePrompts.$inferSelect;
 export type TemplateAnalysisRule = typeof templateAnalysisRules.$inferSelect;
+export type BatchJob = typeof batchJobs.$inferSelect;
+export type BatchDocument = typeof batchDocuments.$inferSelect;
+export type QueueJob = typeof queueJobs.$inferSelect;
+
+// Metadata type interfaces for proper typing
+export interface BatchJobMetadata {
+  progressPercentage?: number;
+  [key: string]: any;
+}
+
+export interface BatchDocumentMetadata {
+  fileBuffer?: string; // base64 encoded file content
+  originalSize?: number;
+  uploadedAt?: string;
+  [key: string]: any;
+}
+
+export interface BatchStatistics {
+  totalBatches: number;
+  completedBatches: number;
+  processingBatches: number;
+  failedBatches: number;
+  totalDocumentsProcessed: number;
+  averageProcessingTime?: number;
+}
+
+export interface Template {
+  id: string;
+  name: string;
+  category: string;
+  description: string;
+  [key: string]: any;
+}
 
 export type InsertAiProvider = z.infer<typeof insertAiProviderSchema>;
 export type InsertDocumentAnalysis = z.infer<typeof insertDocumentAnalysisSchema>;
@@ -304,6 +433,9 @@ export type InsertDocumentTemplate = z.infer<typeof insertDocumentTemplateSchema
 export type InsertLegalClause = z.infer<typeof insertLegalClauseSchema>;
 export type InsertTemplatePrompt = z.infer<typeof insertTemplatePromptSchema>;
 export type InsertTemplateAnalysisRule = z.infer<typeof insertTemplateAnalysisRuleSchema>;
+export type InsertBatchJob = z.infer<typeof insertBatchJobSchema>;
+export type InsertBatchDocument = z.infer<typeof insertBatchDocumentSchema>;
+export type InsertQueueJob = z.infer<typeof insertQueueJobSchema>;
 
 // Relations
 import { relations } from "drizzle-orm";
@@ -369,5 +501,28 @@ export const ticketMessagesRelations = relations(ticketMessages, ({ one }) => ({
   user: one(users, {
     fields: [ticketMessages.userId],
     references: [users.id],
+  }),
+}));
+
+export const batchJobsRelations = relations(batchJobs, ({ one, many }) => ({
+  user: one(users, {
+    fields: [batchJobs.userId],
+    references: [users.id],
+  }),
+  template: one(documentTemplates, {
+    fields: [batchJobs.templateId],
+    references: [documentTemplates.id],
+  }),
+  documents: many(batchDocuments),
+}));
+
+export const batchDocumentsRelations = relations(batchDocuments, ({ one }) => ({
+  batchJob: one(batchJobs, {
+    fields: [batchDocuments.batchJobId],
+    references: [batchJobs.id],
+  }),
+  documentAnalysis: one(documentAnalyses, {
+    fields: [batchDocuments.documentAnalysisId],
+    references: [documentAnalyses.id],
   }),
 }));

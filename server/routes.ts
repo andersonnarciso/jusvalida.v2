@@ -4,12 +4,15 @@ import { createServer, type Server } from "http";
 import Stripe from "stripe";
 import { storage } from "./storage";
 import { aiService } from "./services/ai";
+import { batchProcessor } from "./services/batchProcessor";
 import bcrypt from "bcrypt";
 import session from "express-session";
 import MemoryStore from "memorystore";
-import { insertUserSchema, loginUserSchema, insertDocumentAnalysisSchema, insertSupportTicketSchema, insertTicketMessageSchema, adminTicketMessageSchema, assignRoleSchema, adminUserUpdateSchema, insertAiProviderConfigSchema, insertCreditPackageSchema, insertDocumentTemplateSchema, insertLegalClauseSchema, insertTemplatePromptSchema, insertTemplateAnalysisRuleSchema } from "@shared/schema";
+import { insertUserSchema, loginUserSchema, insertDocumentAnalysisSchema, insertSupportTicketSchema, insertTicketMessageSchema, adminTicketMessageSchema, assignRoleSchema, adminUserUpdateSchema, insertAiProviderConfigSchema, insertCreditPackageSchema, insertDocumentTemplateSchema, insertLegalClauseSchema, insertTemplatePromptSchema, insertTemplateAnalysisRuleSchema, insertBatchJobSchema, insertBatchDocumentSchema, insertQueueJobSchema } from "@shared/schema";
 import multer from "multer";
 import { z } from "zod";
+import fs from "fs";
+import path from "path";
 
 declare global {
   namespace Express {
@@ -51,15 +54,97 @@ function toSafeUser(user: any) {
   return safeUser;
 }
 
-// Configure multer for file uploads
+// Configure multer for file uploads - SECURE: Using disk storage to prevent memory exhaustion
 const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      cb(null, '/tmp/uploads');
+    },
+    filename: (req, file, cb) => {
+      // SECURITY FIX: Sanitize filename to prevent path traversal attacks
+      const safeBasename = path.basename(file.originalname);
+      const sanitizedName = safeBasename.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const randomString = Math.random().toString(36).substring(2);
+      const uniqueName = `${Date.now()}-${randomString}-${sanitizedName}`;
+      
+      // Additional security: reject if any path separators remain
+      if (uniqueName.includes('/') || uniqueName.includes('\\') || uniqueName.includes('..')) {
+        return cb(new Error('Invalid filename detected'), '');
+      }
+      
+      cb(null, uniqueName);
+    }
+  }),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit for single file uploads
   fileFilter: (req, file, cb) => {
     const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'];
     cb(null, allowedTypes.includes(file.mimetype));
   }
 });
+
+// Configure dedicated multer for batch uploads with 50MB per file limit
+const batchUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      cb(null, '/tmp/batch-uploads');
+    },
+    filename: (req, file, cb) => {
+      // SECURITY FIX: Sanitize filename to prevent path traversal attacks
+      const safeBasename = path.basename(file.originalname);
+      const sanitizedName = safeBasename.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const randomString = Math.random().toString(36).substring(2);
+      const uniqueName = `${Date.now()}-${randomString}-${sanitizedName}`;
+      
+      // Additional security: reject if any path separators remain
+      if (uniqueName.includes('/') || uniqueName.includes('\\') || uniqueName.includes('..')) {
+        return cb(new Error('Invalid filename detected'), '');
+      }
+      
+      cb(null, uniqueName);
+    }
+  }),
+  limits: { 
+    fileSize: 50 * 1024 * 1024, // 50MB per file for batch uploads
+    files: 25 // Maximum 25 files per batch
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'];
+    cb(null, allowedTypes.includes(file.mimetype));
+  }
+}).array('files', 25);
+
+// Middleware to validate total batch size (max 500MB)
+function validateBatchSize(req: express.Request, res: express.Response, next: express.NextFunction) {
+  if (!req.files || !Array.isArray(req.files)) {
+    return res.status(400).json({ message: 'No files provided' });
+  }
+
+  const totalSize = req.files.reduce((acc: number, file: Express.Multer.File) => acc + file.size, 0);
+  const maxTotalSize = 500 * 1024 * 1024; // 500MB total
+
+  if (totalSize > maxTotalSize) {
+    // Cleanup uploaded files before rejecting
+    cleanupUploadedFiles(req.files as Express.Multer.File[]);
+    return res.status(413).json({ 
+      message: 'Total batch size exceeds 500MB limit',
+      totalSize: Math.round(totalSize / 1024 / 1024),
+      maxSize: 500
+    });
+  }
+
+  next();
+}
+
+// Helper function to cleanup uploaded files
+function cleanupUploadedFiles(files: Express.Multer.File[]) {
+  files.forEach(file => {
+    try {
+      fs.unlinkSync(file.path);
+    } catch (error) {
+      console.error(`Failed to cleanup file ${file.path}:`, error);
+    }
+  });
+}
 
 // Handle successful payment processing from Stripe webhook
 async function handleSuccessfulPayment(paymentIntent: Stripe.PaymentIntent) {
@@ -135,6 +220,20 @@ async function handleSuccessfulPayment(paymentIntent: Stripe.PaymentIntent) {
 
 // Session store instance for cache invalidation
 let sessionStore: any;
+
+// Helper function to clean up uploaded files
+async function cleanupUploadedFiles(files: Express.Multer.File[]) {
+  for (const file of files) {
+    try {
+      if (file.path && fs.existsSync(file.path)) {
+        await fs.promises.unlink(file.path);
+        console.log(`🗑️ Cleaned up temp file: ${file.path}`);
+      }
+    } catch (error) {
+      console.error(`❌ Failed to cleanup file ${file.path}:`, error);
+    }
+  }
+}
 
 // Function to invalidate user session cache after external updates (webhooks)
 async function invalidateUserSessions(userId: string, updatedUserData: Partial<Express.User>) {
@@ -1483,6 +1582,434 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: error.message });
     }
   });
+
+  // ===============================
+  // BATCH PROCESSING ENDPOINTS
+  // ===============================
+
+  // Enhanced MIME type validation for security
+  function validateFileType(file: Express.Multer.File): boolean {
+    const allowedTypes = {
+      'application/pdf': ['.pdf'],
+      'application/msword': ['.doc'],
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+      'text/plain': ['.txt']
+    };
+    
+    // Check MIME type
+    if (!allowedTypes[file.mimetype as keyof typeof allowedTypes]) {
+      return false;
+    }
+    
+    // Check file extension matches MIME type
+    const validExtensions = allowedTypes[file.mimetype as keyof typeof allowedTypes];
+    const fileExtension = path.extname(file.originalname).toLowerCase();
+    
+    return validExtensions.includes(fileExtension);
+  }
+
+  // SECURITY FIX: Configure multer for batch uploads with comprehensive limits
+  const batchUpload = multer({
+    storage: multer.diskStorage({
+      destination: (req, file, cb) => {
+        cb(null, '/tmp/batch-uploads');
+      },
+      filename: (req, file, cb) => {
+        // SECURITY FIX: Sanitize filename to prevent path traversal attacks
+        const safeBasename = path.basename(file.originalname);
+        const sanitizedName = safeBasename.replace(/[^a-zA-Z0-9._-]/g, "_");
+        const randomString = Math.random().toString(36).substring(2);
+        const uniqueName = `${Date.now()}-${randomString}-${sanitizedName}`;
+        
+        // Additional security: reject if any path separators remain
+        if (uniqueName.includes('/') || uniqueName.includes('\\') || uniqueName.includes('..')) {
+          return cb(new Error('Invalid filename detected'), '');
+        }
+        
+        cb(null, uniqueName);
+      }
+    }),
+    limits: { 
+      fileSize: 50 * 1024 * 1024, // 50MB per file for batch processing
+      files: 25, // Maximum 25 files per batch to prevent resource exhaustion
+      fieldSize: 1024 * 1024, // 1MB limit for form fields
+      fieldNameSize: 100, // Limit field name length
+      fields: 20 // Limit number of form fields
+    },
+    fileFilter: (req, file, cb) => {
+      // Enhanced validation with both MIME type and extension check
+      if (!validateFileType(file)) {
+        return cb(new Error(`Invalid file type: ${file.mimetype}. Only PDF, DOC, DOCX, and TXT files are allowed.`), false);
+      }
+      
+      cb(null, true);
+    }
+  });
+
+  // Middleware to validate total batch size before processing
+  const validateBatchSize = (req: any, res: any, next: any) => {
+    if (req.files && Array.isArray(req.files)) {
+      const totalSize = req.files.reduce((sum: number, file: Express.Multer.File) => sum + file.size, 0);
+      const maxTotalSize = 500 * 1024 * 1024; // 500MB total batch limit
+      
+      if (totalSize > maxTotalSize) {
+        // CLEANUP: Remove uploaded files on rejection
+        cleanupUploadedFiles(req.files as Express.Multer.File[]);
+        return res.status(413).json({ 
+          message: `Total batch size exceeds limit. Maximum: ${maxTotalSize / (1024 * 1024)}MB, Received: ${(totalSize / (1024 * 1024)).toFixed(2)}MB`,
+          maxTotalSize,
+          actualSize: totalSize
+        });
+      }
+      
+      // Validate file count on server side (double-check multer limit)
+      if (req.files.length > 25) {
+        // CLEANUP: Remove uploaded files on rejection
+        cleanupUploadedFiles(req.files as Express.Multer.File[]);
+        return res.status(413).json({ 
+          message: `Too many files. Maximum: 25, Received: ${req.files.length}`,
+          maxFiles: 25,
+          actualFiles: req.files.length
+        });
+      }
+    }
+    next();
+  };
+
+  // Create batch job with multiple files - SECURE: Disk-based storage with atomic credit reservation
+  app.post("/api/batch/create", requireAuth, batchUpload.array('files', 25), validateBatchSize, async (req, res) => {
+    let uploadedFiles: Express.Multer.File[] = [];
+    let batchJobCreated = false;
+    
+    try {
+      const files = req.files as Express.Multer.File[];
+      uploadedFiles = files || [];
+      
+      if (!files || files.length === 0) {
+        // CLEANUP: Remove uploaded files on no files error
+        cleanupUploadedFiles(uploadedFiles);
+        return res.status(400).json({ message: "No files provided for batch processing" });
+      }
+
+      const { name, description, analysisType, aiProvider, aiModel, templateId } = req.body;
+
+      // Validate required fields
+      if (!name || !analysisType || !aiProvider || !aiModel) {
+        // CLEANUP: Remove uploaded files on validation error
+        cleanupUploadedFiles(uploadedFiles);
+        return res.status(400).json({ message: "Missing required fields: name, analysisType, aiProvider, aiModel" });
+      }
+
+      // Validate template if provided
+      let templateData = null;
+      if (templateId) {
+        templateData = await storage.getTemplateWithPrompts(templateId);
+        if (!templateData) {
+          // CLEANUP: Remove uploaded files on template not found error
+          cleanupUploadedFiles(uploadedFiles);
+          return res.status(404).json({ message: "Template not found" });
+        }
+      }
+
+      // Calculate total credits needed
+      const creditsPerDocument = aiService.getProviderCredits(`${aiProvider}-${aiModel}`);
+      const totalCreditsNeeded = creditsPerDocument * files.length;
+      
+      // RACE CONDITION FIX: Atomic credit check and reservation
+      // Deduct credits immediately to prevent race conditions
+      try {
+        await storage.deductUserCredits(req.user.id, totalCreditsNeeded, `Batch processing reservation: ${name}`);
+        console.log(`✅ Reserved ${totalCreditsNeeded} credits for batch: ${name}`);
+      } catch (creditError: any) {
+        // Clean up uploaded files if credit deduction fails
+        await cleanupUploadedFiles(files);
+        
+        if (creditError.message.includes("Insufficient credits")) {
+          return res.status(402).json({ 
+            message: "Insufficient credits for batch processing",
+            creditsNeeded: totalCreditsNeeded,
+            creditsAvailable: req.user.credits,
+            documentsCount: files.length
+          });
+        }
+        throw creditError;
+      }
+
+      // Create batch job
+      const batchJob = await storage.createBatchJob(req.user.id, {
+        name,
+        description,
+        analysisType,
+        templateId: templateData?.template.id || null,
+        aiProvider,
+        aiModel,
+        totalDocuments: files.length,
+        totalCreditsEstimated: totalCreditsNeeded,
+        metadata: {}
+      });
+      batchJobCreated = true;
+
+      // Create batch documents with file paths (not buffers) - SECURE: No more base64 in database
+      const batchDocuments = await Promise.all(
+        files.map(async (file, index) => {
+          return await storage.createBatchDocument({
+            batchJobId: batchJob.id,
+            originalFileName: file.originalname,
+            fileSize: file.size,
+            fileMimeType: file.mimetype,
+            sortOrder: index,
+            metadata: { 
+              filePath: file.path, // Store disk path instead of buffer
+              tempFile: true // Mark for cleanup after processing
+            }
+          });
+        })
+      );
+
+      // Create queue job for batch processing
+      await storage.createQueueJob({
+        jobType: 'batch_processing',
+        jobData: {
+          batchJobId: batchJob.id,
+          userId: req.user.id,
+          aiProvider,
+          aiModel,
+          analysisType,
+          templateId
+        },
+        priority: 1
+      });
+
+      res.status(201).json({
+        batchJob,
+        documents: batchDocuments,
+        estimatedCredits: totalCreditsNeeded
+      });
+      
+      console.log(`✅ Batch job created: ${batchJob.id} with ${files.length} files`);
+      
+    } catch (error: any) {
+      console.error('❌ Batch creation error:', error);
+      
+      // CLEANUP: If batch creation fails, clean up uploaded files and refund credits
+      if (uploadedFiles.length > 0) {
+        await cleanupUploadedFiles(uploadedFiles);
+      }
+      
+      // If credits were deducted but batch creation failed, refund them
+      if (!batchJobCreated && uploadedFiles.length > 0) {
+        try {
+          const creditsPerDocument = aiService.getProviderCredits(`${aiProvider}-${aiModel}`);
+          const totalCreditsNeeded = creditsPerDocument * uploadedFiles.length;
+          await storage.createCreditTransaction(
+            req.user.id, 
+            "refund", 
+            totalCreditsNeeded, 
+            `Batch creation failed - refund for: ${name || 'unnamed batch'}`
+          );
+          console.log(`✅ Refunded ${totalCreditsNeeded} credits due to batch creation failure`);
+        } catch (refundError) {
+          console.error('❌ Failed to refund credits after batch creation failure:', refundError);
+        }
+      }
+      
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Get user's batch jobs
+  app.get("/api/batch/jobs", requireAuth, async (req, res) => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
+      const batchJobs = await storage.getBatchJobs(req.user.id, limit);
+      res.json(batchJobs);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Get specific batch job with details
+  app.get("/api/batch/jobs/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const batchJob = await storage.getBatchJob(id, req.user.id);
+      if (!batchJob) {
+        return res.status(404).json({ message: "Batch job not found" });
+      }
+
+      const documents = await storage.getBatchDocuments(id);
+      res.json({ ...batchJob, documents });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Get batch job statistics
+  app.get("/api/batch/statistics", requireAuth, async (req, res) => {
+    try {
+      const statistics = await storage.getBatchJobStatistics(req.user.id);
+      res.json(statistics);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Cancel batch job (if still pending)
+  app.post("/api/batch/jobs/:id/cancel", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const batchJob = await storage.getBatchJob(id, req.user.id);
+      if (!batchJob) {
+        return res.status(404).json({ message: "Batch job not found" });
+      }
+
+      if (batchJob.status !== 'pending') {
+        return res.status(400).json({ message: "Cannot cancel batch job that is already processing or completed" });
+      }
+
+      const updatedJob = await storage.updateBatchJobStatus(id, 'cancelled');
+      res.json(updatedJob);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Delete batch job
+  app.delete("/api/batch/jobs/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const batchJob = await storage.getBatchJob(id, req.user.id);
+      if (!batchJob) {
+        return res.status(404).json({ message: "Batch job not found" });
+      }
+
+      await storage.deleteBatchJob(id);
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Get batch processing results
+  app.get("/api/batch/jobs/:id/results", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const batchJob = await storage.getBatchJob(id, req.user.id);
+      if (!batchJob) {
+        return res.status(404).json({ message: "Batch job not found" });
+      }
+
+      const documents = await storage.getBatchDocuments(id);
+      
+      // Get analysis results for completed documents
+      const documentsWithResults = await Promise.all(
+        documents.map(async (doc) => {
+          if (doc.documentAnalysisId) {
+            const analysis = await storage.getDocumentAnalysis(doc.documentAnalysisId, req.user.id);
+            return { ...doc, analysis };
+          }
+          return doc;
+        })
+      );
+
+      // Calculate batch summary
+      const completedDocs = documentsWithResults.filter(doc => doc.status === 'completed');
+      const failedDocs = documentsWithResults.filter(doc => doc.status === 'failed');
+      
+      const summary = {
+        totalDocuments: documents.length,
+        completedDocuments: completedDocs.length,
+        failedDocuments: failedDocs.length,
+        totalCreditsUsed: batchJob.totalCreditsUsed,
+        overallRiskLevel: calculateBatchRiskLevel(completedDocs),
+        averageComplianceScore: calculateAverageCompliance(completedDocs)
+      };
+
+      res.json({
+        batchJob,
+        documents: documentsWithResults,
+        summary
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Admin endpoints for batch management
+  app.get("/api/admin/batch/jobs", requireAdmin, async (req, res) => {
+    try {
+      const page = req.query.page ? parseInt(req.query.page as string) : 1;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
+      const result = await storage.getAllBatchJobs(page, limit);
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/admin/batch/statistics", requireAdmin, async (req, res) => {
+    try {
+      const statistics = await storage.getBatchJobStatistics(); // No userId for admin view
+      res.json(statistics);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Queue management endpoints
+  app.get("/api/admin/queue/jobs", requireAdmin, async (req, res) => {
+    try {
+      const status = req.query.status as string;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+      const queueJobs = await storage.getQueueJobs(status, limit);
+      res.json(queueJobs);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/admin/queue/jobs/:id/retry", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const retryJob = await storage.retryFailedQueueJob(id);
+      res.json(retryJob);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/admin/queue/jobs/:id", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteQueueJob(id);
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Helper functions for batch processing
+  function calculateBatchRiskLevel(completedDocs: any[]): string {
+    if (completedDocs.length === 0) return 'unknown';
+    
+    const riskLevels = completedDocs.map(doc => doc.analysis?.result?.riskLevel).filter(Boolean);
+    const criticalCount = riskLevels.filter(level => level === 'critical').length;
+    const highCount = riskLevels.filter(level => level === 'high').length;
+    
+    if (criticalCount > 0) return 'critical';
+    if (highCount > riskLevels.length * 0.5) return 'high';
+    if (highCount > 0) return 'medium';
+    return 'low';
+  }
+
+  function calculateAverageCompliance(completedDocs: any[]): number {
+    const complianceScores = completedDocs
+      .map(doc => doc.analysis?.result?.legalCompliance?.score)
+      .filter(score => score !== undefined && score !== null);
+    
+    if (complianceScores.length === 0) return 0;
+    return Math.round(complianceScores.reduce((sum, score) => sum + score, 0) / complianceScores.length);
+  }
 
   const httpServer = createServer(app);
   return httpServer;

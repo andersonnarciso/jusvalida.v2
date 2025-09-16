@@ -3,10 +3,14 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import bcrypt from "bcrypt";
 import { storage } from "./storage";
+import fs from "fs";
+import path from "path";
 
 const app = express();
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+// SECURITY: Set body size limits to prevent payload attacks
+// Regular JSON requests limited to 50MB for batch metadata
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: false, limit: '50mb' }));
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -37,6 +41,61 @@ app.use((req, res, next) => {
 
   next();
 });
+
+// SECURITY FIX: Ensure upload directories exist on startup
+async function createUploadDirectories() {
+  const uploadDirs = ['/tmp/uploads', '/tmp/batch-uploads'];
+  
+  for (const dir of uploadDirs) {
+    try {
+      await fs.promises.mkdir(dir, { recursive: true });
+      log(`✅ Upload directory ensured: ${dir}`);
+    } catch (error: any) {
+      log(`❌ Failed to create upload directory ${dir}: ${error.message}`);
+      throw error;
+    }
+  }
+}
+
+// SECURITY FIX: Periodic cleanup of orphaned temporary files
+async function cleanupOrphanedFiles() {
+  const uploadDirs = ['/tmp/uploads', '/tmp/batch-uploads'];
+  const maxAge = 24 * 60 * 60 * 1000; // 24 hours
+  
+  for (const dir of uploadDirs) {
+    try {
+      const files = await fs.promises.readdir(dir);
+      const now = Date.now();
+      
+      for (const file of files) {
+        const filePath = path.join(dir, file);
+        try {
+          const stats = await fs.promises.stat(filePath);
+          const age = now - stats.mtime.getTime();
+          
+          if (age > maxAge) {
+            await fs.promises.unlink(filePath);
+            log(`🗑️ Cleaned up orphaned file: ${filePath}`);
+          }
+        } catch (fileError: any) {
+          // File might have been deleted already, ignore
+          if (fileError.code !== 'ENOENT') {
+            log(`⚠️ Error checking file ${filePath}: ${fileError.message}`);
+          }
+        }
+      }
+    } catch (dirError: any) {
+      if (dirError.code !== 'ENOENT') {
+        log(`⚠️ Error cleaning directory ${dir}: ${dirError.message}`);
+      }
+    }
+  }
+}
+
+// Start periodic cleanup every hour
+setInterval(cleanupOrphanedFiles, 60 * 60 * 1000);
+// Run initial cleanup after 5 minutes
+setTimeout(cleanupOrphanedFiles, 5 * 60 * 1000);
 
 // Secure admin user creation function
 async function createInitialAdminUser() {
@@ -76,6 +135,9 @@ async function createInitialAdminUser() {
 }
 
 (async () => {
+  // SECURITY FIX: Create upload directories before routes registration
+  await createUploadDirectories();
+  
   const server = await registerRoutes(app);
   
   // Create initial admin user if needed
