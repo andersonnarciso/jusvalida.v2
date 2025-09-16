@@ -6,39 +6,13 @@ import { storage } from "./storage";
 import { aiService } from "./services/ai";
 import { batchProcessor } from "./services/batchProcessor";
 import { requireSupabaseAuth, requireSupabaseAdmin } from "./middleware/supabase-auth";
-import bcrypt from "bcrypt";
-import session from "express-session";
-import MemoryStore from "memorystore";
-import { insertUserSchema, loginUserSchema, insertDocumentAnalysisSchema, insertSupportTicketSchema, insertTicketMessageSchema, adminTicketMessageSchema, assignRoleSchema, adminUserUpdateSchema, insertAiProviderConfigSchema, insertCreditPackageSchema, insertDocumentTemplateSchema, insertLegalClauseSchema, insertTemplatePromptSchema, insertTemplateAnalysisRuleSchema, insertBatchJobSchema, insertBatchDocumentSchema, insertQueueJobSchema } from "@shared/schema";
+import { insertDocumentAnalysisSchema, insertSupportTicketSchema, insertTicketMessageSchema, adminTicketMessageSchema, adminUserUpdateSchema, insertAiProviderConfigSchema, insertCreditPackageSchema, insertDocumentTemplateSchema, insertLegalClauseSchema, insertTemplatePromptSchema, insertTemplateAnalysisRuleSchema, insertBatchJobSchema, insertBatchDocumentSchema, insertQueueJobSchema } from "@shared/schema";
 import multer from "multer";
 import { z } from "zod";
 import fs from "fs";
 import path from "path";
 
-declare global {
-  namespace Express {
-    interface User {
-      id: string;
-      email: string;
-      firstName: string;
-      lastName: string;
-      username: string;
-      role: "user" | "admin" | "support";
-      credits: number;
-      stripeCustomerId?: string | null;
-    }
-    
-    interface Request {
-      user?: User;
-    }
-  }
-}
-
-declare module 'express-session' {
-  interface SessionData {
-    user?: Express.User;
-  }
-}
+// Global types cleaned up - using Supabase Auth instead of sessions
 
 if (!process.env.STRIPE_SECRET_KEY) {
   throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
@@ -68,12 +42,7 @@ async function checkFreeAnalysisLimit(userId: string): Promise<boolean> {
   }
 }
 
-// Helper function to sanitize user objects by removing sensitive fields
-function toSafeUser(user: any) {
-  if (!user) return user;
-  const { password, ...safeUser } = user;
-  return safeUser;
-}
+// Helper function removed - no longer needed with Supabase Auth
 
 // Configure multer for file uploads - SECURE: Using disk storage to prevent memory exhaustion
 const upload = multer({
@@ -217,21 +186,12 @@ async function handleSuccessfulPayment(paymentIntent: Stripe.PaymentIntent) {
       newCreditBalance: newCredits
     });
 
-    // CACHE INVALIDATION: Update user sessions with new credit balance
-    await invalidateUserSessions(userId, {
-      credits: result.user.credits
-    });
-
     console.log(`✅ Successfully processed payment ${paymentIntent.id}: ${credits} credits added to user ${userId}`);
-    console.log(`✅ Cache invalidation completed for user ${userId}`);
     
   } catch (error: any) {
     console.error(`❌ Error processing payment ${paymentIntent.id}:`, error);
   }
 }
-
-// Session store instance for cache invalidation
-let sessionStore: any;
 
 // Helper function to clean up uploaded files
 async function cleanupUploadedFiles(files: Express.Multer.File[]) {
@@ -244,38 +204,6 @@ async function cleanupUploadedFiles(files: Express.Multer.File[]) {
     } catch (error) {
       console.error(`❌ Failed to cleanup file ${file.path}:`, error);
     }
-  }
-}
-
-// Function to invalidate user session cache after external updates (webhooks)
-async function invalidateUserSessions(userId: string, updatedUserData: Partial<Express.User>) {
-  if (!sessionStore) return;
-  
-  try {
-    // Get all sessions and update any that belong to this user
-    sessionStore.all((err: any, sessions: any) => {
-      if (err) {
-        console.error('❌ Error accessing session store:', err);
-        return;
-      }
-      
-      Object.keys(sessions || {}).forEach(sessionId => {
-        const sessionData = sessions[sessionId];
-        if (sessionData?.user?.id === userId) {
-          // Update the user data in the session
-          sessionData.user = { ...sessionData.user, ...updatedUserData };
-          sessionStore.set(sessionId, sessionData, (setErr: any) => {
-            if (setErr) {
-              console.error(`❌ Error updating session ${sessionId}:`, setErr);
-            } else {
-              console.log(`✅ Updated session for user ${userId} with new credit balance`);
-            }
-          });
-        }
-      });
-    });
-  } catch (error) {
-    console.error('❌ Error invalidating user sessions:', error);
   }
 }
 
@@ -326,128 +254,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ received: true });
   });
 
-  // Session configuration with cache invalidation support
-  const MemoryStoreSession = MemoryStore(session);
-  sessionStore = new MemoryStoreSession({
-    checkPeriod: 86400000 // prune expired entries every 24h
-  });
-  
-  app.use(session({
-    store: sessionStore,
-    secret: process.env.SESSION_SECRET || 'fallback-secret',
-    resave: false,
-    saveUninitialized: false,
-    cookie: { 
-      secure: false, // Set to true in production with HTTPS
-      httpOnly: true,
-      maxAge: 24 * 60 * 60 * 1000 // 24 hours
-    }
-  }));
+  // Express setup for Supabase Auth - no sessions needed
 
-  // Auth middleware
-  const requireAuth = (req: any, res: any, next: any) => {
-    if (!req.session?.user) {
-      return res.status(401).json({ message: "Authentication required" });
-    }
-    req.user = req.session.user;
-    next();
-  };
-
-  // Authentication routes
-  app.post("/api/auth/register", async (req, res) => {
-    try {
-      const validatedData = insertUserSchema.parse(req.body);
-      
-      // Check if user already exists
-      const existingUser = await storage.getUserByEmail(validatedData.email);
-      if (existingUser) {
-        return res.status(400).json({ message: "User already exists" });
-      }
-
-      // Hash password
-      const hashedPassword = await bcrypt.hash(validatedData.password, 10);
-      
-      const user = await storage.createUser({
-        ...validatedData,
-        password: hashedPassword,
-      });
-
-      // Set session
-      req.session.user = {
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        username: user.username,
-        role: user.role,
-        credits: user.credits,
-        stripeCustomerId: user.stripeCustomerId,
-      };
-
-      res.json({
-        user: {
-          id: user.id,
-          email: user.email,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          username: user.username,
-          credits: user.credits,
-        }
-      });
-    } catch (error: any) {
-      res.status(400).json({ message: error.message });
-    }
-  });
-
-  app.post("/api/auth/login", async (req, res) => {
-    try {
-      const { email, password } = loginUserSchema.parse(req.body);
-      
-      const user = await storage.getUserByEmail(email);
-      if (!user) {
-        return res.status(401).json({ message: "Invalid credentials" });
-      }
-
-      const isValidPassword = await bcrypt.compare(password, user.password);
-      if (!isValidPassword) {
-        return res.status(401).json({ message: "Invalid credentials" });
-      }
-
-      // Set session
-      req.session.user = {
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        username: user.username,
-        role: user.role,
-        credits: user.credits,
-        stripeCustomerId: user.stripeCustomerId,
-      };
-
-      res.json({
-        user: {
-          id: user.id,
-          email: user.email,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          username: user.username,
-          credits: user.credits,
-        }
-      });
-    } catch (error: any) {
-      res.status(400).json({ message: error.message });
-    }
-  });
-
-  app.post("/api/auth/logout", (req, res) => {
-    req.session.destroy((err) => {
-      if (err) {
-        return res.status(500).json({ message: "Logout failed" });
-      }
-      res.json({ message: "Logged out successfully" });
-    });
-  });
 
   app.get("/api/auth/me", requireSupabaseAuth, (req, res) => {
     // Prevent caching to avoid 304 responses that break JSON parsing
@@ -583,8 +391,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           `Document analysis using ${aiProvider} ${aiModel}`
         );
 
-        // Update session
-        req.session.user!.credits = newCredits;
+        // Credits updated in database - no session to update
 
         res.json({
           analysisId: analysis.id,
@@ -790,7 +597,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           paymentIntentId
         );
 
-        req.session.user!.credits = newCredits;
+        // Credits updated in database - no session to update
         
         res.json({ success: true, newCredits });
       } else {
@@ -984,20 +791,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Admin middleware - proper role-based access control
-  const requireAdmin = (req: any, res: any, next: any) => {
-    if (!req.session?.user) {
-      return res.status(401).json({ message: "Authentication required" });
-    }
-    
-    // Check if user has admin or support role
-    if (!['admin', 'support'].includes(req.session.user.role)) {
-      return res.status(403).json({ message: "Admin access required" });
-    }
-    
-    req.user = req.session.user;
-    next();
-  };
+  // Admin middleware (legacy - removed in favor of Supabase Auth with role metadata)
 
   // Admin routes
   app.get("/api/admin/tickets", requireSupabaseAdmin, async (req, res) => {
@@ -1774,7 +1568,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   };
 
   // Create batch job with multiple files - SECURE: Disk-based storage with atomic credit reservation
-  app.post("/api/batch/create", requireAuth, batchUpload.array('files', 25), validateBatchSize, async (req, res) => {
+  app.post("/api/batch/create", requireSupabaseAuth, batchUpload.array('files', 25), validateBatchSize, async (req, res) => {
     let uploadedFiles: Express.Multer.File[] = [];
     let batchJobCreated = false;
     
@@ -1915,7 +1709,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get user's batch jobs
-  app.get("/api/batch/jobs", requireAuth, async (req, res) => {
+  app.get("/api/batch/jobs", requireSupabaseAuth, async (req, res) => {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
       const batchJobs = await storage.getBatchJobs(req.user.id, limit);
@@ -1926,7 +1720,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get specific batch job with details
-  app.get("/api/batch/jobs/:id", requireAuth, async (req, res) => {
+  app.get("/api/batch/jobs/:id", requireSupabaseAuth, async (req, res) => {
     try {
       const { id } = req.params;
       const batchJob = await storage.getBatchJob(id, req.user.id);
@@ -1942,7 +1736,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get batch job statistics
-  app.get("/api/batch/statistics", requireAuth, async (req, res) => {
+  app.get("/api/batch/statistics", requireSupabaseAuth, async (req, res) => {
     try {
       const statistics = await storage.getBatchJobStatistics(req.user.id);
       res.json(statistics);
@@ -1952,7 +1746,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Cancel batch job (if still pending)
-  app.post("/api/batch/jobs/:id/cancel", requireAuth, async (req, res) => {
+  app.post("/api/batch/jobs/:id/cancel", requireSupabaseAuth, async (req, res) => {
     try {
       const { id } = req.params;
       const batchJob = await storage.getBatchJob(id, req.user.id);
@@ -1972,7 +1766,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete batch job
-  app.delete("/api/batch/jobs/:id", requireAuth, async (req, res) => {
+  app.delete("/api/batch/jobs/:id", requireSupabaseAuth, async (req, res) => {
     try {
       const { id } = req.params;
       const batchJob = await storage.getBatchJob(id, req.user.id);
@@ -1988,7 +1782,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get batch processing results
-  app.get("/api/batch/jobs/:id/results", requireAuth, async (req, res) => {
+  app.get("/api/batch/jobs/:id/results", requireSupabaseAuth, async (req, res) => {
     try {
       const { id } = req.params;
       const batchJob = await storage.getBatchJob(id, req.user.id);

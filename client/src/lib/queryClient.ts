@@ -1,10 +1,24 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { supabase } from '@/lib/supabase';
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
     throw new Error(`${res.status}: ${text}`);
   }
+}
+
+// Helper function to get authorization headers
+async function getAuthHeaders(): Promise<Record<string, string>> {
+  const { data: { session } } = await supabase.auth.getSession();
+  
+  if (session?.access_token) {
+    return {
+      'Authorization': `Bearer ${session.access_token}`,
+    };
+  }
+  
+  return {};
 }
 
 export async function apiRequest(
@@ -15,11 +29,18 @@ export async function apiRequest(
   // Handle FormData differently - don't JSON stringify or set Content-Type
   const isFormData = data instanceof FormData;
   
+  // Get authorization headers from Supabase
+  const authHeaders = await getAuthHeaders();
+  
+  const headers = {
+    ...authHeaders,
+    ...(isFormData ? {} : (data ? { "Content-Type": "application/json" } : {})),
+  };
+  
   const res = await fetch(url, {
     method,
-    headers: isFormData ? {} : (data ? { "Content-Type": "application/json" } : {}),
+    headers,
     body: isFormData ? data as FormData : (data ? JSON.stringify(data) : undefined),
-    credentials: "include",
     cache: url.includes('/api/auth/') ? 'no-store' : 'default', // Prevent auth caching
   });
 
@@ -33,8 +54,11 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
+    // Get authorization headers from Supabase
+    const authHeaders = await getAuthHeaders();
+    
     const res = await fetch(queryKey.join("/") as string, {
-      credentials: "include",
+      headers: authHeaders,
     });
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {

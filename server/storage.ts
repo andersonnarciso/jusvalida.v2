@@ -2,7 +2,7 @@ import { type User, type InsertUser, type LoginUser, type AiProvider, type Inser
 import type { Express } from "express";
 import { db } from "./db";
 import { users, aiProviders, documentAnalyses, creditTransactions, supportTickets, ticketMessages, aiProviderConfigs, creditPackages, platformStats, documentTemplates, legalClauses, templatePrompts, templateAnalysisRules, batchJobs, batchDocuments, queueJobs } from "@shared/schema";
-import { eq, desc, and, limit as drizzleLimit, count, sum, gte, sql, isNotNull, isNull, lte } from "drizzle-orm";
+import { eq, desc, and, count, sum, gte, sql, isNotNull, isNull, lte } from "drizzle-orm";
 
 export interface IStorage {
   // User management
@@ -10,6 +10,7 @@ export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
   getUsersByRole(role: string): Promise<User[]>;
   createUser(user: InsertUser): Promise<User>;
+  createUserWithSupabaseId(supabaseId: string, user: InsertUser & { role?: string }): Promise<User>;
   updateUserCredits(id: string, credits: number): Promise<User>;
   deductUserCredits(userId: string, amount: number, description: string): Promise<void>;
   updateUserRole(id: string, role: string): Promise<User>;
@@ -214,7 +215,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUsersByRole(role: string): Promise<User[]> {
-    const usersByRole = await db.select().from(users).where(eq(users.role, role));
+    const usersByRole = await db.select().from(users).where(eq(users.role, role as "user" | "admin" | "support"));
     return usersByRole;
   }
 
@@ -222,8 +223,20 @@ export class DatabaseStorage implements IStorage {
     const [user] = await db
       .insert(users)
       .values({
+        id: crypto.randomUUID(), // Generate UUID for regular user creation
+        ...insertUser
+      })
+      .returning();
+    return user;
+  }
+
+  async createUserWithSupabaseId(supabaseId: string, insertUser: InsertUser & { role?: string }): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values({
+        id: supabaseId, // Use Supabase ID as primary key
         ...insertUser,
-        credits: insertUser.credits || 10, // Use provided credits or default to 10
+        role: (insertUser.role || 'user') as "user" | "admin" | "support", // Default to 'user' role
       })
       .returning();
     return user;
@@ -257,6 +270,7 @@ export class DatabaseStorage implements IStorage {
       type: "usage",
       amount: -amount,
       description,
+      stripePaymentIntentId: "", // Empty string for usage transactions
       newCreditBalance: newCredits
     });
   }
@@ -324,7 +338,7 @@ export class DatabaseStorage implements IStorage {
 
   // Document Analysis
   async getDocumentAnalyses(userId: string, limit?: number): Promise<DocumentAnalysis[]> {
-    let query = db
+    const query = db
       .select()
       .from(documentAnalyses)
       .where(and(
@@ -334,7 +348,7 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(documentAnalyses.createdAt));
     
     if (limit) {
-      query = query.limit(limit);
+      return await query.limit(limit);
     }
     
     return await query;
@@ -470,7 +484,7 @@ export class DatabaseStorage implements IStorage {
     type: string;
     amount: number;
     description: string;
-    stripePaymentIntentId: string;
+    stripePaymentIntentId?: string;
     newCreditBalance: number;
   }): Promise<{ user: User; transaction: CreditTransaction }> {
     // Use database transaction to ensure atomicity and prevent race conditions
@@ -497,7 +511,7 @@ export class DatabaseStorage implements IStorage {
           type: transactionData.type,
           amount: transactionData.amount,
           description: transactionData.description,
-          stripePaymentIntentId: transactionData.stripePaymentIntentId,
+          stripePaymentIntentId: transactionData.stripePaymentIntentId || null,
         })
         .returning();
       
@@ -561,7 +575,10 @@ export class DatabaseStorage implements IStorage {
       // Create batch job
       const [batchJob] = await tx
         .insert(batchJobs)
-        .values(batchMeta)
+        .values({
+          ...batchMeta,
+          userId
+        })
         .returning();
 
       // Create batch documents with temp file paths
@@ -569,7 +586,7 @@ export class DatabaseStorage implements IStorage {
         batchJobId: batchJob.id,
         originalFileName: file.originalname,
         fileSize: file.size,
-        mimeType: file.mimetype,
+        fileMimeType: file.mimetype,
         status: 'pending' as const,
         metadata: {
           filePath: file.path, // Store temp file path for processing
@@ -686,18 +703,7 @@ export class DatabaseStorage implements IStorage {
     const offset = (page - 1) * limit;
     
     const [usersResult, totalResult] = await Promise.all([
-      db.select({
-        id: users.id,
-        username: users.username,
-        email: users.email,
-        firstName: users.firstName,
-        lastName: users.lastName,
-        role: users.role,
-        credits: users.credits,
-        stripeCustomerId: users.stripeCustomerId,
-        createdAt: users.createdAt,
-        updatedAt: users.updatedAt,
-      }).from(users).orderBy(desc(users.createdAt)).limit(limit).offset(offset),
+      db.select().from(users).orderBy(desc(users.createdAt)).limit(limit).offset(offset),
       db.select({ count: count() }).from(users)
     ]);
     
@@ -1363,15 +1369,25 @@ export class DatabaseStorage implements IStorage {
 
   // Queue Jobs Management
   async getQueueJobs(status?: string, limit?: number): Promise<QueueJob[]> {
-    let query = db.select().from(queueJobs);
-    if (status) {
-      query = query.where(eq(queueJobs.status, status));
+    const baseQuery = db.select().from(queueJobs);
+    
+    if (status && limit) {
+      return await baseQuery
+        .where(eq(queueJobs.status, status))
+        .orderBy(desc(queueJobs.priority), queueJobs.scheduledFor)
+        .limit(limit);
+    } else if (status) {
+      return await baseQuery
+        .where(eq(queueJobs.status, status))
+        .orderBy(desc(queueJobs.priority), queueJobs.scheduledFor);
+    } else if (limit) {
+      return await baseQuery
+        .orderBy(desc(queueJobs.priority), queueJobs.scheduledFor)
+        .limit(limit);
+    } else {
+      return await baseQuery
+        .orderBy(desc(queueJobs.priority), queueJobs.scheduledFor);
     }
-    query = query.orderBy(desc(queueJobs.priority), queueJobs.scheduledFor);
-    if (limit) {
-      query = query.limit(limit);
-    }
-    return await query;
   }
 
   async getQueueJob(id: string): Promise<QueueJob | undefined> {
@@ -1453,7 +1469,7 @@ export class DatabaseStorage implements IStorage {
     averageProcessingTime: number;
     totalDocumentsProcessed: number;
   }> {
-    let query = db.select({
+    const baseQuery = db.select({
       total: count(),
       completed: sum(sql`CASE WHEN ${batchJobs.status} = 'completed' THEN 1 ELSE 0 END`).mapWith(Number),
       failed: sum(sql`CASE WHEN ${batchJobs.status} = 'failed' THEN 1 ELSE 0 END`).mapWith(Number),
@@ -1461,11 +1477,9 @@ export class DatabaseStorage implements IStorage {
       avgTime: sql`AVG(EXTRACT(epoch FROM (${batchJobs.processingCompletedAt} - ${batchJobs.processingStartedAt})))`.mapWith(Number)
     }).from(batchJobs);
 
-    if (userId) {
-      query = query.where(eq(batchJobs.userId, userId));
-    }
-
-    const [stats] = await query;
+    const [stats] = userId 
+      ? await baseQuery.where(eq(batchJobs.userId, userId))
+      : await baseQuery;
     
     return {
       totalBatches: stats?.total || 0,
@@ -1497,13 +1511,11 @@ export class DatabaseStorage implements IStorage {
     completedDocuments: number;
     failedDocuments: number;
   }>> {
-    let query = db.select().from(batchJobs);
-    if (userId) {
-      query = query.where(eq(batchJobs.userId, userId));
-    }
-    query = query.orderBy(desc(batchJobs.createdAt));
-
-    const jobs = await query;
+    const baseQuery = db.select().from(batchJobs).orderBy(desc(batchJobs.createdAt));
+    
+    const jobs = userId 
+      ? await baseQuery.where(eq(batchJobs.userId, userId))
+      : await baseQuery;
     
     const jobsWithDetails = await Promise.all(
       jobs.map(async (job) => {

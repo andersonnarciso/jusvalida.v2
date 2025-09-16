@@ -4,7 +4,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey(), // Supabase ID will be provided, no auto-generation
   username: text("username").notNull().unique(),
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
