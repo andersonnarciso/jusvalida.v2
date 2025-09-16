@@ -2,21 +2,21 @@ import { useState } from 'react';
 import { Link, useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { useAuth } from '@/hooks/use-auth';
+import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
 import { Gavel, Coins, ChevronDown, User, CreditCard, Headphones, LogOut, Settings, Trash2 } from 'lucide-react';
 
 export function DashboardHeader() {
-  const { user, logout } = useAuth();
+  const { user, signOut } = useSupabaseAuth();
   const [, setLocation] = useLocation();
 
   const handleLogout = async () => {
-    await logout();
+    await signOut();
     setLocation('/');
   };
 
   if (!user) return null;
 
-  const userInitials = `${user.firstName?.[0] || ''}${user.lastName?.[0] || ''}`.toUpperCase();
+  const userInitials = `${user?.user_metadata?.first_name?.[0] || ''}${user?.user_metadata?.last_name?.[0] || ''}`.toUpperCase();
 
   return (
     <div className="bg-card border-b border-border">
@@ -32,12 +32,13 @@ export function DashboardHeader() {
           </Link>
           
           <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2 bg-primary/10 px-3 py-2 rounded-lg">
+            {/* TODO: Need to implement credits system with Supabase */}
+            {/* <div className="flex items-center space-x-2 bg-primary/10 px-3 py-2 rounded-lg">
               <Coins className="text-primary" size={16} />
               <span className="font-medium" data-testid="text-user-credits">
-                {user.credits} créditos
+                {user?.credits || 0} créditos
               </span>
-            </div>
+            </div> */}
             
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -47,7 +48,7 @@ export function DashboardHeader() {
                       {userInitials}
                     </span>
                   </div>
-                  <span data-testid="text-user-name">{user.firstName} {user.lastName}</span>
+                  <span data-testid="text-user-name">{user?.user_metadata?.first_name} {user?.user_metadata?.last_name}</span>
                   <ChevronDown size={16} />
                 </Button>
               </DropdownMenuTrigger>

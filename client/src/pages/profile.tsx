@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useAuth } from '@/hooks/use-auth';
+import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import { Eye, EyeOff, Key, Save, Trash2, Plus } from 'lucide-react';
@@ -20,7 +20,7 @@ interface AIProviderConfig {
 }
 
 export default function Profile() {
-  const { user } = useAuth();
+  const { user } = useSupabaseAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
@@ -33,6 +33,12 @@ export default function Profile() {
       const response = await apiRequest('GET', '/api/ai-providers');
       return response.json();
     }
+  });
+
+  // Load user profile data including credits
+  const { data: userProfile } = useQuery<{userProfile: {credits: number}}>({
+    queryKey: ['/api/user/profile'],
+    enabled: !!user // Only run when user is authenticated
   });
 
   const saveProviderMutation = useMutation({
@@ -154,7 +160,7 @@ export default function Profile() {
                     <Label htmlFor="firstName">Nome</Label>
                     <Input
                       id="firstName"
-                      value={user.firstName}
+                      value={user.user_metadata?.first_name || ''}
                       disabled
                       data-testid="input-first-name"
                     />
@@ -164,7 +170,7 @@ export default function Profile() {
                     <Label htmlFor="lastName">Sobrenome</Label>
                     <Input
                       id="lastName"
-                      value={user.lastName}
+                      value={user.user_metadata?.last_name || ''}
                       disabled
                       data-testid="input-last-name"
                     />
@@ -174,7 +180,7 @@ export default function Profile() {
                     <Label htmlFor="username">Nome de Usuário</Label>
                     <Input
                       id="username"
-                      value={user.username}
+                      value={user.user_metadata?.username || user.email?.split('@')[0] || ''}
                       disabled
                       data-testid="input-username"
                     />
@@ -196,12 +202,12 @@ export default function Profile() {
                     <div>
                       <h3 className="text-lg font-medium" data-testid="text-account-status">Status da Conta</h3>
                       <p className="text-sm text-muted-foreground">
-                        Conta ativa com {user.credits} créditos disponíveis
+                        Conta ativa com {userProfile?.userProfile?.credits || 0} créditos disponíveis
                       </p>
                     </div>
                     <div className="text-right">
                       <div className="text-2xl font-bold text-primary" data-testid="text-credits-display">
-                        {user.credits}
+                        {userProfile?.userProfile?.credits || 0}
                       </div>
                       <div className="text-sm text-muted-foreground">créditos</div>
                     </div>

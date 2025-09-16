@@ -268,6 +268,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ user: req.user });
   });
 
+  app.get("/api/user/profile", requireSupabaseAuth, async (req, res) => {
+    try {
+      // Get user from local database to get credits and other local data
+      const localUser = await storage.getUser(req.user.id);
+      
+      // Combine Supabase user data with local database data
+      const userProfile = {
+        id: req.user.id,
+        email: req.user.email,
+        firstName: req.user.user_metadata?.first_name || req.user.email.split('@')[0],
+        lastName: req.user.user_metadata?.last_name || '',
+        username: req.user.user_metadata?.username || req.user.email.split('@')[0],
+        credits: localUser?.credits || 0,
+        role: req.user.app_metadata?.role || 'user',
+        stripeCustomerId: localUser?.stripeCustomerId || null,
+        createdAt: req.user.created_at,
+        updatedAt: req.user.updated_at
+      };
+
+      res.set({
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+        'ETag': ''
+      });
+      
+      res.json({ userProfile });
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+      res.status(500).json({ message: 'Error fetching user profile' });
+    }
+  });
+
   // Document analysis routes
   app.post("/api/analyze", requireSupabaseAuth, upload.single('file'), async (req, res) => {
     try {

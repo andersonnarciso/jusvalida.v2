@@ -5,13 +5,10 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { CookieBanner } from "@/components/ui/cookie-banner";
 import { Footer } from "@/components/ui/footer";
-import { AuthProvider } from "@/hooks/use-auth";
 import { SupabaseAuthProvider } from "@/hooks/use-supabase-auth";
 import { CookieConsentProvider } from "@/hooks/use-cookie-preferences";
 import Landing from "@/pages/landing";
 import Dashboard from "@/pages/dashboard";
-import Login from "@/pages/login";
-import Register from "@/pages/register";
 import LoginSupabase from "@/pages/login-supabase";
 import RegisterSupabase from "@/pages/register-supabase";
 import Profile from "@/pages/profile";
@@ -36,8 +33,6 @@ function Router() {
           <Route path="/" component={Landing} />
           <Route path="/login" component={LoginSupabase} />
           <Route path="/register" component={RegisterSupabase} />
-          <Route path="/login-old" component={Login} />
-          <Route path="/register-old" component={Register} />
           <Route path="/dashboard" component={Dashboard} />
           <Route path="/profile" component={Profile} />
           <Route path="/billing" component={Billing} />
@@ -65,12 +60,10 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <CookieConsentProvider>
         <SupabaseAuthProvider>
-          <AuthProvider>
-            <TooltipProvider>
-              <Toaster />
-              <Router />
-            </TooltipProvider>
-          </AuthProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Router />
+          </TooltipProvider>
         </SupabaseAuthProvider>
       </CookieConsentProvider>
     </QueryClientProvider>

@@ -4,7 +4,7 @@ import { DashboardHeader } from '@/components/layout/dashboard-header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { useAuth } from '@/hooks/use-auth';
+import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
 import { apiRequest } from '@/lib/queryClient';
 import { FileText, AlertTriangle, Clock, CheckCircle, Eye, Coins } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
@@ -36,7 +36,7 @@ interface DocumentAnalysis {
 }
 
 export default function Analyses() {
-  const { user } = useAuth();
+  const { user } = useSupabaseAuth();
   const [, setLocation] = useLocation();
 
   useEffect(() => {

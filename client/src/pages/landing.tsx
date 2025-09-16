@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useAuth } from '@/hooks/use-auth';
+import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
 import { useToast } from '@/hooks/use-toast';
 import { useQuery } from '@tanstack/react-query';
 import { Eye, EyeOff, Gavel, Bot, Upload, Shield, CreditCard, Headphones, ChartLine, Check, Play, Rocket } from 'lucide-react';
@@ -22,7 +22,7 @@ interface PlatformStats {
 }
 
 export default function Landing() {
-  const { login, register } = useAuth();
+  const { signIn, signUp } = useSupabaseAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   
@@ -46,7 +46,10 @@ export default function Landing() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await login(loginForm.email, loginForm.password);
+      const { error } = await signIn(loginForm.email, loginForm.password);
+      if (error) {
+        throw error;
+      }
       setLocation('/dashboard');
     } catch (error: any) {
       toast({
@@ -69,7 +72,14 @@ export default function Landing() {
     }
     
     try {
-      await register(registerForm);
+      const { error } = await signUp(registerForm.email, registerForm.password, {
+        firstName: registerForm.firstName,
+        lastName: registerForm.lastName,
+        username: registerForm.username
+      });
+      if (error) {
+        throw error;
+      }
       toast({
         title: "Conta criada com sucesso!",
         description: "Bem-vindo ao JusValida! Você recebeu 10 créditos gratuitos.",

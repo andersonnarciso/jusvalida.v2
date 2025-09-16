@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DashboardHeader } from '@/components/layout/dashboard-header';
-import { useAuth } from '@/hooks/use-auth';
+import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import { useLocation } from 'wouter';
@@ -105,12 +105,18 @@ function CheckoutForm({ selectedPackage, onPaymentSuccess }: CheckoutFormProps) 
 }
 
 export default function Checkout() {
-  const { user } = useAuth();
+  const { user } = useSupabaseAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   
   const { data: creditPackages = [], isLoading } = useQuery<CreditPackage[]>({
     queryKey: ['/api/credit-packages'],
+  });
+
+  // Load user profile data including credits
+  const { data: userProfile } = useQuery<{userProfile: {credits: number}}>({
+    queryKey: ['/api/user/profile'],
+    enabled: !!user // Only run when user is authenticated
   });
   
   const [selectedPackage, setSelectedPackage] = useState<CreditPackage | null>(null);
@@ -149,7 +155,9 @@ export default function Checkout() {
   };
 
   const handleProceedToPayment = () => {
-    createPaymentIntent(selectedPackage);
+    if (selectedPackage) {
+      createPaymentIntent(selectedPackage);
+    }
   };
 
   const handlePaymentSuccess = () => {
@@ -306,7 +314,7 @@ export default function Checkout() {
                   <div className="py-4">
                     <div className="flex items-center justify-between text-sm mb-2">
                       <span>Créditos atuais:</span>
-                      <span data-testid="text-current-credits">{user.credits}</span>
+                      <span data-testid="text-current-credits">{userProfile?.userProfile?.credits || 0}</span>
                     </div>
                     <div className="flex items-center justify-between text-sm mb-2">
                       <span>Créditos adicionais:</span>
@@ -315,7 +323,7 @@ export default function Checkout() {
                     <div className="flex items-center justify-between font-medium">
                       <span>Total após compra:</span>
                       <span className="text-primary" data-testid="text-total-credits">
-                        {user.credits + selectedPackage.credits} créditos
+                        {(userProfile?.userProfile?.credits || 0) + selectedPackage.credits} créditos
                       </span>
                     </div>
                   </div>

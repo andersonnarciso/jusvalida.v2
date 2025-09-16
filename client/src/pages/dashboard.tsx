@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { FileUpload } from '@/components/ui/file-upload';
 import { AIProviderSelector } from '@/components/ui/ai-provider-selector';
 import { TemplateSelector } from '@/components/ui/template-selector';
-import { useAuth } from '@/hooks/use-auth';
+import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import { FileText, AlertTriangle, Clock, Coins, Eye, CheckCircle, AlertCircle, TrendingUp } from 'lucide-react';
@@ -47,7 +47,7 @@ interface DocumentAnalysis {
 }
 
 export default function Dashboard() {
-  const { user, isLoading } = useAuth();
+  const { user, loading } = useSupabaseAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
@@ -71,6 +71,12 @@ export default function Dashboard() {
 
   const { data: aiProviderConfigs = [] } = useQuery<AiProviderConfig[]>({
     queryKey: ['/api/ai-provider-configs'],
+    enabled: !!user // Only run when user is authenticated
+  });
+
+  // Load user profile data including credits
+  const { data: userProfile } = useQuery<{userProfile: {credits: number, firstName: string}}>({
+    queryKey: ['/api/user/profile'],
     enabled: !!user // Only run when user is authenticated
   });
 
@@ -116,10 +122,10 @@ export default function Dashboard() {
 
   // Handle authentication redirect properly - avoid setState during render
   useEffect(() => {
-    if (!isLoading && !user) {
+    if (!loading && !user) {
       setLocation('/login');
     }
-  }, [isLoading, user, setLocation]);
+  }, [loading, user, setLocation]);
 
   // Function to get selected provider's credit cost dynamically
   const getSelectedProviderCredits = () => {
@@ -191,7 +197,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-background">
-      {isLoading ? (
+      {loading ? (
         <div className="min-h-screen flex items-center justify-center">
           <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
         </div>
@@ -207,7 +213,7 @@ export default function Dashboard() {
             {/* Welcome Section */}
             <div className="mb-8">
               <h1 className="text-3xl font-bold mb-2" data-testid="text-welcome-title">
-                Bem-vindo de volta, {user.firstName}!
+                Bem-vindo de volta, {user.user_metadata?.first_name || user.email?.split('@')[0] || 'Usuário'}!
               </h1>
               <p className="text-muted-foreground" data-testid="text-welcome-description">
                 Analise seus documentos jurídicos com inteligência artificial avançada.
@@ -270,7 +276,7 @@ export default function Dashboard() {
                 <div>
                   <p className="text-muted-foreground text-sm">Créditos Restantes</p>
                   <p className="text-2xl font-bold text-primary" data-testid="text-stat-credits">
-                    {user.credits}
+                    {userProfile?.userProfile?.credits || 0}
                   </p>
                 </div>
                 <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
@@ -291,7 +297,7 @@ export default function Dashboard() {
             <AIProviderSelector
               selectedProvider={selectedProvider}
               onProviderChange={setSelectedProvider}
-              userCredits={user.credits}
+              userCredits={userProfile?.userProfile?.credits || 0}
             />
 
             {/* Template Selection */}

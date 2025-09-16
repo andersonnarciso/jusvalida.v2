@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useAuth } from '@/hooks/use-auth';
+import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
 import { apiRequest } from '@/lib/queryClient';
 import { Link } from 'wouter';
 import { CreditCard, Plus, ArrowUpRight, ArrowDownRight, Receipt, Coins, Calendar, ExternalLink, BarChart3, TrendingUp, Activity } from 'lucide-react';
@@ -37,7 +37,7 @@ interface CreditAnalytics {
 }
 
 export default function Billing() {
-  const { user } = useAuth();
+  const { user } = useSupabaseAuth();
 
   const { data: transactions = [], isLoading } = useQuery<CreditTransaction[]>({
     queryKey: ['/api/credit-transactions'],
@@ -53,6 +53,12 @@ export default function Billing() {
       const response = await apiRequest('GET', '/api/credit-analytics');
       return response.json();
     }
+  });
+
+  // Load user profile data including credits
+  const { data: userProfile } = useQuery<{userProfile: {credits: number}}>({
+    queryKey: ['/api/user/profile'],
+    enabled: !!user // Only run when user is authenticated
   });
 
   if (!user) return null;
@@ -124,7 +130,7 @@ export default function Billing() {
                 <div>
                   <p className="text-muted-foreground text-sm">Créditos Atuais</p>
                   <p className="text-3xl font-bold text-primary" data-testid="text-current-credits">
-                    {user.credits}
+                    {userProfile?.userProfile?.credits || 0}
                   </p>
                 </div>
                 <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
