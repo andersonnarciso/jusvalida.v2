@@ -46,7 +46,7 @@ export const creditTransactions = pgTable("credit_transactions", {
   type: text("type").notNull(), // 'purchase', 'usage', 'refund'
   amount: integer("amount").notNull(), // Positive for purchases, negative for usage
   description: text("description").notNull(),
-  stripePaymentIntentId: text("stripe_payment_intent_id"),
+  stripePaymentIntentId: text("stripe_payment_intent_id").unique(), // UNIQUE constraint to prevent double-processing
   createdAt: timestamp("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 

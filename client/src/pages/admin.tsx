@@ -52,6 +52,43 @@ interface AiUsageAnalytics {
   errorRates: Array<{provider: string, model: string, successRate: number}>;
 }
 
+interface FinancialDetails {
+  dailyTransactions: Array<{date: string, type: string, amount: number, count: number}>;
+  packagePopularity: Array<{name: string, sales: number}>;
+  userStatistics: {
+    totalUsers: number;
+    averageCredits: number;
+    maxCredits: number;
+    usersWithCredits: number;
+  };
+  recentTransactions: Array<{
+    id: string;
+    userId: string;
+    type: string;
+    amount: number;
+    description: string;
+    createdAt: string;
+    userEmail: string;
+    userName: string;
+  }>;
+  totalPackages: number;
+  activePackages: number;
+}
+
+interface CreditTrends {
+  creditTrends: Array<{date: string, purchases: number, usage: number, net: number}>;
+  topSpenders: Array<{
+    userId: string;
+    userEmail: string;
+    userName: string;
+    totalSpent: number;
+    totalPurchased: number;
+    transactionCount: number;
+  }>;
+  hourlyUsage: Array<{hour: number, transactions: number, credits: number}>;
+  period: {days: number, startDate: string, endDate: string};
+}
+
 export default function Admin() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
@@ -98,6 +135,24 @@ export default function Admin() {
     }
   });
 
+  // Fetch financial details
+  const { data: financialDetails, isLoading: financialLoading } = useQuery<FinancialDetails>({
+    queryKey: ['/api/admin/financial-details'],
+    queryFn: async () => {
+      const response = await apiRequest('GET', '/api/admin/financial-details');
+      return response.json();
+    }
+  });
+
+  // Fetch credit trends
+  const { data: creditTrends, isLoading: trendsLoading } = useQuery<CreditTrends>({
+    queryKey: ['/api/admin/credit-trends'],
+    queryFn: async () => {
+      const response = await apiRequest('GET', '/api/admin/credit-trends?days=30');
+      return response.json();
+    }
+  });
+
   // Update user mutation
   const updateUserMutation = useMutation({
     mutationFn: ({ userId, updates }: { userId: string; updates: { role?: string; credits?: number } }) =>
@@ -139,7 +194,7 @@ export default function Admin() {
         </div>
 
         <Tabs defaultValue="users" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="users" data-testid="tab-users">
               <Users className="mr-2 h-4 w-4" />
               Usuários
@@ -151,6 +206,10 @@ export default function Admin() {
             <TabsTrigger value="analytics" data-testid="tab-analytics">
               <TrendingUp className="mr-2 h-4 w-4" />
               Análises da Plataforma
+            </TabsTrigger>
+            <TabsTrigger value="financial" data-testid="tab-financial">
+              <DollarSign className="mr-2 h-4 w-4" />
+              Análise Financeira
             </TabsTrigger>
           </TabsList>
 
@@ -585,6 +644,207 @@ export default function Admin() {
                       </div>
                     ) : (
                       <p className="text-muted-foreground text-center">Nenhum dado de crescimento disponível</p>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* Financial Analytics Tab */}
+          <TabsContent value="financial" data-testid="content-financial">
+            <div className="grid gap-6">
+              {/* Financial Overview Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Total de Usuários</CardTitle>
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold" data-testid="text-financial-total-users">
+                      {financialLoading ? <Skeleton className="h-6 w-16" /> : financialDetails?.userStatistics.totalUsers || 0}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Média de Créditos</CardTitle>
+                    <Zap className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold" data-testid="text-avg-credits">
+                      {financialLoading ? <Skeleton className="h-6 w-16" /> : financialDetails?.userStatistics.averageCredits || 0}
+                    </div>
+                    <p className="text-xs text-muted-foreground">por usuário</p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Usuários Ativos</CardTitle>
+                    <Activity className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold" data-testid="text-users-with-credits">
+                      {financialLoading ? <Skeleton className="h-6 w-16" /> : financialDetails?.userStatistics.usersWithCredits || 0}
+                    </div>
+                    <p className="text-xs text-muted-foreground">com créditos</p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Pacotes Ativos</CardTitle>
+                    <DollarSign className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold" data-testid="text-active-packages">
+                      {financialLoading ? <Skeleton className="h-6 w-16" /> : financialDetails?.activePackages || 0}
+                    </div>
+                    <p className="text-xs text-muted-foreground">de {financialDetails?.totalPackages || 0} total</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Package Popularity and Top Spenders */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Pacotes Mais Populares</CardTitle>
+                    <CardDescription>Vendas por pacote de créditos</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {financialLoading ? (
+                      <div className="space-y-3">
+                        {[...Array(3)].map((_, i) => (
+                          <div key={i} className="flex items-center justify-between">
+                            <Skeleton className="h-4 w-32" />
+                            <Skeleton className="h-4 w-16" />
+                          </div>
+                        ))}
+                      </div>
+                    ) : financialDetails?.packagePopularity.length ? (
+                      <div className="space-y-3">
+                        {financialDetails.packagePopularity.slice(0, 5).map((pkg, index) => (
+                          <div key={pkg.name} className="flex items-center justify-between" data-testid={`package-popularity-${index}`}>
+                            <div className="flex items-center space-x-3">
+                              <div className={`w-3 h-3 rounded-full`} style={{ backgroundColor: `hsl(${index * 45}, 70%, 60%)` }} />
+                              <span className="font-medium">{pkg.name}</span>
+                            </div>
+                            <span className="text-sm font-bold">{pkg.sales} vendas</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground text-center">Nenhuma venda registrada</p>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Maiores Gastadores</CardTitle>
+                    <CardDescription>Usuários com maior uso de créditos (30 dias)</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {trendsLoading ? (
+                      <div className="space-y-3">
+                        {[...Array(5)].map((_, i) => (
+                          <div key={i} className="flex items-center justify-between">
+                            <Skeleton className="h-4 w-40" />
+                            <Skeleton className="h-4 w-16" />
+                          </div>
+                        ))}
+                      </div>
+                    ) : creditTrends?.topSpenders.length ? (
+                      <div className="space-y-3">
+                        {creditTrends.topSpenders.slice(0, 5).map((spender, index) => (
+                          <div key={spender.userId} className="flex items-center justify-between" data-testid={`top-spender-${index}`}>
+                            <div>
+                              <div className="font-medium text-sm">{spender.userName}</div>
+                              <div className="text-xs text-muted-foreground">{spender.userEmail}</div>
+                            </div>
+                            <div className="text-right">
+                              <div className="font-bold text-sm">{spender.totalSpent} gastos</div>
+                              <div className="text-xs text-muted-foreground">{spender.transactionCount} transações</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground text-center">Nenhum dado de gasto disponível</p>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Credit Trends and Recent Transactions */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Tendências de Créditos (30 dias)</CardTitle>
+                    <CardDescription>Compras vs Uso diário</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {trendsLoading ? (
+                      <Skeleton className="h-64 w-full" />
+                    ) : creditTrends?.creditTrends.length ? (
+                      <div className="space-y-2 max-h-64 overflow-y-auto">
+                        {creditTrends.creditTrends.slice(-10).map((trend, index) => (
+                          <div key={trend.date} className="flex items-center justify-between text-sm" data-testid={`credit-trend-${index}`}>
+                            <span>{new Date(trend.date).toLocaleDateString('pt-BR')}</span>
+                            <div className="flex space-x-4">
+                              <span className="text-green-600">+{trend.purchases}</span>
+                              <span className="text-red-600">-{trend.usage}</span>
+                              <span className="font-medium">{trend.net}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground text-center">Nenhum dado de tendência disponível</p>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Transações Recentes</CardTitle>
+                    <CardDescription>Últimas transações do sistema</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {financialLoading ? (
+                      <div className="space-y-3">
+                        {[...Array(5)].map((_, i) => (
+                          <div key={i} className="flex items-center justify-between">
+                            <Skeleton className="h-4 w-40" />
+                            <Skeleton className="h-4 w-16" />
+                          </div>
+                        ))}
+                      </div>
+                    ) : financialDetails?.recentTransactions.length ? (
+                      <div className="space-y-3 max-h-64 overflow-y-auto">
+                        {financialDetails.recentTransactions.slice(0, 10).map((transaction) => (
+                          <div key={transaction.id} className="flex items-center justify-between" data-testid={`recent-transaction-${transaction.id}`}>
+                            <div>
+                              <div className="font-medium text-sm">{transaction.userName}</div>
+                              <div className="text-xs text-muted-foreground">{transaction.description}</div>
+                            </div>
+                            <div className="text-right">
+                              <div className={`font-bold text-sm ${transaction.type === 'usage' ? 'text-red-600' : 'text-green-600'}`}>
+                                {transaction.type === 'usage' ? '-' : '+'}{Math.abs(transaction.amount)}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {new Date(transaction.createdAt).toLocaleDateString('pt-BR')}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground text-center">Nenhuma transação recente</p>
                     )}
                   </CardContent>
                 </Card>

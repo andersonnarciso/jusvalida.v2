@@ -1,10 +1,12 @@
 import type { Express } from "express";
+import express from "express";
 import { createServer, type Server } from "http";
 import Stripe from "stripe";
 import { storage } from "./storage";
 import { aiService } from "./services/ai";
 import bcrypt from "bcrypt";
 import session from "express-session";
+import MemoryStore from "memorystore";
 import { insertUserSchema, loginUserSchema, insertDocumentAnalysisSchema, insertSupportTicketSchema, insertTicketMessageSchema, adminTicketMessageSchema, assignRoleSchema, adminUserUpdateSchema, insertAiProviderConfigSchema, insertCreditPackageSchema } from "@shared/schema";
 import multer from "multer";
 import { z } from "zod";
@@ -39,7 +41,7 @@ if (!process.env.STRIPE_SECRET_KEY) {
 }
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2025-08-27.basil",
+  apiVersion: "2024-06-20",
 });
 
 // Helper function to sanitize user objects by removing sensitive fields
@@ -59,9 +61,168 @@ const upload = multer({
   }
 });
 
+// Handle successful payment processing from Stripe webhook
+async function handleSuccessfulPayment(paymentIntent: Stripe.PaymentIntent) {
+  try {
+    console.log(`💳 Processing successful payment: ${paymentIntent.id}`);
+    
+    const { userId, packageId } = paymentIntent.metadata;
+    
+    if (!userId || !packageId) {
+      console.error("❌ Missing metadata in payment intent:", paymentIntent.id);
+      return;
+    }
+
+    // Check if this payment has already been processed
+    const existingTransaction = await storage.getCreditTransactionByStripeId(paymentIntent.id);
+    if (existingTransaction) {
+      console.log(`⚠️  Payment already processed: ${paymentIntent.id}`);
+      return;
+    }
+
+    // Get the user
+    const user = await storage.getUser(userId);
+    if (!user) {
+      console.error(`❌ User not found: ${userId}`);
+      return;
+    }
+
+    // SECURITY: Validate customer ID matches user
+    if (user.stripeCustomerId && paymentIntent.customer !== user.stripeCustomerId) {
+      console.error(`❌ Customer ID mismatch for payment ${paymentIntent.id}: user has ${user.stripeCustomerId}, payment has ${paymentIntent.customer}`);
+      return;
+    }
+
+    // Get package details from database (trusted source)
+    const creditPackage = await storage.getCreditPackage(packageId);
+    if (!creditPackage) {
+      console.error(`❌ Package not found: ${packageId}`);
+      return;
+    }
+
+    // Validate payment amount matches package price
+    const expectedAmount = Math.round(parseFloat(creditPackage.price) * 100);
+    if (paymentIntent.amount !== expectedAmount) {
+      console.error(`❌ Amount mismatch for payment ${paymentIntent.id}: expected ${expectedAmount}, got ${paymentIntent.amount}`);
+      return;
+    }
+
+    // ATOMIC: Credit the user account in a single transaction to prevent race conditions
+    const credits = creditPackage.credits;
+    const newCredits = user.credits + credits;
+    
+    // Use storage method that handles atomicity
+    const result = await storage.processPaymentTransaction(userId, {
+      type: "purchase",
+      amount: credits,
+      description: `Webhook: Purchase of ${credits} credits (${creditPackage.name})`,
+      stripePaymentIntentId: paymentIntent.id,
+      newCreditBalance: newCredits
+    });
+
+    // CACHE INVALIDATION: Update user sessions with new credit balance
+    await invalidateUserSessions(userId, {
+      credits: result.user.credits
+    });
+
+    console.log(`✅ Successfully processed payment ${paymentIntent.id}: ${credits} credits added to user ${userId}`);
+    console.log(`✅ Cache invalidation completed for user ${userId}`);
+    
+  } catch (error: any) {
+    console.error(`❌ Error processing payment ${paymentIntent.id}:`, error);
+  }
+}
+
+// Session store instance for cache invalidation
+let sessionStore: any;
+
+// Function to invalidate user session cache after external updates (webhooks)
+async function invalidateUserSessions(userId: string, updatedUserData: Partial<Express.User>) {
+  if (!sessionStore) return;
+  
+  try {
+    // Get all sessions and update any that belong to this user
+    sessionStore.all((err: any, sessions: any) => {
+      if (err) {
+        console.error('❌ Error accessing session store:', err);
+        return;
+      }
+      
+      Object.keys(sessions || {}).forEach(sessionId => {
+        const sessionData = sessions[sessionId];
+        if (sessionData?.user?.id === userId) {
+          // Update the user data in the session
+          sessionData.user = { ...sessionData.user, ...updatedUserData };
+          sessionStore.set(sessionId, sessionData, (setErr: any) => {
+            if (setErr) {
+              console.error(`❌ Error updating session ${sessionId}:`, setErr);
+            } else {
+              console.log(`✅ Updated session for user ${userId} with new credit balance`);
+            }
+          });
+        }
+      });
+    });
+  } catch (error) {
+    console.error('❌ Error invalidating user sessions:', error);
+  }
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Session configuration
+  // Stripe webhook endpoint - needs to be before body parsing middleware
+  app.post("/api/webhooks/stripe", express.raw({ type: "application/json" }), async (req, res) => {
+    const sig = req.headers["stripe-signature"];
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    
+    // SECURITY: Webhook signature verification is MANDATORY for production security
+    if (!webhookSecret) {
+      console.error("❌ STRIPE_WEBHOOK_SECRET is required for webhook security");
+      return res.status(500).send("Webhook secret not configured");
+    }
+    
+    if (!sig) {
+      console.error("❌ Stripe signature header missing");
+      return res.status(400).send("Stripe signature header missing");
+    }
+    
+    let event;
+
+    try {
+      // MANDATORY signature verification for security
+      event = stripe.webhooks.constructEvent(req.body, sig as string, webhookSecret);
+      console.log(`✅ Webhook signature verified for event: ${event.type}`);
+    } catch (err: any) {
+      console.error("❌ Webhook signature verification failed:", err.message);
+      return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    // Handle the event
+    switch (event.type) {
+      case "payment_intent.succeeded":
+        const paymentIntent = event.data.object as Stripe.PaymentIntent;
+        await handleSuccessfulPayment(paymentIntent);
+        break;
+      
+      case "payment_intent.payment_failed":
+        const failedPayment = event.data.object as Stripe.PaymentIntent;
+        console.error("💳 Payment failed:", failedPayment.id, failedPayment.last_payment_error?.message);
+        break;
+      
+      default:
+        console.log(`🔔 Unhandled event type: ${event.type}`);
+    }
+
+    res.json({ received: true });
+  });
+
+  // Session configuration with cache invalidation support
+  const MemoryStoreSession = MemoryStore(session);
+  sessionStore = new MemoryStoreSession({
+    checkPeriod: 86400000 // prune expired entries every 24h
+  });
+  
   app.use(session({
+    store: sessionStore,
     secret: process.env.SESSION_SECRET || 'fallback-secret',
     resave: false,
     saveUninitialized: false,
@@ -442,6 +603,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Credit analytics for users
+  app.get("/api/credit-analytics", requireAuth, async (req, res) => {
+    try {
+      const [transactions, analyses] = await Promise.all([
+        storage.getCreditTransactions(req.user.id),
+        storage.getDocumentAnalyses(req.user.id)
+      ]);
+
+      // Calculate spending by AI provider
+      const providerSpending: Record<string, number> = {};
+      const monthlySpending: Record<string, number> = {};
+      
+      analyses.forEach(analysis => {
+        const provider = `${analysis.aiProvider}-${analysis.aiModel}`;
+        providerSpending[provider] = (providerSpending[provider] || 0) + analysis.creditsUsed;
+        
+        const month = analysis.createdAt.toISOString().slice(0, 7); // YYYY-MM
+        monthlySpending[month] = (monthlySpending[month] || 0) + analysis.creditsUsed;
+      });
+
+      // Calculate total spending and purchases
+      let totalSpent = 0;
+      let totalPurchased = 0;
+      
+      transactions.forEach(tx => {
+        if (tx.type === 'usage') {
+          totalSpent += Math.abs(tx.amount);
+        } else if (tx.type === 'purchase') {
+          totalPurchased += tx.amount;
+        }
+      });
+
+      res.json({
+        summary: {
+          totalSpent,
+          totalPurchased,
+          currentBalance: req.user.credits,
+          totalAnalyses: analyses.length
+        },
+        providerSpending: Object.entries(providerSpending).map(([provider, amount]) => ({
+          provider,
+          amount
+        })),
+        monthlySpending: Object.entries(monthlySpending).map(([month, amount]) => ({
+          month,
+          amount
+        })).sort((a, b) => a.month.localeCompare(b.month)),
+        recentTransactions: transactions.slice(0, 5)
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Support ticket routes
   app.get("/api/support/tickets", requireAuth, async (req, res) => {
     try {
@@ -715,6 +930,136 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const aiUsage = await storage.getAiUsageAnalytics();
       res.json(aiUsage);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Admin financial analytics endpoints
+  app.get("/api/admin/financial-details", requireAdmin, async (req, res) => {
+    try {
+      const [
+        transactions, 
+        packages, 
+        userStats,
+        recentTransactions
+      ] = await Promise.all([
+        db.select({
+          date: sql<string>`DATE(${creditTransactions.createdAt})`,
+          type: creditTransactions.type,
+          amount: sum(creditTransactions.amount),
+          count: count()
+        }).from(creditTransactions)
+         .groupBy(sql`DATE(${creditTransactions.createdAt})`, creditTransactions.type)
+         .orderBy(sql`DATE(${creditTransactions.createdAt}) DESC`)
+         .limit(30),
+        
+        storage.getCreditPackages(),
+        
+        db.select({
+          totalUsers: count(),
+          averageCredits: sql<number>`ROUND(AVG(${users.credits}), 2)`,
+          maxCredits: sql<number>`MAX(${users.credits})`,
+          usersWithCredits: sql<number>`COUNT(CASE WHEN ${users.credits} > 0 THEN 1 END)`
+        }).from(users),
+        
+        db.select({
+          id: creditTransactions.id,
+          userId: creditTransactions.userId,
+          type: creditTransactions.type,
+          amount: creditTransactions.amount,
+          description: creditTransactions.description,
+          createdAt: creditTransactions.createdAt,
+          userEmail: users.email,
+          userName: sql<string>`${users.firstName} || ' ' || ${users.lastName}`
+        }).from(creditTransactions)
+         .innerJoin(users, eq(creditTransactions.userId, users.id))
+         .orderBy(desc(creditTransactions.createdAt))
+         .limit(20)
+      ]);
+
+      // Process package popularity
+      const packageSales: Record<string, number> = {};
+      recentTransactions.forEach(tx => {
+        if (tx.type === 'purchase') {
+          const packageName = tx.description.match(/\(([^)]+)\)$/)?.[1] || 'Unknown';
+          packageSales[packageName] = (packageSales[packageName] || 0) + 1;
+        }
+      });
+
+      res.json({
+        dailyTransactions: transactions,
+        packagePopularity: Object.entries(packageSales).map(([name, sales]) => ({
+          name,
+          sales
+        })).sort((a, b) => b.sales - a.sales),
+        userStatistics: userStats[0],
+        recentTransactions,
+        totalPackages: packages.length,
+        activePackages: packages.filter(p => p.isActive).length
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/admin/credit-trends", requireAdmin, async (req, res) => {
+    try {
+      const days = parseInt(req.query.days as string) || 30;
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
+
+      const [creditTrends, topSpenders, hourlyUsage] = await Promise.all([
+        // Daily credit trends
+        db.select({
+          date: sql<string>`DATE(${creditTransactions.createdAt})`,
+          purchases: sql<number>`COALESCE(SUM(CASE WHEN ${creditTransactions.type} = 'purchase' THEN ${creditTransactions.amount} ELSE 0 END), 0)`,
+          usage: sql<number>`COALESCE(ABS(SUM(CASE WHEN ${creditTransactions.type} = 'usage' THEN ${creditTransactions.amount} ELSE 0 END)), 0)`,
+          net: sql<number>`SUM(${creditTransactions.amount})`
+        }).from(creditTransactions)
+         .where(gte(creditTransactions.createdAt, startDate))
+         .groupBy(sql`DATE(${creditTransactions.createdAt})`)
+         .orderBy(sql`DATE(${creditTransactions.createdAt})`),
+
+        // Top spending users
+        db.select({
+          userId: creditTransactions.userId,
+          userEmail: users.email,
+          userName: sql<string>`${users.firstName} || ' ' || ${users.lastName}`,
+          totalSpent: sql<number>`ABS(SUM(CASE WHEN ${creditTransactions.type} = 'usage' THEN ${creditTransactions.amount} ELSE 0 END))`,
+          totalPurchased: sql<number>`SUM(CASE WHEN ${creditTransactions.type} = 'purchase' THEN ${creditTransactions.amount} ELSE 0 END)`,
+          transactionCount: count()
+        }).from(creditTransactions)
+         .innerJoin(users, eq(creditTransactions.userId, users.id))
+         .where(gte(creditTransactions.createdAt, startDate))
+         .groupBy(creditTransactions.userId, users.email, users.firstName, users.lastName)
+         .orderBy(sql`ABS(SUM(CASE WHEN ${creditTransactions.type} = 'usage' THEN ${creditTransactions.amount} ELSE 0 END)) DESC`)
+         .limit(10),
+
+        // Hourly usage patterns
+        db.select({
+          hour: sql<number>`EXTRACT(HOUR FROM ${creditTransactions.createdAt})`,
+          transactions: count(),
+          credits: sql<number>`ABS(SUM(CASE WHEN ${creditTransactions.type} = 'usage' THEN ${creditTransactions.amount} ELSE 0 END))`
+        }).from(creditTransactions)
+         .where(and(
+           gte(creditTransactions.createdAt, startDate),
+           eq(creditTransactions.type, 'usage')
+         ))
+         .groupBy(sql`EXTRACT(HOUR FROM ${creditTransactions.createdAt})`)
+         .orderBy(sql`EXTRACT(HOUR FROM ${creditTransactions.createdAt})`)
+      ]);
+
+      res.json({
+        creditTrends,
+        topSpenders,
+        hourlyUsage,
+        period: {
+          days,
+          startDate: startDate.toISOString(),
+          endDate: new Date().toISOString()
+        }
+      });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }

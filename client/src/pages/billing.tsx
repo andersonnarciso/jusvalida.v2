@@ -3,10 +3,11 @@ import { DashboardHeader } from '@/components/layout/dashboard-header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/hooks/use-auth';
 import { apiRequest } from '@/lib/queryClient';
 import { Link } from 'wouter';
-import { CreditCard, Plus, ArrowUpRight, ArrowDownRight, Receipt, Coins, Calendar, ExternalLink } from 'lucide-react';
+import { CreditCard, Plus, ArrowUpRight, ArrowDownRight, Receipt, Coins, Calendar, ExternalLink, BarChart3, TrendingUp, Activity } from 'lucide-react';
 
 interface CreditTransaction {
   id: string;
@@ -17,6 +18,24 @@ interface CreditTransaction {
   createdAt: string;
 }
 
+interface CreditAnalytics {
+  summary: {
+    totalSpent: number;
+    totalPurchased: number;
+    currentBalance: number;
+    totalAnalyses: number;
+  };
+  providerSpending: Array<{
+    provider: string;
+    amount: number;
+  }>;
+  monthlySpending: Array<{
+    month: string;
+    amount: number;
+  }>;
+  recentTransactions: CreditTransaction[];
+}
+
 export default function Billing() {
   const { user } = useAuth();
 
@@ -24,6 +43,14 @@ export default function Billing() {
     queryKey: ['/api/credit-transactions'],
     queryFn: async () => {
       const response = await apiRequest('GET', '/api/credit-transactions');
+      return response.json();
+    }
+  });
+
+  const { data: analytics, isLoading: analyticsLoading } = useQuery<CreditAnalytics>({
+    queryKey: ['/api/credit-analytics'],
+    queryFn: async () => {
+      const response = await apiRequest('GET', '/api/credit-analytics');
       return response.json();
     }
   });
@@ -215,6 +242,93 @@ export default function Billing() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Credit Analytics */}
+        {analytics && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center" data-testid="text-provider-spending-title">
+                  <BarChart3 className="mr-2" size={20} />
+                  Gastos por Provedor de IA
+                </CardTitle>
+                <CardDescription>
+                  Distribuição de créditos utilizados por cada provedor
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {analyticsLoading ? (
+                  <div className="space-y-3">
+                    {[...Array(3)].map((_, i) => (
+                      <div key={i} className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-3 h-3 bg-muted rounded-full" />
+                          <div className="h-4 bg-muted rounded w-24" />
+                        </div>
+                        <div className="h-4 bg-muted rounded w-16" />
+                      </div>
+                    ))}
+                  </div>
+                ) : analytics.providerSpending.length === 0 ? (
+                  <div className="text-center text-muted-foreground py-8">
+                    <Activity size={32} className="mx-auto mb-2 opacity-50" />
+                    <p>Nenhum uso registrado ainda</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {analytics.providerSpending.map((provider, index) => (
+                      <div key={provider.provider} className="flex items-center justify-between" data-testid={`provider-spending-${provider.provider}`}>
+                        <div className="flex items-center space-x-3">
+                          <div className={`w-3 h-3 rounded-full`} style={{ backgroundColor: `hsl(${index * 45}, 70%, 60%)` }} />
+                          <span className="font-medium">{provider.provider}</span>
+                        </div>
+                        <span className="text-sm font-bold">{provider.amount} créditos</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center" data-testid="text-monthly-trends-title">
+                  <TrendingUp className="mr-2" size={20} />
+                  Tendência Mensal
+                </CardTitle>
+                <CardDescription>
+                  Uso de créditos ao longo dos últimos meses
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {analyticsLoading ? (
+                  <div className="space-y-3">
+                    {[...Array(4)].map((_, i) => (
+                      <div key={i} className="flex items-center justify-between">
+                        <div className="h-4 bg-muted rounded w-20" />
+                        <div className="h-4 bg-muted rounded w-16" />
+                      </div>
+                    ))}
+                  </div>
+                ) : analytics.monthlySpending.length === 0 ? (
+                  <div className="text-center text-muted-foreground py-8">
+                    <Calendar size={32} className="mx-auto mb-2 opacity-50" />
+                    <p>Nenhum histórico mensal disponível</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {analytics.monthlySpending.slice(-6).map((month) => (
+                      <div key={month.month} className="flex items-center justify-between" data-testid={`monthly-spending-${month.month}`}>
+                        <span className="text-sm">{new Date(month.month + '-01').toLocaleDateString('pt-BR', { year: 'numeric', month: 'short' })}</span>
+                        <span className="font-bold">{month.amount} créditos</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* Transaction History */}
         <Card>

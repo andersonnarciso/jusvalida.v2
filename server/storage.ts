@@ -46,7 +46,17 @@ export interface IStorage {
 
   // Credit Transactions
   getCreditTransactions(userId: string): Promise<CreditTransaction[]>;
+  getCreditTransactionByStripeId(stripePaymentIntentId: string): Promise<CreditTransaction | undefined>;
   createCreditTransaction(userId: string, type: string, amount: number, description: string, stripePaymentIntentId?: string): Promise<CreditTransaction>;
+  
+  // ATOMIC: Process payment transaction with credit update in single DB transaction
+  processPaymentTransaction(userId: string, transactionData: {
+    type: string;
+    amount: number;
+    description: string;
+    stripePaymentIntentId: string;
+    newCreditBalance: number;
+  }): Promise<{ user: User; transaction: CreditTransaction }>;
 
   // Support Tickets
   getSupportTickets(userId: string): Promise<SupportTicket[]>;
@@ -233,6 +243,14 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(creditTransactions.createdAt));
   }
 
+  async getCreditTransactionByStripeId(stripePaymentIntentId: string): Promise<CreditTransaction | undefined> {
+    const [transaction] = await db
+      .select()
+      .from(creditTransactions)
+      .where(eq(creditTransactions.stripePaymentIntentId, stripePaymentIntentId));
+    return transaction || undefined;
+  }
+
   async createCreditTransaction(userId: string, type: string, amount: number, description: string, stripePaymentIntentId?: string): Promise<CreditTransaction> {
     const [transaction] = await db
       .insert(creditTransactions)
@@ -245,6 +263,46 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     return transaction;
+  }
+
+  // ATOMIC: Process payment transaction with credit update in single DB transaction
+  async processPaymentTransaction(userId: string, transactionData: {
+    type: string;
+    amount: number;
+    description: string;
+    stripePaymentIntentId: string;
+    newCreditBalance: number;
+  }): Promise<{ user: User; transaction: CreditTransaction }> {
+    // Use database transaction to ensure atomicity and prevent race conditions
+    return await db.transaction(async (tx) => {
+      // First, update user credits
+      const [updatedUser] = await tx
+        .update(users)
+        .set({ 
+          credits: transactionData.newCreditBalance,
+          updatedAt: sql`CURRENT_TIMESTAMP`
+        })
+        .where(eq(users.id, userId))
+        .returning();
+      
+      if (!updatedUser) {
+        throw new Error(`User not found: ${userId}`);
+      }
+      
+      // Then, create the credit transaction with unique constraint protection
+      const [transaction] = await tx
+        .insert(creditTransactions)
+        .values({
+          userId,
+          type: transactionData.type,
+          amount: transactionData.amount,
+          description: transactionData.description,
+          stripePaymentIntentId: transactionData.stripePaymentIntentId,
+        })
+        .returning();
+      
+      return { user: updatedUser, transaction };
+    });
   }
 
   // Support Tickets
