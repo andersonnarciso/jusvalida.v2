@@ -56,8 +56,8 @@ export default function Landing() {
     try {
       await register(registerForm);
       toast({
-        title: "Cadastro Realizado",
-        description: "Conta criada com sucesso! Redirecionando...",
+        title: "Conta criada com sucesso!",
+        description: "Bem-vindo ao JusValida! Você recebeu 10 créditos gratuitos.",
         variant: "default",
       });
       setTimeout(() => setLocation('/dashboard'), 500);

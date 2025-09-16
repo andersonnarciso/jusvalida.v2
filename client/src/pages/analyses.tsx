@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import { DashboardHeader } from '@/components/layout/dashboard-header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -38,8 +39,13 @@ export default function Analyses() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
 
+  useEffect(() => {
+    if (!user) {
+      setLocation('/login');
+    }
+  }, [user, setLocation]);
+
   if (!user) {
-    setLocation('/login');
     return null;
   }
 
