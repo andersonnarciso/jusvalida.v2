@@ -509,9 +509,11 @@ export default function Dashboard() {
                           </Badge>
                         )}
                       </div>
-                      <Button variant="ghost" size="sm" data-testid={`button-view-analysis-${analysis.id}`}>
-                        <Eye size={16} />
-                      </Button>
+                      <Link href={`/analyses/${analysis.id}`}>
+                        <Button variant="ghost" size="sm" data-testid={`button-view-analysis-${analysis.id}`}>
+                          <Eye size={16} />
+                        </Button>
+                      </Link>
                     </div>
                   </div>
                 ))}
