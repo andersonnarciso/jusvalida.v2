@@ -321,6 +321,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete("/api/ai-providers/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Verify that the provider belongs to the authenticated user
+      const providers = await storage.getAiProviders(req.user.id);
+      const providerToDelete = providers.find(p => p.id === id);
+      
+      if (!providerToDelete) {
+        return res.status(404).json({ message: "AI provider not found" });
+      }
+      
+      await storage.deleteAiProvider(id);
+      res.json({ message: "AI provider deleted successfully" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Credit purchase routes
   app.post("/api/create-payment-intent", requireAuth, async (req, res) => {
     try {
