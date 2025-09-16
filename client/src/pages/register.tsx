@@ -41,7 +41,7 @@ export default function Register() {
       await register(formData);
       toast({
         title: "Conta criada com sucesso!",
-        description: "Bem-vindo ao JusValida! Você recebeu 5 créditos gratuitos.",
+        description: "Bem-vindo ao JusValida! Você recebeu 10 créditos gratuitos.",
       });
       setLocation('/dashboard');
     } catch (error: any) {
@@ -70,7 +70,7 @@ export default function Register() {
           </div>
           <CardTitle className="text-2xl" data-testid="text-register-title">Criar Conta</CardTitle>
           <CardDescription data-testid="text-register-description">
-            Crie sua conta e ganhe 5 créditos gratuitos
+            Crie sua conta e ganhe 10 créditos gratuitos
           </CardDescription>
         </CardHeader>
         <CardContent>

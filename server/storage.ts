@@ -67,7 +67,7 @@ export class MemStorage implements IStorage {
     const user: User = {
       ...insertUser,
       id,
-      credits: 5, // Free tier starts with 5 credits
+      credits: 10, // Free tier starts with 10 credits
       stripeCustomerId: null,
       createdAt: new Date(),
       updatedAt: new Date(),

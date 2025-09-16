@@ -12,6 +12,7 @@ import Profile from "@/pages/profile";
 import Billing from "@/pages/billing";
 import Support from "@/pages/support";
 import Checkout from "@/pages/checkout";
+import Analyses from "@/pages/analyses";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -25,6 +26,7 @@ function Router() {
       <Route path="/billing" component={Billing} />
       <Route path="/support" component={Support} />
       <Route path="/checkout" component={Checkout} />
+      <Route path="/analyses" component={Analyses} />
       <Route component={NotFound} />
     </Switch>
   );

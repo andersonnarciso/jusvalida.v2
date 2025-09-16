@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useLocation } from 'wouter';
 import { Link } from 'wouter';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,6 +14,7 @@ import { Eye, EyeOff, Gavel, Bot, Upload, Shield, CreditCard, Headphones, ChartL
 export default function Landing() {
   const { login, register } = useAuth();
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   
   const [showPassword, setShowPassword] = useState({ login: false, register: false });
   const [loginForm, setLoginForm] = useState({ email: '', password: '', remember: false });
@@ -30,7 +32,7 @@ export default function Landing() {
     e.preventDefault();
     try {
       await login(loginForm.email, loginForm.password);
-      window.location.href = '/dashboard';
+      setLocation('/dashboard');
     } catch (error: any) {
       toast({
         title: "Erro no Login",
@@ -53,7 +55,12 @@ export default function Landing() {
     
     try {
       await register(registerForm);
-      window.location.href = '/dashboard';
+      toast({
+        title: "Cadastro Realizado",
+        description: "Conta criada com sucesso! Redirecionando...",
+        variant: "default",
+      });
+      setTimeout(() => setLocation('/dashboard'), 500);
     } catch (error: any) {
       toast({
         title: "Erro no Cadastro",
