@@ -9,7 +9,17 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
+import { useQuery } from '@tanstack/react-query';
 import { Eye, EyeOff, Gavel, Bot, Upload, Shield, CreditCard, Headphones, ChartLine, Check, Play, Rocket } from 'lucide-react';
+
+interface PlatformStats {
+  totalDocuments: number;
+  analysisAccuracy: number;
+  activeLawyers: number;
+  totalUsers: number;
+  totalCreditsUsed: number;
+  avgAnalysisTime: number;
+}
 
 export default function Landing() {
   const { login, register } = useAuth();
@@ -26,6 +36,11 @@ export default function Landing() {
     password: '',
     saveData: false,
     acceptTerms: false
+  });
+  
+  const { data: platformStats, isLoading: statsLoading } = useQuery<PlatformStats>({
+    queryKey: ['/api/platform-stats'],
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -316,15 +331,33 @@ export default function Landing() {
             {/* Stats */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-3xl mx-auto">
               <div className="text-center">
-                <div className="text-3xl font-bold text-primary mb-2" data-testid="text-stat-documents">10,000+</div>
+                <div className="text-3xl font-bold text-primary mb-2" data-testid="text-stat-documents">
+                  {statsLoading ? (
+                    <div className="animate-pulse bg-primary/20 rounded w-24 h-9 mx-auto"></div>
+                  ) : (
+                    `${platformStats?.totalDocuments?.toLocaleString() || '0'}+`
+                  )}
+                </div>
                 <div className="text-muted-foreground">Documentos Analisados</div>
               </div>
               <div className="text-center">
-                <div className="text-3xl font-bold text-primary mb-2" data-testid="text-stat-accuracy">98%</div>
+                <div className="text-3xl font-bold text-primary mb-2" data-testid="text-stat-accuracy">
+                  {statsLoading ? (
+                    <div className="animate-pulse bg-primary/20 rounded w-16 h-9 mx-auto"></div>
+                  ) : (
+                    `${Math.round(platformStats?.analysisAccuracy || 0)}%`
+                  )}
+                </div>
                 <div className="text-muted-foreground">Precisão na Análise</div>
               </div>
               <div className="text-center">
-                <div className="text-3xl font-bold text-primary mb-2" data-testid="text-stat-lawyers">500+</div>
+                <div className="text-3xl font-bold text-primary mb-2" data-testid="text-stat-lawyers">
+                  {statsLoading ? (
+                    <div className="animate-pulse bg-primary/20 rounded w-20 h-9 mx-auto"></div>
+                  ) : (
+                    `${platformStats?.activeLawyers?.toLocaleString() || '0'}+`
+                  )}
+                </div>
                 <div className="text-muted-foreground">Advogados Ativos</div>
               </div>
             </div>

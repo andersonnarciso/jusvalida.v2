@@ -9,42 +9,15 @@ import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import { useLocation } from 'wouter';
+import { useQuery } from '@tanstack/react-query';
 import { Check, CreditCard, Zap, Crown, Building, ArrowLeft } from 'lucide-react';
+import type { CreditPackage } from '@shared/schema';
 
 if (!import.meta.env.VITE_STRIPE_PUBLIC_KEY) {
   throw new Error('Missing required Stripe key: VITE_STRIPE_PUBLIC_KEY');
 }
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 
-const CREDIT_PACKAGES = [
-  {
-    id: 'credits_50',
-    name: '50 Créditos',
-    credits: 50,
-    price: 47,
-    popular: false,
-    description: 'Ideal para uso básico',
-    features: ['Análises básicas', 'Todos os provedores de IA', 'Suporte por email']
-  },
-  {
-    id: 'credits_100',
-    name: '100 Créditos',
-    credits: 100,
-    price: 87,
-    popular: true,
-    description: 'Melhor custo-benefício',
-    features: ['Análises ilimitadas', 'Todos os provedores de IA', 'Suporte prioritário', '15% de desconto']
-  },
-  {
-    id: 'credits_500',
-    name: '500 Créditos',
-    credits: 500,
-    price: 397,
-    popular: false,
-    description: 'Para uso profissional',
-    features: ['Volume profissional', 'Todos os provedores de IA', 'Suporte dedicado', '20% de desconto']
-  }
-];
 
 interface CheckoutFormProps {
   selectedPackage: any;
@@ -133,15 +106,26 @@ export default function Checkout() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   
-  const [selectedPackage, setSelectedPackage] = useState(CREDIT_PACKAGES[1]); // Default to popular
+  const { data: creditPackages = [], isLoading } = useQuery<CreditPackage[]>({
+    queryKey: ['/api/credit-packages'],
+  });
+  
+  const [selectedPackage, setSelectedPackage] = useState<CreditPackage | null>(null);
   const [clientSecret, setClientSecret] = useState("");
   const [showPayment, setShowPayment] = useState(false);
+  
+  // Set default selected package to the popular one when data loads
+  useEffect(() => {
+    if (creditPackages.length > 0 && !selectedPackage) {
+      const popularPackage = creditPackages.find(pkg => pkg.isPopular) || creditPackages[0];
+      setSelectedPackage(popularPackage);
+    }
+  }, [creditPackages, selectedPackage]);
 
-  const createPaymentIntent = async (packageData: any) => {
+  const createPaymentIntent = async (packageData: CreditPackage) => {
     try {
       const response = await apiRequest("POST", "/api/create-payment-intent", { 
-        credits: packageData.credits,
-        amount: packageData.price 
+        packageId: packageData.packageId
       });
       const data = await response.json();
       setClientSecret(data.clientSecret);
@@ -155,7 +139,7 @@ export default function Checkout() {
     }
   };
 
-  const handlePackageSelect = (pkg: any) => {
+  const handlePackageSelect = (pkg: CreditPackage) => {
     setSelectedPackage(pkg);
     setShowPayment(false);
     setClientSecret("");
@@ -172,6 +156,40 @@ export default function Checkout() {
   if (!user) {
     setLocation('/login');
     return null;
+  }
+  
+  if (isLoading || !selectedPackage) {
+    return (
+      <div className="min-h-screen bg-background">
+        <DashboardHeader />
+        <div className="container mx-auto px-4 py-8">
+          <div className="max-w-4xl mx-auto">
+            <div className="mb-8">
+              <Button variant="ghost" onClick={() => setLocation('/billing')} className="mb-4">
+                <ArrowLeft className="mr-2" size={16} />
+                Voltar para Financeiro
+              </Button>
+              <h1 className="text-3xl font-bold mb-2">Comprar Créditos</h1>
+              <p className="text-muted-foreground">Carregando pacotes disponíveis...</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {[...Array(3)].map((_, i) => (
+                <Card key={i} className="animate-pulse">
+                  <CardHeader>
+                    <div className="h-6 bg-gray-200 rounded mb-2"></div>
+                    <div className="h-8 bg-gray-200 rounded mb-2"></div>
+                    <div className="h-4 bg-gray-200 rounded"></div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-16 bg-gray-200 rounded"></div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -198,18 +216,18 @@ export default function Checkout() {
             <>
               {/* Package Selection */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                {CREDIT_PACKAGES.map((pkg) => (
+                {creditPackages.map((pkg) => (
                   <Card 
-                    key={pkg.id} 
+                    key={pkg.packageId} 
                     className={`cursor-pointer transition-all relative ${
-                      selectedPackage.id === pkg.id 
+                      selectedPackage.packageId === pkg.packageId 
                         ? 'border-2 border-primary shadow-lg' 
                         : 'border border-border hover:shadow-md'
-                    } ${pkg.popular ? 'transform scale-105' : ''}`}
+                    } ${pkg.isPopular ? 'transform scale-105' : ''}`}
                     onClick={() => handlePackageSelect(pkg)}
-                    data-testid={`card-package-${pkg.id}`}
+                    data-testid={`card-package-${pkg.packageId}`}
                   >
-                    {pkg.popular && (
+                    {pkg.isPopular && (
                       <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
                         <Badge className="bg-primary text-primary-foreground">
                           Mais Popular
@@ -219,34 +237,34 @@ export default function Checkout() {
                     
                     <CardHeader>
                       <div className="flex items-center justify-between mb-2">
-                        <CardTitle className="text-xl" data-testid={`text-package-name-${pkg.id}`}>
+                        <CardTitle className="text-xl" data-testid={`text-package-name-${pkg.packageId}`}>
                           {pkg.name}
                         </CardTitle>
-                        {pkg.id === 'credits_50' && <Zap className="text-blue-500" size={24} />}
-                        {pkg.id === 'credits_100' && <Crown className="text-yellow-500" size={24} />}
-                        {pkg.id === 'credits_500' && <Building className="text-purple-500" size={24} />}
+                        {pkg.packageId === 'credits_50' && <Zap className="text-blue-500" size={24} />}
+                        {pkg.packageId === 'credits_100' && <Crown className="text-yellow-500" size={24} />}
+                        {pkg.packageId === 'credits_500' && <Building className="text-purple-500" size={24} />}
                       </div>
-                      <div className="text-3xl font-bold text-primary" data-testid={`text-package-price-${pkg.id}`}>
-                        R$ {pkg.price}
+                      <div className="text-3xl font-bold text-primary" data-testid={`text-package-price-${pkg.packageId}`}>
+                        R$ {parseFloat(pkg.price)}
                       </div>
-                      <CardDescription data-testid={`text-package-description-${pkg.id}`}>
+                      <CardDescription data-testid={`text-package-description-${pkg.packageId}`}>
                         {pkg.description}
                       </CardDescription>
                     </CardHeader>
                     
                     <CardContent>
                       <div className="mb-4">
-                        <div className="text-2xl font-bold mb-1" data-testid={`text-package-credits-${pkg.id}`}>
+                        <div className="text-2xl font-bold mb-1" data-testid={`text-package-credits-${pkg.packageId}`}>
                           {pkg.credits} créditos
                         </div>
                         <div className="text-sm text-muted-foreground">
-                          R$ {(pkg.price / pkg.credits).toFixed(2)} por crédito
+                          R$ {(parseFloat(pkg.price) / pkg.credits).toFixed(2)} por crédito
                         </div>
                       </div>
                       
                       <ul className="space-y-2">
-                        {pkg.features.map((feature, index) => (
-                          <li key={index} className="flex items-center text-sm" data-testid={`text-feature-${pkg.id}-${index}`}>
+                        {(pkg.features as string[]).map((feature, index) => (
+                          <li key={index} className="flex items-center text-sm" data-testid={`text-feature-${pkg.packageId}-${index}`}>
                             <Check className="text-green-600 mr-2" size={16} />
                             {feature}
                           </li>
@@ -277,7 +295,7 @@ export default function Checkout() {
                     </div>
                     <div className="text-right">
                       <div className="text-2xl font-bold text-primary" data-testid="text-selected-package-price">
-                        R$ {selectedPackage.price}
+                        R$ {parseFloat(selectedPackage.price)}
                       </div>
                     </div>
                   </div>

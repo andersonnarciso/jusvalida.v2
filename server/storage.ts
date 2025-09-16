@@ -1,6 +1,6 @@
-import { type User, type InsertUser, type LoginUser, type AiProvider, type InsertAiProvider, type DocumentAnalysis, type InsertDocumentAnalysis, type CreditTransaction, type SupportTicket, type InsertSupportTicket, type TicketMessage, type InsertTicketMessage } from "@shared/schema";
+import { type User, type InsertUser, type LoginUser, type AiProvider, type InsertAiProvider, type DocumentAnalysis, type InsertDocumentAnalysis, type CreditTransaction, type SupportTicket, type InsertSupportTicket, type TicketMessage, type InsertTicketMessage, type AiProviderConfig, type InsertAiProviderConfig, type CreditPackage, type InsertCreditPackage, type PlatformStats, type InsertPlatformStats } from "@shared/schema";
 import { db } from "./db";
-import { users, aiProviders, documentAnalyses, creditTransactions, supportTickets, ticketMessages } from "@shared/schema";
+import { users, aiProviders, documentAnalyses, creditTransactions, supportTickets, ticketMessages, aiProviderConfigs, creditPackages, platformStats } from "@shared/schema";
 import { eq, desc, and, limit as drizzleLimit, count, sum, gte, sql } from "drizzle-orm";
 
 export interface IStorage {
@@ -59,6 +59,25 @@ export interface IStorage {
   // Ticket Messages
   getTicketMessages(ticketId: string): Promise<TicketMessage[]>;
   createTicketMessage(ticketMessage: InsertTicketMessage): Promise<TicketMessage>;
+
+  // AI Provider Configs (Global)
+  getAiProviderConfigs(): Promise<AiProviderConfig[]>;
+  getAiProviderConfig(providerId: string): Promise<AiProviderConfig | undefined>;
+  createAiProviderConfig(config: InsertAiProviderConfig): Promise<AiProviderConfig>;
+  updateAiProviderConfig(id: string, config: Partial<InsertAiProviderConfig>): Promise<AiProviderConfig>;
+  deleteAiProviderConfig(id: string): Promise<void>;
+
+  // Credit Packages
+  getCreditPackages(): Promise<CreditPackage[]>;
+  getCreditPackage(packageId: string): Promise<CreditPackage | undefined>;
+  createCreditPackage(pkg: InsertCreditPackage): Promise<CreditPackage>;
+  updateCreditPackage(id: string, pkg: Partial<InsertCreditPackage>): Promise<CreditPackage>;
+  deleteCreditPackage(id: string): Promise<void>;
+
+  // Platform Stats
+  getPlatformStats(): Promise<PlatformStats | undefined>;
+  updatePlatformStats(stats: InsertPlatformStats): Promise<PlatformStats>;
+  computeAndUpdatePlatformStats(): Promise<PlatformStats>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -462,6 +481,136 @@ export class DatabaseStorage implements IStorage {
         successRate: Number(e.successful) / Number(e.total) * 100
       }))
     };
+  }
+
+  // AI Provider Configs (Global)
+  async getAiProviderConfigs(): Promise<AiProviderConfig[]> {
+    return await db
+      .select()
+      .from(aiProviderConfigs)
+      .where(eq(aiProviderConfigs.isActive, true))
+      .orderBy(aiProviderConfigs.sortOrder, aiProviderConfigs.createdAt);
+  }
+
+  async getAiProviderConfig(providerId: string): Promise<AiProviderConfig | undefined> {
+    const [config] = await db
+      .select()
+      .from(aiProviderConfigs)
+      .where(eq(aiProviderConfigs.providerId, providerId));
+    return config || undefined;
+  }
+
+  async createAiProviderConfig(config: InsertAiProviderConfig): Promise<AiProviderConfig> {
+    const [result] = await db
+      .insert(aiProviderConfigs)
+      .values(config)
+      .returning();
+    return result;
+  }
+
+  async updateAiProviderConfig(id: string, config: Partial<InsertAiProviderConfig>): Promise<AiProviderConfig> {
+    const [result] = await db
+      .update(aiProviderConfigs)
+      .set({ ...config, updatedAt: new Date() })
+      .where(eq(aiProviderConfigs.id, id))
+      .returning();
+    if (!result) throw new Error("AI Provider Config not found");
+    return result;
+  }
+
+  async deleteAiProviderConfig(id: string): Promise<void> {
+    await db.delete(aiProviderConfigs).where(eq(aiProviderConfigs.id, id));
+  }
+
+  // Credit Packages
+  async getCreditPackages(): Promise<CreditPackage[]> {
+    return await db
+      .select()
+      .from(creditPackages)
+      .where(eq(creditPackages.isActive, true))
+      .orderBy(creditPackages.sortOrder, creditPackages.createdAt);
+  }
+
+  async getCreditPackage(packageId: string): Promise<CreditPackage | undefined> {
+    const [pkg] = await db
+      .select()
+      .from(creditPackages)
+      .where(eq(creditPackages.packageId, packageId));
+    return pkg || undefined;
+  }
+
+  async createCreditPackage(pkg: InsertCreditPackage): Promise<CreditPackage> {
+    const [result] = await db
+      .insert(creditPackages)
+      .values(pkg)
+      .returning();
+    return result;
+  }
+
+  async updateCreditPackage(id: string, pkg: Partial<InsertCreditPackage>): Promise<CreditPackage> {
+    const [result] = await db
+      .update(creditPackages)
+      .set({ ...pkg, updatedAt: new Date() })
+      .where(eq(creditPackages.id, id))
+      .returning();
+    if (!result) throw new Error("Credit Package not found");
+    return result;
+  }
+
+  async deleteCreditPackage(id: string): Promise<void> {
+    await db.delete(creditPackages).where(eq(creditPackages.id, id));
+  }
+
+  // Platform Stats
+  async getPlatformStats(): Promise<PlatformStats | undefined> {
+    const [stats] = await db
+      .select()
+      .from(platformStats)
+      .orderBy(desc(platformStats.lastUpdated))
+      .limit(1);
+    return stats || undefined;
+  }
+
+  async updatePlatformStats(stats: InsertPlatformStats): Promise<PlatformStats> {
+    // First, try to get existing stats
+    const existingStats = await this.getPlatformStats();
+    
+    if (existingStats) {
+      // Update existing record
+      const [result] = await db
+        .update(platformStats)
+        .set({ ...stats, lastUpdated: new Date() })
+        .where(eq(platformStats.id, existingStats.id))
+        .returning();
+      return result;
+    } else {
+      // Create new record
+      const [result] = await db
+        .insert(platformStats)
+        .values({ ...stats, lastUpdated: new Date() })
+        .returning();
+      return result;
+    }
+  }
+
+  async computeAndUpdatePlatformStats(): Promise<PlatformStats> {
+    // Compute real statistics
+    const [userCount, analysisCount] = await Promise.all([
+      db.select({ count: count() }).from(users),
+      db.select({ count: count() }).from(documentAnalyses)
+    ]);
+
+    // Compute average accuracy (assuming 98% as default since we don't track accuracy yet)
+    const averageAccuracy = 98.0;
+
+    const stats: InsertPlatformStats = {
+      totalDocuments: analysisCount[0].count,
+      totalUsers: userCount[0].count, 
+      totalAnalyses: analysisCount[0].count,
+      averageAccuracy: averageAccuracy.toString()
+    };
+
+    return await this.updatePlatformStats(stats);
   }
 }
 

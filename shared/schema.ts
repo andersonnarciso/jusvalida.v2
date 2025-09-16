@@ -70,6 +70,47 @@ export const ticketMessages = pgTable("ticket_messages", {
   createdAt: timestamp("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
+export const aiProviderConfigs = pgTable("ai_provider_configs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  providerId: text("provider_id").notNull().unique(), // 'openai-gpt4', 'anthropic-claude', etc.
+  name: text("name").notNull(), // 'OpenAI', 'Anthropic', etc.
+  model: text("model").notNull(), // 'GPT-4', 'Claude Sonnet 4', etc.
+  provider: text("provider").notNull(), // 'openai', 'anthropic', 'gemini', etc.
+  credits: integer("credits").notNull(), // Cost in credits
+  description: text("description").notNull(),
+  iconName: text("icon_name").notNull(), // Icon identifier for frontend
+  isPopular: boolean("is_popular").notNull().default(false),
+  isFree: boolean("is_free").notNull().default(false),
+  isActive: boolean("is_active").notNull().default(true),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const creditPackages = pgTable("credit_packages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  packageId: text("package_id").notNull().unique(), // 'credits_50', 'credits_100', etc.
+  name: text("name").notNull(), // '50 Créditos', '100 Créditos', etc.
+  credits: integer("credits").notNull(),
+  price: decimal("price", { precision: 10, scale: 2 }).notNull(), // Price in reais
+  isPopular: boolean("is_popular").notNull().default(false),
+  description: text("description").notNull(),
+  features: jsonb("features").notNull(), // Array of feature strings
+  isActive: boolean("is_active").notNull().default(true),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const platformStats = pgTable("platform_stats", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  totalDocuments: integer("total_documents").notNull().default(0),
+  totalUsers: integer("total_users").notNull().default(0),
+  totalAnalyses: integer("total_analyses").notNull().default(0),
+  averageAccuracy: decimal("average_accuracy", { precision: 5, scale: 2 }).notNull().default(sql`0.00`),
+  lastUpdated: timestamp("last_updated").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -132,6 +173,23 @@ export const insertTicketMessageSchema = createInsertSchema(ticketMessages).omit
   createdAt: true,
 });
 
+export const insertAiProviderConfigSchema = createInsertSchema(aiProviderConfigs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertCreditPackageSchema = createInsertSchema(creditPackages).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertPlatformStatsSchema = createInsertSchema(platformStats).omit({
+  id: true,
+  lastUpdated: true,
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type LoginUser = z.infer<typeof loginUserSchema>;
@@ -141,11 +199,17 @@ export type DocumentAnalysis = typeof documentAnalyses.$inferSelect;
 export type CreditTransaction = typeof creditTransactions.$inferSelect;
 export type SupportTicket = typeof supportTickets.$inferSelect;
 export type TicketMessage = typeof ticketMessages.$inferSelect;
+export type AiProviderConfig = typeof aiProviderConfigs.$inferSelect;
+export type CreditPackage = typeof creditPackages.$inferSelect;
+export type PlatformStats = typeof platformStats.$inferSelect;
 
 export type InsertAiProvider = z.infer<typeof insertAiProviderSchema>;
 export type InsertDocumentAnalysis = z.infer<typeof insertDocumentAnalysisSchema>;
 export type InsertSupportTicket = z.infer<typeof insertSupportTicketSchema>;
 export type InsertTicketMessage = z.infer<typeof insertTicketMessageSchema>;
+export type InsertAiProviderConfig = z.infer<typeof insertAiProviderConfigSchema>;
+export type InsertCreditPackage = z.infer<typeof insertCreditPackageSchema>;
+export type InsertPlatformStats = z.infer<typeof insertPlatformStatsSchema>;
 
 // Relations
 import { relations } from "drizzle-orm";

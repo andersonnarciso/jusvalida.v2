@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DashboardHeader } from '@/components/layout/dashboard-header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,6 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import { FileText, AlertTriangle, Clock, Coins, Eye, CheckCircle, AlertCircle, TrendingUp } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
+import type { AiProviderConfig } from '@shared/schema';
 
 interface AnalysisResult {
   summary: string;
@@ -52,7 +53,7 @@ export default function Dashboard() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [textContent, setTextContent] = useState('');
   const [analysisType, setAnalysisType] = useState('general');
-  const [selectedProvider, setSelectedProvider] = useState('openai-gpt4');
+  const [selectedProvider, setSelectedProvider] = useState('');
   const [currentTab, setCurrentTab] = useState('upload');
 
   if (!user) {
@@ -67,6 +68,31 @@ export default function Dashboard() {
       return response.json();
     }
   });
+
+  const { data: aiProviderConfigs = [] } = useQuery<AiProviderConfig[]>({
+    queryKey: ['/api/ai-provider-configs'],
+  });
+
+  // Set default selectedProvider when aiProviderConfigs loads
+  useEffect(() => {
+    if (aiProviderConfigs.length > 0 && !selectedProvider) {
+      // Prefer free providers, then popular ones, then first active one
+      const freeProvider = aiProviderConfigs.find(config => config.isFree && config.isActive);
+      const popularProvider = aiProviderConfigs.find(config => config.isPopular && config.isActive);
+      const firstActiveProvider = aiProviderConfigs.find(config => config.isActive);
+      
+      const defaultProvider = freeProvider || popularProvider || firstActiveProvider;
+      if (defaultProvider) {
+        setSelectedProvider(defaultProvider.providerId);
+      }
+    }
+  }, [aiProviderConfigs, selectedProvider]);
+
+  // Function to get selected provider's credit cost dynamically
+  const getSelectedProviderCredits = () => {
+    const providerConfig = aiProviderConfigs.find(config => config.providerId === selectedProvider);
+    return providerConfig ? providerConfig.credits : 0;
+  };
 
   const analyzeDocumentMutation = useMutation({
     mutationFn: async (data: FormData) => {
@@ -204,7 +230,7 @@ export default function Dashboard() {
                 <div>
                   <p className="text-muted-foreground text-sm">Tempo Economizado</p>
                   <p className="text-2xl font-bold text-green-600" data-testid="text-stat-time-saved">
-                    {recentAnalyses.length * 2}h
+                    {Math.round(recentAnalyses.reduce((acc, analysis) => acc + (analysis.creditsUsed * 0.5), 0) * 10) / 10}h
                   </p>
                 </div>
                 <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
@@ -347,7 +373,7 @@ export default function Dashboard() {
               {analyzeDocumentMutation.isPending ? (
                 "Analisando..."
               ) : (
-                `Analisar Documento (${selectedProvider.includes('free') ? '0' : '1-3'} créditos)`
+                `Analisar Documento (${getSelectedProviderCredits()} créditos)`
               )}
             </Button>
           </CardContent>

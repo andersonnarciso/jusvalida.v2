@@ -5,7 +5,7 @@ import { storage } from "./storage";
 import { aiService } from "./services/ai";
 import bcrypt from "bcrypt";
 import session from "express-session";
-import { insertUserSchema, loginUserSchema, insertDocumentAnalysisSchema, insertSupportTicketSchema, insertTicketMessageSchema, adminTicketMessageSchema, assignRoleSchema, adminUserUpdateSchema } from "@shared/schema";
+import { insertUserSchema, loginUserSchema, insertDocumentAnalysisSchema, insertSupportTicketSchema, insertTicketMessageSchema, adminTicketMessageSchema, assignRoleSchema, adminUserUpdateSchema, insertAiProviderConfigSchema, insertCreditPackageSchema } from "@shared/schema";
 import multer from "multer";
 import { z } from "zod";
 
@@ -353,14 +353,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Credit purchase routes
   app.post("/api/create-payment-intent", requireAuth, async (req, res) => {
     try {
-      const { credits, amount } = req.body;
+      const { packageId } = req.body;
+      
+      if (!packageId) {
+        return res.status(400).json({ message: "Package ID is required" });
+      }
+
+      // Get package details from database (trusted source)
+      const creditPackage = await storage.getCreditPackage(packageId);
+      
+      if (!creditPackage || !creditPackage.isActive) {
+        return res.status(404).json({ message: "Credit package not found or inactive" });
+      }
+
+      // Use server-side price (prevent client tampering)
+      const amount = parseFloat(creditPackage.price);
       
       const paymentIntent = await stripe.paymentIntents.create({
         amount: Math.round(amount * 100), // Convert to cents
         currency: "brl",
         metadata: {
           userId: req.user.id,
-          credits: credits.toString(),
+          packageId: packageId, // Store packageId instead of credits
         },
       });
 
@@ -377,7 +391,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
       
       if (paymentIntent.status === 'succeeded' && paymentIntent.metadata.userId === req.user.id) {
-        const credits = parseInt(paymentIntent.metadata.credits);
+        const { packageId } = paymentIntent.metadata;
+        
+        if (!packageId) {
+          return res.status(400).json({ message: "Invalid payment: no package ID found" });
+        }
+
+        // Get package details from database (trusted source)
+        const creditPackage = await storage.getCreditPackage(packageId);
+        
+        if (!creditPackage) {
+          return res.status(400).json({ message: "Invalid payment: package not found" });
+        }
+
+        // Validate payment amount matches package price
+        const expectedAmount = Math.round(parseFloat(creditPackage.price) * 100);
+        if (paymentIntent.amount !== expectedAmount) {
+          return res.status(400).json({ message: "Invalid payment: amount mismatch" });
+        }
+
+        const credits = creditPackage.credits;
         const newCredits = req.user.credits + credits;
         
         await storage.updateUserCredits(req.user.id, newCredits);
@@ -385,7 +418,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           req.user.id,
           "purchase",
           credits,
-          `Purchase of ${credits} credits`,
+          `Purchase of ${credits} credits (${creditPackage.name})`,
           paymentIntentId
         );
 
@@ -489,6 +522,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const updatedTicket = await storage.updateSupportTicketStatus(ticket.id, status);
       res.json(updatedTicket);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Dynamic data endpoints for frontend components
+  app.get("/api/ai-provider-configs", async (req, res) => {
+    try {
+      const configs = await storage.getAiProviderConfigs();
+      res.json(configs);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/credit-packages", async (req, res) => {
+    try {
+      const packages = await storage.getCreditPackages();
+      res.json(packages);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/platform-stats", async (req, res) => {
+    try {
+      let stats = await storage.getPlatformStats();
+      
+      // If no stats exist or stats are older than 1 hour, recompute them
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+      if (!stats || new Date(stats.lastUpdated) < oneHourAgo) {
+        stats = await storage.computeAndUpdatePlatformStats();
+      }
+      
+      res.json(stats);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
@@ -647,6 +715,157 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const aiUsage = await storage.getAiUsageAnalytics();
       res.json(aiUsage);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Admin data seeding endpoints
+  app.post("/api/admin/seed-data", requireAdmin, async (req, res) => {
+    try {
+      // Seed AI Provider Configs
+      const aiProviderConfigsData = [
+        {
+          providerId: 'openai-gpt5',
+          name: 'OpenAI',
+          model: 'GPT-5',
+          provider: 'openai',
+          credits: 3,
+          description: 'Modelo mais avançado para análise jurídica detalhada',
+          iconName: 'Bot',
+          isPopular: true,
+          isFree: false,
+          isActive: true,
+          sortOrder: 1,
+        },
+        {
+          providerId: 'anthropic-claude',
+          name: 'Anthropic',
+          model: 'Claude Sonnet 4',
+          provider: 'anthropic',
+          credits: 3,
+          description: 'Especializado em análise de documentos legais',
+          iconName: 'Brain',
+          isPopular: false,
+          isFree: false,
+          isActive: true,
+          sortOrder: 2,
+        },
+        {
+          providerId: 'openai-gpt4',
+          name: 'OpenAI',
+          model: 'GPT-4',
+          provider: 'openai',
+          credits: 2,
+          description: 'Análise confiável com boa precisão',
+          iconName: 'Bot',
+          isPopular: false,
+          isFree: false,
+          isActive: true,
+          sortOrder: 3,
+        },
+        {
+          providerId: 'gemini-pro',
+          name: 'Google',
+          model: 'Gemini Pro',
+          provider: 'gemini',
+          credits: 1,
+          description: 'Análise rápida e eficiente',
+          iconName: 'Sparkles',
+          isPopular: false,
+          isFree: false,
+          isActive: true,
+          sortOrder: 4,
+        },
+        {
+          providerId: 'openrouter',
+          name: 'OpenRouter',
+          model: 'Multiple Models',
+          provider: 'openrouter',
+          credits: 2,
+          description: 'Acesso a múltiplos modelos de IA',
+          iconName: 'Route',
+          isPopular: false,
+          isFree: false,
+          isActive: true,
+          sortOrder: 5,
+        },
+        {
+          providerId: 'free-ai',
+          name: 'IA Gratuita',
+          model: 'Basic Analysis',
+          provider: 'free',
+          credits: 0,
+          description: 'Análise básica para usuários gratuitos',
+          iconName: 'Gift',
+          isPopular: false,
+          isFree: true,
+          isActive: true,
+          sortOrder: 6,
+        }
+      ];
+
+      // Seed Credit Packages
+      const creditPackagesData = [
+        {
+          packageId: 'credits_50',
+          name: '50 Créditos',
+          credits: 50,
+          price: '47.00',
+          isPopular: false,
+          description: 'Ideal para uso básico',
+          features: ['Análises básicas', 'Todos os provedores de IA', 'Suporte por email'],
+          isActive: true,
+          sortOrder: 1,
+        },
+        {
+          packageId: 'credits_100',
+          name: '100 Créditos',
+          credits: 100,
+          price: '87.00',
+          isPopular: true,
+          description: 'Melhor custo-benefício',
+          features: ['Análises ilimitadas', 'Todos os provedores de IA', 'Suporte prioritário', '15% de desconto'],
+          isActive: true,
+          sortOrder: 2,
+        },
+        {
+          packageId: 'credits_500',
+          name: '500 Créditos',
+          credits: 500,
+          price: '397.00',
+          isPopular: false,
+          description: 'Para uso profissional',
+          features: ['Volume profissional', 'Todos os provedores de IA', 'Suporte dedicado', '20% de desconto'],
+          isActive: true,
+          sortOrder: 3,
+        }
+      ];
+
+      // Check if data already exists to avoid duplicates
+      const existingConfigs = await storage.getAiProviderConfigs();
+      const existingPackages = await storage.getCreditPackages();
+
+      if (existingConfigs.length === 0) {
+        for (const config of aiProviderConfigsData) {
+          await storage.createAiProviderConfig(config);
+        }
+      }
+
+      if (existingPackages.length === 0) {
+        for (const pkg of creditPackagesData) {
+          await storage.createCreditPackage(pkg);
+        }
+      }
+
+      // Seed initial platform stats
+      await storage.computeAndUpdatePlatformStats();
+
+      res.json({ 
+        message: "Database seeded successfully",
+        aiProviderConfigs: existingConfigs.length === 0 ? aiProviderConfigsData.length : 0,
+        creditPackages: existingPackages.length === 0 ? creditPackagesData.length : 0,
+      });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }

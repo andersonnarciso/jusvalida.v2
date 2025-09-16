@@ -1,72 +1,11 @@
 import { Card, CardContent } from './card';
 import { Button } from './button';
 import { Badge } from './badge';
-import { Check, Bot, Brain, Sparkles, Route, Gift } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-interface AIProvider {
-  id: string;
-  name: string;
-  model: string;
-  credits: number;
-  description: string;
-  icon: React.ComponentType<any>;
-  popular?: boolean;
-  free?: boolean;
-}
-
-const AI_PROVIDERS: AIProvider[] = [
-  {
-    id: 'openai-gpt5',
-    name: 'OpenAI',
-    model: 'GPT-5',
-    credits: 3,
-    description: 'Modelo mais avançado para análise jurídica detalhada',
-    icon: Bot,
-    popular: true,
-  },
-  {
-    id: 'anthropic-claude',
-    name: 'Anthropic',
-    model: 'Claude Sonnet 4',
-    credits: 3,
-    description: 'Especializado em análise de documentos legais',
-    icon: Brain,
-  },
-  {
-    id: 'openai-gpt4',
-    name: 'OpenAI',
-    model: 'GPT-4',
-    credits: 2,
-    description: 'Análise confiável com boa precisão',
-    icon: Bot,
-  },
-  {
-    id: 'gemini-pro',
-    name: 'Google',
-    model: 'Gemini Pro',
-    credits: 1,
-    description: 'Análise rápida e eficiente',
-    icon: Sparkles,
-  },
-  {
-    id: 'openrouter',
-    name: 'OpenRouter',
-    model: 'Multiple Models',
-    credits: 2,
-    description: 'Acesso a múltiplos modelos de IA',
-    icon: Route,
-  },
-  {
-    id: 'free-ai',
-    name: 'IA Gratuita',
-    model: 'Basic Analysis',
-    credits: 0,
-    description: 'Análise básica para usuários gratuitos',
-    icon: Gift,
-    free: true,
-  },
-];
+import { getIconComponent } from '@/lib/iconMapping';
+import { useQuery } from '@tanstack/react-query';
+import type { AiProviderConfig } from '@shared/schema';
 
 interface AIProviderSelectorProps {
   selectedProvider: string;
@@ -81,6 +20,31 @@ export function AIProviderSelector({
   userCredits,
   className 
 }: AIProviderSelectorProps) {
+  const { data: aiProviders = [], isLoading } = useQuery<AiProviderConfig[]>({
+    queryKey: ['/api/ai-provider-configs'],
+  });
+
+  if (isLoading) {
+    return (
+      <div className={cn("space-y-4", className)}>
+        <h3 className="text-sm font-medium mb-3" data-testid="text-provider-title">
+          Provedor de IA
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[...Array(6)].map((_, i) => (
+            <Card key={i} className="animate-pulse">
+              <CardContent className="p-4">
+                <div className="h-4 bg-gray-200 rounded mb-2"></div>
+                <div className="h-3 bg-gray-200 rounded mb-2"></div>
+                <div className="h-3 bg-gray-200 rounded"></div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={cn("space-y-4", className)}>
       <div>
@@ -88,14 +52,15 @@ export function AIProviderSelector({
           Provedor de IA
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {AI_PROVIDERS.map((provider) => {
-            const isSelected = selectedProvider === provider.id;
+          {aiProviders.map((provider) => {
+            const isSelected = selectedProvider === provider.providerId;
             const canAfford = userCredits >= provider.credits;
-            const isDisabled = !canAfford && !provider.free;
+            const isDisabled = !canAfford && !provider.isFree;
+            const IconComponent = getIconComponent(provider.iconName);
 
             return (
               <Card
-                key={provider.id}
+                key={provider.providerId}
                 className={cn(
                   "cursor-pointer transition-all relative",
                   isSelected 
@@ -103,10 +68,10 @@ export function AIProviderSelector({
                     : "border border-border hover:border-primary",
                   isDisabled && "opacity-50 cursor-not-allowed"
                 )}
-                onClick={() => !isDisabled && onProviderChange(provider.id)}
-                data-testid={`card-provider-${provider.id}`}
+                onClick={() => !isDisabled && onProviderChange(provider.providerId)}
+                data-testid={`card-provider-${provider.providerId}`}
               >
-                {provider.popular && (
+                {provider.isPopular && (
                   <div className="absolute -top-2 left-1/2 transform -translate-x-1/2">
                     <Badge className="bg-primary text-primary-foreground" data-testid="badge-popular">
                       Popular
@@ -118,15 +83,15 @@ export function AIProviderSelector({
                   <div className="flex items-center justify-between mb-2">
                     <div className={cn(
                       "w-8 h-8 rounded-lg flex items-center justify-center",
-                      provider.free 
+                      provider.isFree 
                         ? "bg-green-500" 
                         : isSelected 
                           ? "bg-primary" 
                           : "bg-accent"
                     )}>
-                      <provider.icon 
+                      <IconComponent 
                         className={cn(
-                          provider.free || isSelected 
+                          provider.isFree || isSelected 
                             ? "text-white" 
                             : "text-accent-foreground"
                         )} 
@@ -138,23 +103,23 @@ export function AIProviderSelector({
                     )}
                   </div>
                   
-                  <div className="text-sm font-semibold mb-1" data-testid={`text-provider-name-${provider.id}`}>
+                  <div className="text-sm font-semibold mb-1" data-testid={`text-provider-name-${provider.providerId}`}>
                     {provider.name} {provider.model}
                   </div>
                   
-                  <div className="text-xs text-muted-foreground mb-2" data-testid={`text-provider-description-${provider.id}`}>
+                  <div className="text-xs text-muted-foreground mb-2" data-testid={`text-provider-description-${provider.providerId}`}>
                     {provider.description}
                   </div>
                   
                   <div className="flex items-center justify-between">
                     <span className={cn(
                       "text-xs font-medium",
-                      provider.free ? "text-green-600" : "text-muted-foreground"
-                    )} data-testid={`text-provider-credits-${provider.id}`}>
+                      provider.isFree ? "text-green-600" : "text-muted-foreground"
+                    )} data-testid={`text-provider-credits-${provider.providerId}`}>
                       {provider.credits === 0 ? "Gratuito" : `${provider.credits} créditos`}
                     </span>
                     
-                    {!canAfford && !provider.free && (
+                    {!canAfford && !provider.isFree && (
                       <Badge variant="destructive" className="text-xs" data-testid="badge-insufficient-credits">
                         Insuficiente
                       </Badge>
