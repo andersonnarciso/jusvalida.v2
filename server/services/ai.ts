@@ -339,8 +339,17 @@ Return analysis in JSON format with the following enhanced structure that includ
     return baseResult as AnalysisResult;
   }
 
-  getProviderCredits(provider: string): number {
-    const credits = {
+  getProviderCredits(provider: string, analysisType: string = 'general'): number {
+    // Tiered pricing structure based on analysis complexity
+    const tierMultipliers = {
+      'general': 1.0,       // Basic analysis
+      'contract': 1.5,      // Advanced contract analysis  
+      'legal': 1.5,         // Advanced legal document analysis
+      'compliance': 2.0,    // Most complex compliance analysis
+      'template': 1.8       // Template-specific analysis with validation
+    };
+
+    const baseCredits = {
       'openai-gpt4': 2,
       'openai-gpt5': 3,
       'anthropic-claude': 3,
@@ -349,7 +358,14 @@ Return analysis in JSON format with the following enhanced structure that includ
       'openrouter': 2,
       'free': 0
     };
-    return credits[provider as keyof typeof credits] || 1;
+
+    const base = baseCredits[provider as keyof typeof baseCredits] || 1;
+    const multiplier = tierMultipliers[analysisType as keyof typeof tierMultipliers] || 1.0;
+    
+    // Calculate final credits and round up to ensure we always cover costs
+    const finalCredits = Math.ceil(base * multiplier);
+    
+    return finalCredits;
   }
 
   async analyzeDocument(
@@ -365,6 +381,8 @@ Return analysis in JSON format with the following enhanced structure that includ
       let templateData = null;
       if (templateId) {
         templateData = await this.loadTemplateData(templateId, provider);
+        // Use template analysis type for pricing calculation
+        analysisType = 'template';
       }
 
       switch (provider) {
@@ -382,6 +400,39 @@ Return analysis in JSON format with the following enhanced structure that includ
     } catch (error: any) {
       throw new Error(`AI Analysis failed: ${error.message}`);
     }
+  }
+
+  // Helper method to get analysis type display name and description
+  getAnalysisTypeInfo(analysisType: string): { name: string; description: string; credits: string } {
+    const typeInfo = {
+      'general': {
+        name: 'Análise Geral',
+        description: 'Análise básica de documentos jurídicos',
+        credits: 'Baixo custo'
+      },
+      'contract': {
+        name: 'Análise de Contratos',
+        description: 'Análise detalhada de cláusulas e termos contratuais',
+        credits: 'Custo médio'
+      },
+      'legal': {
+        name: 'Análise Jurídica',
+        description: 'Análise especializada de petições e documentos legais',
+        credits: 'Custo médio'
+      },
+      'compliance': {
+        name: 'Análise de Conformidade',
+        description: 'Verificação completa de compliance regulatório',
+        credits: 'Alto custo'
+      },
+      'template': {
+        name: 'Análise com Template',
+        description: 'Validação específica baseada em modelo predefinido',
+        credits: 'Custo premium'
+      }
+    };
+
+    return typeInfo[analysisType as keyof typeof typeInfo] || typeInfo.general;
   }
 }
 

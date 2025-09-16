@@ -231,6 +231,23 @@ export const queueJobs = pgTable("queue_jobs", {
   updatedAt: timestamp("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
+export const costModels = pgTable("cost_models", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  provider: text("provider").notNull(), // 'openai', 'anthropic', 'gemini'
+  model: text("model").notNull(), // 'gpt-4', 'claude-3-sonnet', 'gemini-pro'
+  inputTokenCost: decimal("input_token_cost", { precision: 12, scale: 8 }).notNull(), // Cost per input token in USD
+  outputTokenCost: decimal("output_token_cost", { precision: 12, scale: 8 }).notNull(), // Cost per output token in USD
+  creditsPerInputToken: decimal("credits_per_input_token", { precision: 8, scale: 6 }).notNull(), // Credits charged per input token
+  creditsPerOutputToken: decimal("credits_per_output_token", { precision: 8, scale: 6 }).notNull(), // Credits charged per output token
+  profitMargin: decimal("profit_margin", { precision: 5, scale: 4 }).notNull().default(sql`0.3000`), // 30% default margin
+  operationalMultiplier: decimal("operational_multiplier", { precision: 5, scale: 4 }).notNull().default(sql`1.2000`), // 20% operational costs
+  isActive: boolean("is_active").notNull().default(true),
+  lastUpdated: timestamp("last_updated").notNull().default(sql`CURRENT_TIMESTAMP`),
+  notes: text("notes"), // Admin notes about cost adjustments
+  createdAt: timestamp("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -372,6 +389,13 @@ export const insertQueueJobSchema = createInsertSchema(queueJobs).omit({
   updatedAt: true,
 });
 
+export const insertCostModelSchema = createInsertSchema(costModels).omit({
+  id: true,
+  lastUpdated: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type LoginUser = z.infer<typeof loginUserSchema>;
@@ -391,6 +415,7 @@ export type TemplateAnalysisRule = typeof templateAnalysisRules.$inferSelect;
 export type BatchJob = typeof batchJobs.$inferSelect;
 export type BatchDocument = typeof batchDocuments.$inferSelect;
 export type QueueJob = typeof queueJobs.$inferSelect;
+export type CostModel = typeof costModels.$inferSelect;
 
 // Metadata type interfaces for proper typing
 export interface BatchJobMetadata {
@@ -436,6 +461,7 @@ export type InsertTemplateAnalysisRule = z.infer<typeof insertTemplateAnalysisRu
 export type InsertBatchJob = z.infer<typeof insertBatchJobSchema>;
 export type InsertBatchDocument = z.infer<typeof insertBatchDocumentSchema>;
 export type InsertQueueJob = z.infer<typeof insertQueueJobSchema>;
+export type InsertCostModel = z.infer<typeof insertCostModelSchema>;
 
 // Relations
 import { relations } from "drizzle-orm";

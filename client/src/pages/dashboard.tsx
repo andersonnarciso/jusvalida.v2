@@ -331,48 +331,68 @@ export default function Dashboard() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="flex items-start space-x-3 p-4 border border-border rounded-lg hover:bg-accent cursor-pointer">
                     <RadioGroupItem value="general" id="general" />
-                    <div>
-                      <Label htmlFor="general" className="font-medium cursor-pointer">
-                        Análise Geral
-                      </Label>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="general" className="font-medium cursor-pointer">
+                          Análise Geral
+                        </Label>
+                        <Badge variant="outline" className="text-xs">
+                          Baixo custo
+                        </Badge>
+                      </div>
                       <p className="text-sm text-muted-foreground">
-                        Verificação completa de falhas, brechas e melhorias
+                        Verificação completa de falhas, brechas e melhorias (1.0x)
                       </p>
                     </div>
                   </div>
                   
                   <div className="flex items-start space-x-3 p-4 border border-border rounded-lg hover:bg-accent cursor-pointer">
                     <RadioGroupItem value="contract" id="contract" />
-                    <div>
-                      <Label htmlFor="contract" className="font-medium cursor-pointer">
-                        Contrato Específico
-                      </Label>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="contract" className="font-medium cursor-pointer">
+                          Contrato Específico
+                        </Label>
+                        <Badge variant="secondary" className="text-xs">
+                          Custo médio
+                        </Badge>
+                      </div>
                       <p className="text-sm text-muted-foreground">
-                        Análise focada em cláusulas contratuais
+                        Análise focada em cláusulas contratuais (1.5x)
                       </p>
                     </div>
                   </div>
                   
                   <div className="flex items-start space-x-3 p-4 border border-border rounded-lg hover:bg-accent cursor-pointer">
                     <RadioGroupItem value="legal" id="legal" />
-                    <div>
-                      <Label htmlFor="legal" className="font-medium cursor-pointer">
-                        Peça Jurídica
-                      </Label>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="legal" className="font-medium cursor-pointer">
+                          Peça Jurídica
+                        </Label>
+                        <Badge variant="secondary" className="text-xs">
+                          Custo médio
+                        </Badge>
+                      </div>
                       <p className="text-sm text-muted-foreground">
-                        Verificação de petições e documentos processuais
+                        Verificação de petições e documentos processuais (1.5x)
                       </p>
                     </div>
                   </div>
                   
                   <div className="flex items-start space-x-3 p-4 border border-border rounded-lg hover:bg-accent cursor-pointer">
                     <RadioGroupItem value="compliance" id="compliance" />
-                    <div>
-                      <Label htmlFor="compliance" className="font-medium cursor-pointer">
-                        Conformidade Legal
-                      </Label>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="compliance" className="font-medium cursor-pointer">
+                          Conformidade Legal
+                        </Label>
+                        <Badge className="text-xs bg-orange-100 text-orange-800">
+                          Alto custo
+                        </Badge>
+                      </div>
                       <p className="text-sm text-muted-foreground">
-                        Análise de adequação à legislação vigente
+                        Análise de adequação à legislação vigente (2.0x)
                       </p>
                     </div>
                   </div>

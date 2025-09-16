@@ -3,7 +3,10 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { CookieBanner } from "@/components/ui/cookie-banner";
+import { Footer } from "@/components/ui/footer";
 import { AuthProvider } from "@/hooks/use-auth";
+import { CookieConsentProvider } from "@/hooks/use-cookie-preferences";
 import Landing from "@/pages/landing";
 import Dashboard from "@/pages/dashboard";
 import Login from "@/pages/login";
@@ -15,36 +18,50 @@ import Checkout from "@/pages/checkout";
 import Analyses from "@/pages/analyses";
 import BatchProcessing from "@/pages/batch";
 import Admin from "@/pages/admin";
+import PrivacyPolicy from "@/pages/privacy-policy";
+import CookiePolicy from "@/pages/cookie-policy";
+import TermsOfService from "@/pages/terms-of-service";
 import NotFound from "@/pages/not-found";
 
 function Router() {
   return (
-    <Switch>
-      <Route path="/" component={Landing} />
-      <Route path="/login" component={Login} />
-      <Route path="/register" component={Register} />
-      <Route path="/dashboard" component={Dashboard} />
-      <Route path="/profile" component={Profile} />
-      <Route path="/billing" component={Billing} />
-      <Route path="/support" component={Support} />
-      <Route path="/checkout" component={Checkout} />
-      <Route path="/analyses" component={Analyses} />
-      <Route path="/batch" component={BatchProcessing} />
-      <Route path="/admin" component={Admin} />
-      <Route component={NotFound} />
-    </Switch>
+    <div className="min-h-screen flex flex-col">
+      <main className="flex-1">
+        <Switch>
+          <Route path="/" component={Landing} />
+          <Route path="/login" component={Login} />
+          <Route path="/register" component={Register} />
+          <Route path="/dashboard" component={Dashboard} />
+          <Route path="/profile" component={Profile} />
+          <Route path="/billing" component={Billing} />
+          <Route path="/support" component={Support} />
+          <Route path="/checkout" component={Checkout} />
+          <Route path="/analyses" component={Analyses} />
+          <Route path="/batch" component={BatchProcessing} />
+          <Route path="/admin" component={Admin} />
+          <Route path="/privacy-policy" component={PrivacyPolicy} />
+          <Route path="/cookie-policy" component={CookiePolicy} />
+          <Route path="/terms-of-service" component={TermsOfService} />
+          <Route component={NotFound} />
+        </Switch>
+      </main>
+      <Footer />
+      <CookieBanner />
+    </div>
   );
 }
 
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Router />
-        </TooltipProvider>
-      </AuthProvider>
+      <CookieConsentProvider>
+        <AuthProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Router />
+          </TooltipProvider>
+        </AuthProvider>
+      </CookieConsentProvider>
     </QueryClientProvider>
   );
 }

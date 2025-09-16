@@ -87,6 +87,9 @@ function CheckoutForm({ selectedPackage, onPaymentSuccess }: CheckoutFormProps) 
           <span>{selectedPackage.credits} créditos</span>
           <span>R$ {(selectedPackage.price / selectedPackage.credits).toFixed(2)} por crédito</span>
         </div>
+        <div className="text-xs text-muted-foreground mt-2">
+          ✨ Cobertura completa dos custos de IA premium + margem de qualidade
+        </div>
       </div>
       
       <Button 

@@ -114,7 +114,7 @@ const batchUpload = multer({
 }).array('files', 25);
 
 // Middleware to validate total batch size (max 500MB)
-function validateBatchSize(req: express.Request, res: express.Response, next: express.NextFunction) {
+async function validateBatchSize(req: express.Request, res: express.Response, next: express.NextFunction) {
   if (!req.files || !Array.isArray(req.files)) {
     return res.status(400).json({ message: 'No files provided' });
   }
@@ -124,7 +124,7 @@ function validateBatchSize(req: express.Request, res: express.Response, next: ex
 
   if (totalSize > maxTotalSize) {
     // Cleanup uploaded files before rejecting
-    cleanupUploadedFiles(req.files as Express.Multer.File[]);
+    await cleanupUploadedFiles(req.files as Express.Multer.File[]);
     return res.status(413).json({ 
       message: 'Total batch size exceeds 500MB limit',
       totalSize: Math.round(totalSize / 1024 / 1024),
@@ -135,16 +135,7 @@ function validateBatchSize(req: express.Request, res: express.Response, next: ex
   next();
 }
 
-// Helper function to cleanup uploaded files
-function cleanupUploadedFiles(files: Express.Multer.File[]) {
-  files.forEach(file => {
-    try {
-      fs.unlinkSync(file.path);
-    } catch (error) {
-      console.error(`Failed to cleanup file ${file.path}:`, error);
-    }
-  });
-}
+// Helper function to cleanup uploaded files (async version defined later)
 
 // Handle successful payment processing from Stripe webhook
 async function handleSuccessfulPayment(paymentIntent: Stripe.PaymentIntent) {
@@ -479,8 +470,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userApiKey = providerConfig?.apiKey;
       }
 
-      // Calculate credits needed
-      const creditsNeeded = aiService.getProviderCredits(`${aiProvider}-${aiModel}`);
+      // Calculate credits needed based on analysis type and provider
+      const creditsNeeded = aiService.getProviderCredits(`${aiProvider}-${aiModel}`, analysisType);
       
       if (req.user.credits < creditsNeeded) {
         return res.status(402).json({ message: "Insufficient credits" });
@@ -1711,8 +1702,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Calculate total credits needed
-      const creditsPerDocument = aiService.getProviderCredits(`${aiProvider}-${aiModel}`);
+      // Calculate total credits needed based on analysis type
+      const creditsPerDocument = aiService.getProviderCredits(`${aiProvider}-${aiModel}`, analysisType);
       const totalCreditsNeeded = creditsPerDocument * files.length;
       
       // RACE CONDITION FIX: Atomic credit check and reservation
