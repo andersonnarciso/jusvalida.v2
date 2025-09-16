@@ -47,7 +47,7 @@ interface DocumentAnalysis {
 }
 
 export default function Dashboard() {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
@@ -59,8 +59,24 @@ export default function Dashboard() {
   const [selectedTemplate, setSelectedTemplate] = useState('');
   const [currentTab, setCurrentTab] = useState('upload');
 
+  // Handle authentication redirect properly - avoid setState during render
+  useEffect(() => {
+    if (!isLoading && !user) {
+      setLocation('/login');
+    }
+  }, [isLoading, user, setLocation]);
+
+  // Show loading state while authentication is being checked
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  // Don't render dashboard if not authenticated (will be redirected by useEffect)
   if (!user) {
-    setLocation('/login');
     return null;
   }
 
