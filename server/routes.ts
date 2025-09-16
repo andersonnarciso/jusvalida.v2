@@ -47,6 +47,26 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: "2024-06-20",
 });
 
+// Helper function to check if user can use free analysis (3 per month)
+async function checkFreeAnalysisLimit(userId: string): Promise<boolean> {
+  try {
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+    
+    const freeAnalysesThisMonth = await storage.getDocumentAnalyses(userId)
+      .then(analyses => analyses.filter(analysis => 
+        analysis.aiProvider === 'free' && 
+        new Date(analysis.createdAt) >= startOfMonth
+      ));
+    
+    return freeAnalysesThisMonth.length < 3;
+  } catch (error) {
+    console.error('Error checking free analysis limit:', error);
+    return false;
+  }
+}
+
 // Helper function to sanitize user objects by removing sensitive fields
 function toSafeUser(user: any) {
   if (!user) return user;
@@ -445,9 +465,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let content = '';
       
       if (req.file) {
-        // Handle file upload - for now just convert buffer to string
-        // In production, you'd want proper PDF/DOC parsing
-        content = req.file.buffer.toString('utf-8');
+        // Proper file processing for different formats
+        try {
+          if (req.file.mimetype === 'application/pdf') {
+            const pdfParse = await import('pdf-parse');
+            const pdfData = await pdfParse.default(req.file.buffer);
+            content = pdfData.text;
+          } else if (req.file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+            const mammoth = await import('mammoth');
+            const result = await mammoth.extractRawText({ buffer: req.file.buffer });
+            content = result.value;
+          } else if (req.file.mimetype === 'application/msword') {
+            // For older DOC files, try mammoth but fallback to buffer if needed
+            try {
+              const mammoth = await import('mammoth');
+              const result = await mammoth.extractRawText({ buffer: req.file.buffer });
+              content = result.value;
+            } catch (docError) {
+              content = req.file.buffer.toString('utf-8');
+            }
+          } else if (req.file.mimetype === 'text/plain') {
+            content = req.file.buffer.toString('utf-8');
+          } else {
+            return res.status(400).json({ message: "Tipo de arquivo não suportado" });
+          }
+        } catch (parseError) {
+          console.error("Erro no processamento do arquivo:", parseError);
+          return res.status(400).json({ message: "Erro ao processar arquivo. Tente um formato diferente." });
+        }
       } else if (req.body.content) {
         content = req.body.content;
       } else {
@@ -465,9 +510,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Validate free tier limits
-      if (req.user.credits === 0) {
-        return res.status(402).json({ message: "Insufficient credits" });
+      // Check if user can use free analysis (3 per month) or needs credits
+      const canUseFreeAnalysis = await checkFreeAnalysisLimit(req.user.id);
+      const needsCredits = !canUseFreeAnalysis && req.user.credits === 0;
+      
+      if (needsCredits) {
+        return res.status(402).json({ 
+          message: "Você atingiu o limite de 3 análises gratuitas por mês. Compre créditos para continuar." 
+        });
       }
 
       // Get user's API key for the provider if needed
@@ -477,11 +527,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userApiKey = providerConfig?.apiKey;
       }
 
-      // Calculate credits needed based on analysis type and provider
-      const creditsNeeded = aiService.getProviderCredits(`${aiProvider}-${aiModel}`, analysisType);
+      // Calculate credits needed - free users can use 'free' provider
+      let actualProvider = aiProvider;
+      let actualModel = aiModel;
+      let creditsNeeded = 0;
       
-      if (req.user.credits < creditsNeeded) {
-        return res.status(402).json({ message: "Insufficient credits" });
+      if (canUseFreeAnalysis && (req.user.credits === 0 || aiProvider === 'free')) {
+        // Force free analysis for users without credits or explicitly choosing free
+        actualProvider = 'free';
+        actualModel = 'basic';
+        creditsNeeded = 0;
+      } else {
+        creditsNeeded = aiService.getProviderCredits(`${aiProvider}-${aiModel}`, analysisType);
+        if (req.user.credits < creditsNeeded) {
+          return res.status(402).json({ 
+            message: `Créditos insuficientes. Necessário: ${creditsNeeded}, disponível: ${req.user.credits}` 
+          });
+        }
       }
 
       // Create analysis record with template reference
@@ -501,8 +563,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const result = await aiService.analyzeDocument(
           content,
           analysisType,
-          aiProvider,
-          aiModel,
+          actualProvider,
+          actualModel,
           userApiKey,
           templateId
         );

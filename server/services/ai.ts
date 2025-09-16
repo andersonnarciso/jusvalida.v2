@@ -286,30 +286,94 @@ Return analysis in JSON format with the following enhanced structure that includ
   }
 
   async analyzeWithFreeAI(content: string, analysisType: string, templateData?: any): Promise<AnalysisResult> {
-    // Simplified analysis for free tier with basic template support
+    // Enhanced free analysis with actual content processing
     await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate processing time
     
     const wordCount = content.split(' ').length;
-    const hasContracts = content.toLowerCase().includes('contrato') || content.toLowerCase().includes('contract');
-    const hasLegalTerms = /\b(lei|artigo|parágrafo|cláusula|disposição)\b/i.test(content);
+    const sentences = content.split(/[.!?]+/).filter(s => s.trim().length > 10);
+    const paragraphs = content.split('\n\n').filter(p => p.trim().length > 0);
+    
+    // Legal terms analysis
+    const contractTerms = content.toLowerCase().match(/\b(contrato|contratante|contratado|acordo|convenção|pacto)\b/gi) || [];
+    const legalTerms = content.toLowerCase().match(/\b(lei|artigo|parágrafo|cláusula|disposição|decreto|resolução|portaria)\b/gi) || [];
+    const obligationTerms = content.toLowerCase().match(/\b(deve|obriga|responsável|responsabilidade|dever|direito|obrigação)\b/gi) || [];
+    const paymentTerms = content.toLowerCase().match(/\b(pagamento|pagar|valor|preço|remuneração|honorário|taxa|multa)\b/gi) || [];
+    const terminationTerms = content.toLowerCase().match(/\b(rescisão|rescind|cancelar|terminar|encerrar|romper|fim)\b/gi) || [];
+    
+    // Identify potential issues
+    const criticalFlaws = [];
+    const warnings = [];
+    const improvements = [];
+    
+    // Content analysis
+    if (wordCount < 50) {
+      warnings.push("Documento muito curto - pode estar incompleto");
+    }
+    if (wordCount > 5000) {
+      warnings.push("Documento extenso - análise detalhada requer plano premium");
+    }
+    if (sentences.length < 5) {
+      warnings.push("Estrutura de frases pode estar inadequada");
+    }
+    
+    // Legal compliance checks
+    if (contractTerms.length > 0 && paymentTerms.length === 0) {
+      criticalFlaws.push("Contrato identificado sem cláusulas de pagamento claras");
+    }
+    if (contractTerms.length > 0 && terminationTerms.length === 0) {
+      warnings.push("Contrato sem cláusulas de rescisão aparentes");
+    }
+    if (obligationTerms.length === 0 && contractTerms.length > 0) {
+      warnings.push("Poucas definições de obrigações e responsabilidades");
+    }
+    
+    // Content improvements
+    if (paragraphs.length < 3) {
+      improvements.push("Melhorar organização em parágrafos para maior clareza");
+    }
+    if (legalTerms.length < 3) {
+      improvements.push("Incluir mais referências legais específicas se aplicável");
+    }
+    if (content.indexOf('LGPD') === -1 && content.indexOf('dados') > -1) {
+      improvements.push("Considerar cláusulas LGPD se houver tratamento de dados");
+    }
+    
+    // Calculate compliance score
+    let complianceScore = 60; // Base score
+    if (contractTerms.length > 0) complianceScore += 10;
+    if (legalTerms.length > 2) complianceScore += 10;
+    if (paymentTerms.length > 0) complianceScore += 5;
+    if (terminationTerms.length > 0) complianceScore += 5;
+    if (obligationTerms.length > 2) complianceScore += 10;
+    
+    // Risk level calculation
+    let riskLevel: 'low' | 'medium' | 'high' | 'critical' = 'low';
+    if (criticalFlaws.length > 0) riskLevel = 'high';
+    else if (warnings.length > 2) riskLevel = 'medium';
+    else if (warnings.length > 0) riskLevel = 'low';
+    
+    // Generate meaningful summary
+    let summary = `Documento com ${wordCount} palavras`;
+    if (contractTerms.length > 0) summary += `, identificado como documento contratual`;
+    if (legalTerms.length > 0) summary += `, com ${legalTerms.length} referências legais`;
+    if (paymentTerms.length > 0) summary += `, incluindo cláusulas de pagamento`;
+    summary += `. Análise gratuita detectou aspectos básicos - use plano premium para análise completa.`;
     
     let baseResult = {
-      summary: `Documento analisado com ${wordCount} palavras. ${hasContracts ? 'Documento contratual identificado.' : ''} ${hasLegalTerms ? 'Termos legais detectados.' : ''}`,
-      criticalFlaws: wordCount > 5000 ? ["Documento muito extenso para análise gratuita"] : [],
-      warnings: hasLegalTerms ? [] : ["Poucos termos legais identificados no documento"],
-      improvements: [
-        "Considere usar análise premium para insights mais detalhados",
-        "Revise a estrutura e formatação do documento"
-      ],
+      summary,
+      criticalFlaws: criticalFlaws.length > 0 ? criticalFlaws : ["Nenhuma falha crítica detectada na análise básica"],
+      warnings: warnings.length > 0 ? warnings : ["Documento parece adequado na análise superficial"],
+      improvements,
       legalCompliance: {
-        score: hasLegalTerms ? 70 : 50,
-        issues: hasLegalTerms ? [] : ["Documento pode não seguir padrões legais adequados"]
+        score: Math.min(complianceScore, 85), // Cap at 85% for free analysis
+        issues: criticalFlaws.length > 0 ? criticalFlaws : warnings.length > 0 ? warnings.slice(0, 2) : []
       },
       recommendations: [
-        "Utilize análise premium com IA especializada para resultados mais precisos",
-        "Consulte um advogado para validação final"
+        "Análise gratuita limitada - considere plano premium para análise jurídica completa",
+        "Revise cláusulas identificadas e consulte advogado se necessário",
+        ...improvements.slice(0, 2)
       ],
-      riskLevel: wordCount > 3000 ? 'medium' : 'low' as 'low' | 'medium' | 'high' | 'critical'
+      riskLevel
     };
 
     // Add basic template analysis if template data is provided
