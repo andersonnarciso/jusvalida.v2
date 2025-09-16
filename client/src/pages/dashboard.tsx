@@ -59,59 +59,20 @@ export default function Dashboard() {
   const [selectedTemplate, setSelectedTemplate] = useState('');
   const [currentTab, setCurrentTab] = useState('upload');
 
-  // Handle authentication redirect properly - avoid setState during render
-  useEffect(() => {
-    if (!isLoading && !user) {
-      setLocation('/login');
-    }
-  }, [isLoading, user, setLocation]);
-
-  // Show loading state while authentication is being checked
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
-      </div>
-    );
-  }
-
-  // Don't render dashboard if not authenticated (will be redirected by useEffect)
-  if (!user) {
-    return null;
-  }
-
+  // ALL HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL RETURNS
   const { data: recentAnalyses = [], isLoading: analysesLoading } = useQuery<DocumentAnalysis[]>({
     queryKey: ['/api/analyses'],
     queryFn: async () => {
       const response = await apiRequest('GET', '/api/analyses?limit=5');
       return response.json();
-    }
+    },
+    enabled: !!user // Only run when user is authenticated
   });
 
   const { data: aiProviderConfigs = [] } = useQuery<AiProviderConfig[]>({
     queryKey: ['/api/ai-provider-configs'],
+    enabled: !!user // Only run when user is authenticated
   });
-
-  // Set default selectedProvider when aiProviderConfigs loads
-  useEffect(() => {
-    if (aiProviderConfigs.length > 0 && !selectedProvider) {
-      // Prefer free providers, then popular ones, then first active one
-      const freeProvider = aiProviderConfigs.find(config => config.isFree && config.isActive);
-      const popularProvider = aiProviderConfigs.find(config => config.isPopular && config.isActive);
-      const firstActiveProvider = aiProviderConfigs.find(config => config.isActive);
-      
-      const defaultProvider = freeProvider || popularProvider || firstActiveProvider;
-      if (defaultProvider) {
-        setSelectedProvider(defaultProvider.providerId);
-      }
-    }
-  }, [aiProviderConfigs, selectedProvider]);
-
-  // Function to get selected provider's credit cost dynamically
-  const getSelectedProviderCredits = () => {
-    const providerConfig = aiProviderConfigs.find(config => config.providerId === selectedProvider);
-    return providerConfig ? providerConfig.credits : 0;
-  };
 
   const analyzeDocumentMutation = useMutation({
     mutationFn: async (data: FormData) => {
@@ -137,6 +98,34 @@ export default function Dashboard() {
       });
     }
   });
+
+  // Set default selectedProvider when aiProviderConfigs loads
+  useEffect(() => {
+    if (aiProviderConfigs.length > 0 && !selectedProvider) {
+      // Prefer free providers, then popular ones, then first active one
+      const freeProvider = aiProviderConfigs.find(config => config.isFree && config.isActive);
+      const popularProvider = aiProviderConfigs.find(config => config.isPopular && config.isActive);
+      const firstActiveProvider = aiProviderConfigs.find(config => config.isActive);
+      
+      const defaultProvider = freeProvider || popularProvider || firstActiveProvider;
+      if (defaultProvider) {
+        setSelectedProvider(defaultProvider.providerId);
+      }
+    }
+  }, [aiProviderConfigs, selectedProvider]);
+
+  // Handle authentication redirect properly - avoid setState during render
+  useEffect(() => {
+    if (!isLoading && !user) {
+      setLocation('/login');
+    }
+  }, [isLoading, user, setLocation]);
+
+  // Function to get selected provider's credit cost dynamically
+  const getSelectedProviderCredits = () => {
+    const providerConfig = aiProviderConfigs.find(config => config.providerId === selectedProvider);
+    return providerConfig ? providerConfig.credits : 0;
+  };
 
   const handleAnalyze = () => {
     if (!selectedFile && !textContent.trim()) {
@@ -202,18 +191,28 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-background">
-      <DashboardHeader />
-      
-      <div className="container mx-auto px-4 py-8">
-        {/* Welcome Section */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2" data-testid="text-welcome-title">
-            Bem-vindo de volta, {user.firstName}!
-          </h1>
-          <p className="text-muted-foreground" data-testid="text-welcome-description">
-            Analise seus documentos jurídicos com inteligência artificial avançada.
-          </p>
+      {isLoading ? (
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
         </div>
+      ) : !user ? (
+        <div className="min-h-screen flex items-center justify-center">
+          <p>Redirecionando...</p>
+        </div>
+      ) : (
+        <>
+          <DashboardHeader />
+          
+          <div className="container mx-auto px-4 py-8">
+            {/* Welcome Section */}
+            <div className="mb-8">
+              <h1 className="text-3xl font-bold mb-2" data-testid="text-welcome-title">
+                Bem-vindo de volta, {user.firstName}!
+              </h1>
+              <p className="text-muted-foreground" data-testid="text-welcome-description">
+                Analise seus documentos jurídicos com inteligência artificial avançada.
+              </p>
+            </div>
 
         {/* Quick Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
@@ -521,6 +520,8 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+          </>
+        )}
     </div>
   );
 }

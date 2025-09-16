@@ -52,9 +52,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const login = async (email: string, password: string) => {
-    const response = await apiRequest('POST', '/api/auth/login', { email, password });
-    const data = await response.json();
-    setUser(data.user);
+    setIsLoading(true);
+    try {
+      const response = await apiRequest('POST', '/api/auth/login', { email, password });
+      const data = await response.json();
+      setUser(data.user); // Set user immediately from login response
+      setIsLoading(false);
+    } catch (error) {
+      setIsLoading(false);
+      throw error; // Re-throw so UI can handle the error
+    }
   };
 
   const register = async (userData: any) => {
