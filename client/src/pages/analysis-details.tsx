@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRoute } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, Clock, Coins, AlertTriangle, CheckCircle, FileText, Download, Share, Eye, EyeOff } from 'lucide-react';
@@ -35,6 +35,11 @@ export default function AnalysisDetails() {
   const [match, params] = useRoute("/analyses/:id");
   const [showFullText, setShowFullText] = useState(false);
   const analysisId = params?.id;
+
+  // Scroll to top when page loads or analysis ID changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [analysisId]);
 
   const { data: analysis, isLoading, error } = useQuery<DocumentAnalysis>({
     queryKey: ['/api/analyses', analysisId],
