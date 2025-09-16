@@ -7,8 +7,10 @@ export interface IStorage {
   // User management
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
+  getUsersByRole(role: string): Promise<User[]>;
   createUser(user: InsertUser): Promise<User>;
   updateUserCredits(id: string, credits: number): Promise<User>;
+  updateUserRole(id: string, role: string): Promise<User>;
   updateStripeCustomerId(id: string, customerId: string): Promise<User>;
 
   // AI Provider management
@@ -30,7 +32,9 @@ export interface IStorage {
 
   // Support Tickets
   getSupportTickets(userId: string): Promise<SupportTicket[]>;
+  getAllSupportTickets(): Promise<SupportTicket[]>;
   getSupportTicket(id: string, userId: string): Promise<SupportTicket | undefined>;
+  getSupportTicketById(id: string): Promise<SupportTicket | undefined>;
   createSupportTicket(userId: string, ticket: InsertSupportTicket): Promise<SupportTicket>;
   updateSupportTicketStatus(id: string, status: string): Promise<SupportTicket>;
 
@@ -51,12 +55,17 @@ export class DatabaseStorage implements IStorage {
     return user || undefined;
   }
 
+  async getUsersByRole(role: string): Promise<User[]> {
+    const usersByRole = await db.select().from(users).where(eq(users.role, role));
+    return usersByRole;
+  }
+
   async createUser(insertUser: InsertUser): Promise<User> {
     const [user] = await db
       .insert(users)
       .values({
         ...insertUser,
-        credits: 10, // Free tier starts with 10 credits
+        credits: insertUser.credits || 10, // Use provided credits or default to 10
       })
       .returning();
     return user;
@@ -66,6 +75,16 @@ export class DatabaseStorage implements IStorage {
     const [user] = await db
       .update(users)
       .set({ credits, updatedAt: new Date() })
+      .where(eq(users.id, id))
+      .returning();
+    if (!user) throw new Error("User not found");
+    return user;
+  }
+
+  async updateUserRole(id: string, role: string): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({ role: role as "user" | "admin" | "support", updatedAt: new Date() })
       .where(eq(users.id, id))
       .returning();
     if (!user) throw new Error("User not found");
@@ -200,11 +219,26 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(supportTickets.createdAt));
   }
 
+  async getAllSupportTickets(): Promise<SupportTicket[]> {
+    return await db
+      .select()
+      .from(supportTickets)
+      .orderBy(desc(supportTickets.createdAt));
+  }
+
   async getSupportTicket(id: string, userId: string): Promise<SupportTicket | undefined> {
     const [ticket] = await db
       .select()
       .from(supportTickets)
       .where(and(eq(supportTickets.id, id), eq(supportTickets.userId, userId)));
+    return ticket || undefined;
+  }
+
+  async getSupportTicketById(id: string): Promise<SupportTicket | undefined> {
+    const [ticket] = await db
+      .select()
+      .from(supportTickets)
+      .where(eq(supportTickets.id, id));
     return ticket || undefined;
   }
 

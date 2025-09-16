@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import bcrypt from "bcrypt";
+import { storage } from "./storage";
 
 const app = express();
 app.use(express.json());
@@ -37,8 +38,48 @@ app.use((req, res, next) => {
   next();
 });
 
+// Secure admin user creation function
+async function createInitialAdminUser() {
+  try {
+    // Check if any admin users exist
+    const existingAdminUsers = await storage.getUsersByRole("admin");
+    
+    if (existingAdminUsers.length === 0) {
+      // No admin users exist, check for environment variables
+      const adminEmail = process.env.INITIAL_ADMIN_EMAIL;
+      const adminPassword = process.env.INITIAL_ADMIN_PASSWORD;
+      
+      if (adminEmail && adminPassword) {
+        // Create the first admin user
+        const hashedPassword = await bcrypt.hash(adminPassword, 10);
+        
+        const adminUser = await storage.createUser({
+          username: adminEmail.split('@')[0] + '_admin',
+          email: adminEmail,
+          password: hashedPassword,
+          firstName: 'Admin',
+          lastName: 'User',
+          credits: 100, // Give admin user extra credits
+        });
+        
+        // Set the role to admin (this bypasses normal role assignment restrictions)
+        await storage.updateUserRole(adminUser.id, "admin");
+        
+        log(`✅ Initial admin user created with email: ${adminEmail}`);
+      } else {
+        log(`⚠️  No admin users found. Set INITIAL_ADMIN_EMAIL and INITIAL_ADMIN_PASSWORD environment variables to create the first admin user.`);
+      }
+    }
+  } catch (error) {
+    log(`❌ Error creating initial admin user: ${error}`);
+  }
+}
+
 (async () => {
   const server = await registerRoutes(app);
+  
+  // Create initial admin user if needed
+  await createInitialAdminUser();
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

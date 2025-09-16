@@ -5,7 +5,7 @@ import { storage } from "./storage";
 import { aiService } from "./services/ai";
 import bcrypt from "bcrypt";
 import session from "express-session";
-import { insertUserSchema, loginUserSchema, insertDocumentAnalysisSchema, insertSupportTicketSchema, insertTicketMessageSchema } from "@shared/schema";
+import { insertUserSchema, loginUserSchema, insertDocumentAnalysisSchema, insertSupportTicketSchema, insertTicketMessageSchema, adminTicketMessageSchema, assignRoleSchema } from "@shared/schema";
 import multer from "multer";
 import { z } from "zod";
 
@@ -17,6 +17,7 @@ declare global {
       firstName: string;
       lastName: string;
       username: string;
+      role: "user" | "admin" | "support";
       credits: number;
       stripeCustomerId?: string | null;
     }
@@ -99,6 +100,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         firstName: user.firstName,
         lastName: user.lastName,
         username: user.username,
+        role: user.role,
         credits: user.credits,
         stripeCustomerId: user.stripeCustomerId,
       };
@@ -139,6 +141,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         firstName: user.firstName,
         lastName: user.lastName,
         username: user.username,
+        role: user.role,
         credits: user.credits,
         stripeCustomerId: user.stripeCustomerId,
       };
@@ -457,6 +460,110 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const message = await storage.createTicketMessage(messageData);
       res.json(message);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Update ticket status (limited for users)
+  app.patch("/api/support/tickets/:id", requireAuth, async (req, res) => {
+    try {
+      const ticket = await storage.getSupportTicket(req.params.id, req.user.id);
+      if (!ticket) {
+        return res.status(404).json({ message: "Ticket not found" });
+      }
+
+      const { status } = req.body;
+      
+      // Users can only close/reopen their own tickets
+      if (!['closed', 'open'].includes(status)) {
+        return res.status(400).json({ message: "Users can only close or reopen tickets" });
+      }
+
+      const updatedTicket = await storage.updateSupportTicketStatus(ticket.id, status);
+      res.json(updatedTicket);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Admin middleware - proper role-based access control
+  const requireAdmin = (req: any, res: any, next: any) => {
+    if (!req.session?.user) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+    
+    // Check if user has admin or support role
+    if (!['admin', 'support'].includes(req.session.user.role)) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+    
+    req.user = req.session.user;
+    next();
+  };
+
+  // Admin routes
+  app.get("/api/admin/tickets", requireAdmin, async (req, res) => {
+    try {
+      // Get all tickets from all users (admin view)
+      const { userId } = req.query;
+      let tickets;
+      
+      if (userId) {
+        tickets = await storage.getSupportTickets(userId as string);
+      } else {
+        // For now, get tickets for all users - in production you'd optimize this query
+        tickets = await storage.getAllSupportTickets();
+      }
+      
+      res.json(tickets);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/admin/tickets/:id/messages", requireAdmin, async (req, res) => {
+    try {
+      // Admin can reply to any ticket
+      const { id } = req.params;
+      
+      // Validate request body using proper schema
+      const { message } = adminTicketMessageSchema.parse(req.body);
+
+      const messageData = {
+        ticketId: id,
+        userId: null, // Admin messages don't have a userId
+        message,
+        isFromSupport: true,
+      };
+      
+      const newMessage = await storage.createTicketMessage(messageData);
+      
+      // Auto-update ticket status to pending if it was closed
+      const ticket = await storage.getSupportTicketById(id);
+      if (ticket && ticket.status === 'closed') {
+        await storage.updateSupportTicketStatus(id, 'pending');
+      }
+      
+      res.json(newMessage);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/admin/tickets/:id/status", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { status } = req.body;
+      
+      // Admin can set any status
+      const allowedStatuses = ['open', 'pending', 'resolved', 'closed'];
+      if (!allowedStatuses.includes(status)) {
+        return res.status(400).json({ message: "Invalid status" });
+      }
+
+      const updatedTicket = await storage.updateSupportTicketStatus(id, status);
+      res.json(updatedTicket);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }

@@ -10,6 +10,7 @@ export const users = pgTable("users", {
   password: text("password").notNull(),
   firstName: text("first_name").notNull(),
   lastName: text("last_name").notNull(),
+  role: text("role").notNull().default("user").$type<"user" | "admin" | "support">(),
   credits: integer("credits").notNull().default(5), // Start with 5 free credits
   stripeCustomerId: text("stripe_customer_id"),
   createdAt: timestamp("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
@@ -72,11 +73,23 @@ export const ticketMessages = pgTable("ticket_messages", {
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
+  role: true, // Prevent users from setting their own role
   createdAt: true,
   updatedAt: true,
 }).extend({
   password: z.string().min(8, "Password must be at least 8 characters"),
   email: z.string().email("Invalid email address"),
+});
+
+// Admin-only schema for role assignment
+export const assignRoleSchema = z.object({
+  userId: z.string(),
+  role: z.enum(["user", "admin", "support"]),
+});
+
+// Admin message schema with proper validation
+export const adminTicketMessageSchema = z.object({
+  message: z.string().min(1, "Message is required"),
 });
 
 export const loginUserSchema = z.object({
