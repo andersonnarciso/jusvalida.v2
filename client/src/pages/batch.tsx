@@ -185,7 +185,7 @@ export default function BatchProcessingPage() {
     formData.append('analysisType', analysisType);
     formData.append('aiProvider', aiProvider);
     formData.append('aiModel', aiModel);
-    if (templateId) {
+    if (templateId && templateId !== "no-template") {
       formData.append('templateId', templateId);
     }
 
@@ -328,7 +328,7 @@ export default function BatchProcessingPage() {
                       <SelectValue placeholder="Select template" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">No template</SelectItem>
+                      <SelectItem value="no-template">No template</SelectItem>
                       {templates.map((template) => (
                         <SelectItem key={template.id} value={template.id}>
                           {template.name}

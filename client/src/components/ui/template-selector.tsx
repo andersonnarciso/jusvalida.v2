@@ -74,7 +74,7 @@ export function TemplateSelector({ selectedTemplate, onTemplateChange, className
 
   // Update selected template data when selection changes
   useEffect(() => {
-    if (selectedTemplate && templates.length > 0) {
+    if (selectedTemplate && selectedTemplate !== "no-template" && templates.length > 0) {
       const template = templates.find(t => t.id === selectedTemplate);
       setSelectedTemplateData(template || null);
     } else {
@@ -111,7 +111,7 @@ export function TemplateSelector({ selectedTemplate, onTemplateChange, className
             <SelectValue placeholder="Selecione um tipo de documento para análise especializada" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="" data-testid="option-no-template">
+            <SelectItem value="no-template" data-testid="option-no-template">
               Análise Geral (sem template específico)
             </SelectItem>
             {Object.entries(templatesByCategory).map(([category, categoryTemplates]) => (
