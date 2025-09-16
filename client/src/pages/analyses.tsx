@@ -186,14 +186,16 @@ export default function Analyses() {
                         </div>
                       </div>
                       
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        data-testid={`button-view-analysis-${analysis.id}`}
-                      >
-                        <Eye size={14} className="mr-1" />
-                        Ver Detalhes
-                      </Button>
+                      <Link href={`/analyses/${analysis.id}`}>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          data-testid={`button-view-analysis-${analysis.id}`}
+                        >
+                          <Eye size={14} className="mr-1" />
+                          Ver Detalhes
+                        </Button>
+                      </Link>
                     </div>
                   </div>
                 </CardContent>

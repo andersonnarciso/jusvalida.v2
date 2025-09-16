@@ -16,6 +16,7 @@ import Billing from "@/pages/billing";
 import Support from "@/pages/support";
 import Checkout from "@/pages/checkout";
 import Analyses from "@/pages/analyses";
+import AnalysisDetails from "@/pages/analysis-details";
 import BatchProcessing from "@/pages/batch";
 import Admin from "@/pages/admin";
 import PrivacyPolicy from "@/pages/privacy-policy";
@@ -36,6 +37,7 @@ function Router() {
           <Route path="/billing" component={Billing} />
           <Route path="/support" component={Support} />
           <Route path="/checkout" component={Checkout} />
+          <Route path="/analyses/:id" component={AnalysisDetails} />
           <Route path="/analyses" component={Analyses} />
           <Route path="/batch" component={BatchProcessing} />
           <Route path="/admin" component={Admin} />
