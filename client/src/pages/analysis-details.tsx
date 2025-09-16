@@ -13,7 +13,7 @@ interface DocumentAnalysis {
   title: string;
   fileName: string;
   fileSize: number;
-  documentContent: string;
+  content: string;
   analysisType: string;
   aiProvider: string;
   aiModel: string;
@@ -25,7 +25,7 @@ interface DocumentAnalysis {
     recommendations: string[];
     legalCompliance: {
       score: number;
-      details: string;
+      issues: string[];
     };
   };
   createdAt: string;
@@ -207,7 +207,7 @@ export default function AnalysisDetails() {
               {showFullText && (
                 <div className="bg-muted/50 p-4 rounded-lg border">
                   <p className="text-sm font-mono whitespace-pre-wrap" data-testid="text-document-content">
-                    {analysis.documentContent}
+                    {analysis.content}
                   </p>
                 </div>
               )}
@@ -245,7 +245,20 @@ export default function AnalysisDetails() {
                   </Badge>
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  <p data-testid="text-compliance-details">{analysis.result.legalCompliance.details}</p>
+                  <div data-testid="text-compliance-details">
+                    {analysis.result.legalCompliance.issues && analysis.result.legalCompliance.issues.length > 0 ? (
+                      <ul className="space-y-1">
+                        {analysis.result.legalCompliance.issues.map((issue, index) => (
+                          <li key={index} className="flex items-start gap-2">
+                            <span className="text-xs">•</span>
+                            <span>{issue}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p>Nenhum problema de conformidade identificado</p>
+                    )}
+                  </div>
                 </div>
               </div>
             </CardContent>

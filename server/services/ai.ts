@@ -359,19 +359,50 @@ Return analysis in JSON format with the following enhanced structure that includ
     if (paymentTerms.length > 0) summary += `, incluindo cláusulas de pagamento`;
     summary += `. Análise gratuita detectou aspectos básicos - use plano premium para análise completa.`;
     
+    // Enhanced content-specific analysis
+    let specificAnalysis = [];
+    let detectedIssues = [];
+    
+    // Detect potential "pegadinhas" or tricky content
+    if (content.toLowerCase().includes('pegadinha')) {
+      specificAnalysis.push("ATENÇÃO: Documento contém termo 'pegadinha' - pode ser texto de teste ou conteúdo suspeito");
+      detectedIssues.push("Conteúdo potencialmente não-oficial detectado");
+    }
+    
+    // Check for incomplete or test content
+    if (wordCount < 100 && !contractTerms.length && !legalTerms.length) {
+      specificAnalysis.push("Documento parece ser um teste ou conteúdo incompleto");
+      detectedIssues.push("Conteúdo muito simples - pode não ser documento legal real");
+    }
+    
+    // Real content analysis based on what's actually in the text
+    if (contractTerms.length > 0) {
+      specificAnalysis.push(`Identificado como CONTRATO com ${contractTerms.length} termos contratuais`);
+    }
+    if (paymentTerms.length > 0) {
+      specificAnalysis.push(`Encontradas ${paymentTerms.length} referências a pagamento`);
+    }
+    if (terminationTerms.length > 0) {
+      specificAnalysis.push(`Identificadas ${terminationTerms.length} cláusulas de rescisão`);
+    }
+    
+    // Fix the contradiction - don't say "no critical flaws" if we count them as critical
+    const finalCriticalFlaws = criticalFlaws.length > 0 ? criticalFlaws : [];
+    const finalWarnings = warnings.length > 0 ? warnings : [];
+    
     let baseResult = {
-      summary,
-      criticalFlaws: criticalFlaws.length > 0 ? criticalFlaws : ["Nenhuma falha crítica detectada na análise básica"],
-      warnings: warnings.length > 0 ? warnings : ["Documento parece adequado na análise superficial"],
-      improvements,
+      summary: `${summary} ${specificAnalysis.length > 0 ? 'ANÁLISE ESPECÍFICA: ' + specificAnalysis.join('. ') : ''}`,
+      criticalFlaws: finalCriticalFlaws,
+      warnings: finalWarnings.concat(detectedIssues),
+      improvements: improvements.length > 0 ? improvements : ["Documento analisado - estrutura básica identificada"],
       legalCompliance: {
-        score: Math.min(complianceScore, 85), // Cap at 85% for free analysis
-        issues: criticalFlaws.length > 0 ? criticalFlaws : warnings.length > 0 ? warnings.slice(0, 2) : []
+        score: Math.min(complianceScore, 85),
+        issues: finalCriticalFlaws.length > 0 ? finalCriticalFlaws : finalWarnings.slice(0, 2)
       },
       recommendations: [
-        "Análise gratuita limitada - considere plano premium para análise jurídica completa",
-        "Revise cláusulas identificadas e consulte advogado se necessário",
-        ...improvements.slice(0, 2)
+        `Análise gratuita detectou: ${specificAnalysis.length > 0 ? specificAnalysis[0] : 'estrutura básica do documento'}`,
+        ...improvements.slice(0, 1),
+        "Para análise jurídica detalhada, considere plano premium"
       ],
       riskLevel
     };
