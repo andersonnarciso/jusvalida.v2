@@ -2,7 +2,7 @@ import { type User, type InsertUser, type LoginUser, type AiProvider, type Inser
 import type { Express } from "express";
 import { db } from "./db";
 import { users, aiProviders, documentAnalyses, creditTransactions, supportTickets, ticketMessages, aiProviderConfigs, creditPackages, platformStats, documentTemplates, legalClauses, templatePrompts, templateAnalysisRules, batchJobs, batchDocuments, queueJobs } from "@shared/schema";
-import { eq, desc, and, limit as drizzleLimit, count, sum, gte, sql } from "drizzle-orm";
+import { eq, desc, and, limit as drizzleLimit, count, sum, gte, sql, isNotNull, isNull, lte } from "drizzle-orm";
 
 export interface IStorage {
   // User management
@@ -42,9 +42,14 @@ export interface IStorage {
 
   // Document Analysis
   getDocumentAnalyses(userId: string, limit?: number): Promise<DocumentAnalysis[]>;
+  getDeletedAnalyses(userId: string): Promise<DocumentAnalysis[]>;
   getDocumentAnalysis(id: string, userId: string): Promise<DocumentAnalysis | undefined>;
   createDocumentAnalysis(userId: string, analysis: InsertDocumentAnalysis): Promise<DocumentAnalysis>;
   updateDocumentAnalysisResult(id: string, result: any, status: string): Promise<DocumentAnalysis>;
+  softDeleteAnalysis(id: string, userId: string, deletedBy: string): Promise<DocumentAnalysis>;
+  restoreAnalysis(id: string, userId: string): Promise<DocumentAnalysis>;
+  hardDeleteAnalysis(id: string): Promise<void>;
+  cleanupExpiredAnalyses(): Promise<number>;
 
   // Credit Transactions
   getCreditTransactions(userId: string): Promise<CreditTransaction[]>;
@@ -322,7 +327,10 @@ export class DatabaseStorage implements IStorage {
     let query = db
       .select()
       .from(documentAnalyses)
-      .where(eq(documentAnalyses.userId, userId))
+      .where(and(
+        eq(documentAnalyses.userId, userId),
+        isNull(documentAnalyses.deletedAt)
+      ))
       .orderBy(desc(documentAnalyses.createdAt));
     
     if (limit) {
@@ -360,6 +368,70 @@ export class DatabaseStorage implements IStorage {
       .returning();
     if (!analysis) throw new Error("Document analysis not found");
     return analysis;
+  }
+
+  async getDeletedAnalyses(userId: string): Promise<DocumentAnalysis[]> {
+    return await db
+      .select()
+      .from(documentAnalyses)
+      .where(and(
+        eq(documentAnalyses.userId, userId),
+        isNotNull(documentAnalyses.deletedAt)
+      ))
+      .orderBy(desc(documentAnalyses.deletedAt));
+  }
+
+  async softDeleteAnalysis(id: string, userId: string, deletedBy: string): Promise<DocumentAnalysis> {
+    const [analysis] = await db
+      .update(documentAnalyses)
+      .set({ 
+        deletedAt: new Date(),
+        deletedBy
+      })
+      .where(and(
+        eq(documentAnalyses.id, id),
+        eq(documentAnalyses.userId, userId),
+        isNull(documentAnalyses.deletedAt)
+      ))
+      .returning();
+    if (!analysis) throw new Error("Análise não encontrada ou já foi excluída");
+    return analysis;
+  }
+
+  async restoreAnalysis(id: string, userId: string): Promise<DocumentAnalysis> {
+    const [analysis] = await db
+      .update(documentAnalyses)
+      .set({ 
+        deletedAt: null,
+        deletedBy: null
+      })
+      .where(and(
+        eq(documentAnalyses.id, id),
+        eq(documentAnalyses.userId, userId),
+        isNotNull(documentAnalyses.deletedAt)
+      ))
+      .returning();
+    if (!analysis) throw new Error("Análise não encontrada na lixeira ou já foi restaurada");
+    return analysis;
+  }
+
+  async hardDeleteAnalysis(id: string): Promise<void> {
+    await db.delete(documentAnalyses).where(eq(documentAnalyses.id, id));
+  }
+
+  async cleanupExpiredAnalyses(): Promise<number> {
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    
+    const deletedAnalyses = await db
+      .delete(documentAnalyses)
+      .where(and(
+        isNotNull(documentAnalyses.deletedAt),
+        lte(documentAnalyses.deletedAt, sevenDaysAgo)
+      ))
+      .returning({ id: documentAnalyses.id });
+      
+    return deletedAnalyses.length;
   }
 
   // Credit Transactions

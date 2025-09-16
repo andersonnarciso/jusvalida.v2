@@ -99,6 +99,8 @@ export const documentAnalyses = pgTable("document_analyses", {
   result: jsonb("result"),
   creditsUsed: integer("credits_used").notNull(),
   status: text("status").notNull().default("completed"), // 'pending', 'processing', 'completed', 'failed'
+  deletedAt: timestamp("deleted_at"), // Soft delete timestamp
+  deletedBy: varchar("deleted_by").references(() => users.id, { onDelete: "set null" }), // Who deleted it
   createdAt: timestamp("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 

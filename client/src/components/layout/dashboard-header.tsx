@@ -3,7 +3,7 @@ import { Link, useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/hooks/use-auth';
-import { Gavel, Coins, ChevronDown, User, CreditCard, Headphones, LogOut, Settings } from 'lucide-react';
+import { Gavel, Coins, ChevronDown, User, CreditCard, Headphones, LogOut, Settings, Trash2 } from 'lucide-react';
 
 export function DashboardHeader() {
   const { user, logout } = useAuth();
@@ -76,6 +76,15 @@ export function DashboardHeader() {
                     <a className="flex items-center" data-testid="link-support">
                       <Headphones className="mr-2" size={16} />
                       Suporte
+                    </a>
+                  </Link>
+                </DropdownMenuItem>
+                
+                <DropdownMenuItem asChild>
+                  <Link href="/trash">
+                    <a className="flex items-center" data-testid="link-trash">
+                      <Trash2 className="mr-2" size={16} />
+                      Lixeira
                     </a>
                   </Link>
                 </DropdownMenuItem>

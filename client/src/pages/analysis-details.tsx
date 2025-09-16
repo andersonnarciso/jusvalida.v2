@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react';
-import { useRoute } from 'wouter';
-import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Clock, Coins, AlertTriangle, CheckCircle, FileText, Download, Share, Eye, EyeOff } from 'lucide-react';
+import { useRoute, useLocation } from 'wouter';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { ArrowLeft, Clock, Coins, AlertTriangle, CheckCircle, FileText, Download, Share, Eye, EyeOff, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Link } from 'wouter';
 import { apiRequest } from '@/lib/queryClient';
+import { useToast } from '@/hooks/use-toast';
 interface DocumentAnalysis {
   id: string;
   title: string;
@@ -34,6 +36,10 @@ interface DocumentAnalysis {
 export default function AnalysisDetails() {
   const [match, params] = useRoute("/analyses/:id");
   const [showFullText, setShowFullText] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [, setLocation] = useLocation();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const analysisId = params?.id;
 
   // Scroll to top when page loads or analysis ID changes
@@ -48,6 +54,29 @@ export default function AnalysisDetails() {
       return response.json();
     },
     enabled: !!analysisId
+  });
+
+  const deleteAnalysisMutation = useMutation({
+    mutationFn: async () => {
+      if (!analysisId) throw new Error('No analysis ID');
+      const response = await apiRequest('DELETE', `/api/analyses/${analysisId}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Análise Excluída",
+        description: "Análise movida para lixeira. Você pode restaurá-la nos próximos 7 dias.",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/analyses'] });
+      setLocation('/dashboard');
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro ao Excluir",
+        description: error.message || "Erro inesperado ao excluir análise",
+        variant: "destructive",
+      });
+    }
   });
 
   const getRiskBadgeColor = (risk: string) => {
@@ -129,6 +158,45 @@ export default function AnalysisDetails() {
               <Download size={14} className="mr-2" />
               Baixar PDF
             </Button>
+            <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+              <DialogTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950" 
+                  data-testid="button-delete-analysis"
+                >
+                  <Trash2 size={14} className="mr-2" />
+                  Excluir
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Confirmar Exclusão</DialogTitle>
+                  <DialogDescription>
+                    Tem certeza que deseja excluir esta análise? Ela será movida para a lixeira e 
+                    poderá ser restaurada nos próximos 7 dias. Após esse período, será excluída permanentemente.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="flex justify-end gap-2 mt-4">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setShowDeleteDialog(false)}
+                    data-testid="button-cancel-delete"
+                  >
+                    Cancelar
+                  </Button>
+                  <Button 
+                    variant="destructive" 
+                    onClick={() => deleteAnalysisMutation.mutate()}
+                    disabled={deleteAnalysisMutation.isPending}
+                    data-testid="button-confirm-delete"
+                  >
+                    {deleteAnalysisMutation.isPending ? 'Excluindo...' : 'Excluir Análise'}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
 

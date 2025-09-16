@@ -17,6 +17,7 @@ import Support from "@/pages/support";
 import Checkout from "@/pages/checkout";
 import Analyses from "@/pages/analyses";
 import AnalysisDetails from "@/pages/analysis-details";
+import Trash from "@/pages/trash";
 import BatchProcessing from "@/pages/batch";
 import Admin from "@/pages/admin";
 import PrivacyPolicy from "@/pages/privacy-policy";
@@ -39,6 +40,7 @@ function Router() {
           <Route path="/checkout" component={Checkout} />
           <Route path="/analyses/:id" component={AnalysisDetails} />
           <Route path="/analyses" component={Analyses} />
+          <Route path="/trash" component={Trash} />
           <Route path="/batch" component={BatchProcessing} />
           <Route path="/admin" component={Admin} />
           <Route path="/privacy-policy" component={PrivacyPolicy} />

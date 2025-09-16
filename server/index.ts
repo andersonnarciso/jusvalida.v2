@@ -97,6 +97,24 @@ setInterval(cleanupOrphanedFiles, 60 * 60 * 1000);
 // Run initial cleanup after 5 minutes
 setTimeout(cleanupOrphanedFiles, 5 * 60 * 1000);
 
+// Automatic cleanup of deleted analyses older than 7 days
+async function cleanupExpiredAnalyses() {
+  try {
+    const deletedCount = await storage.cleanupExpiredAnalyses();
+    if (deletedCount > 0) {
+      log(`🗑️ Cleaned up ${deletedCount} expired analysis/analyses from trash`);
+    }
+  } catch (error: any) {
+    log(`❌ Error during analysis cleanup: ${error.message}`);
+  }
+}
+
+// Run analysis cleanup daily at 2 AM (if server is running continuously)
+// Otherwise run every 24 hours from server start
+setInterval(cleanupExpiredAnalyses, 24 * 60 * 60 * 1000); // 24 hours
+// Run initial cleanup after 10 minutes
+setTimeout(cleanupExpiredAnalyses, 10 * 60 * 1000);
+
 // Secure admin user creation function
 async function createInitialAdminUser() {
   try {

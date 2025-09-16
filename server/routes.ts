@@ -623,6 +623,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Soft delete analysis (move to trash)
+  app.delete("/api/analyses/:id", requireAuth, async (req, res) => {
+    try {
+      const analysis = await storage.softDeleteAnalysis(req.params.id, req.user.id, req.user.id);
+      res.json({ 
+        message: "Análise movida para lixeira com sucesso",
+        analysis 
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Get deleted analyses (trash)
+  app.get("/api/analyses/trash/list", requireAuth, async (req, res) => {
+    try {
+      const deletedAnalyses = await storage.getDeletedAnalyses(req.user.id);
+      res.json(deletedAnalyses);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Restore analysis from trash
+  app.post("/api/analyses/:id/restore", requireAuth, async (req, res) => {
+    try {
+      const analysis = await storage.restoreAnalysis(req.params.id, req.user.id);
+      res.json({ 
+        message: "Análise restaurada com sucesso",
+        analysis 
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // AI Provider management routes
   app.get("/api/ai-providers", requireAuth, async (req, res) => {
     try {
