@@ -180,7 +180,13 @@ export default function AnalysisDetails() {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div className="text-sm text-muted-foreground">
-                  <strong>Arquivo:</strong> {analysis.fileName} • <strong>Tamanho:</strong> {Math.round(analysis.fileSize / 1024)} KB
+                  <strong>Fonte:</strong> {analysis.fileName || 'Texto colado'} 
+                  {analysis.fileSize && analysis.fileSize > 0 && (
+                    <>
+                      {' • '}
+                      <strong>Tamanho:</strong> {Math.round(analysis.fileSize / 1024)} KB
+                    </>
+                  )}
                 </div>
                 <Button 
                   variant="outline" 
