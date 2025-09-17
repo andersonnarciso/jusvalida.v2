@@ -262,13 +262,41 @@ export class DatabaseStorage implements IStorage {
           .from(creditTransactions)
           .where(eq(creditTransactions.userId, existingUser.id));
 
+        // Generate unique username to avoid conflicts
+        let uniqueUsername = existingUser.username;
+        let attemptCount = 0;
+        
+        // Check if username already exists and generate unique one if needed
+        while (attemptCount < 10) {
+          try {
+            const existingByUsername = await tx
+              .select({ id: users.id })
+              .from(users)
+              .where(eq(users.username, uniqueUsername))
+              .limit(1);
+            
+            if (existingByUsername.length === 0) {
+              break; // Username is available
+            }
+            
+            // Generate new username with suffix
+            attemptCount++;
+            uniqueUsername = `${existingUser.username}_${attemptCount}`;
+            
+          } catch (err) {
+            // If check fails, use timestamp suffix as fallback
+            uniqueUsername = `${existingUser.username}_${Date.now()}`;
+            break;
+          }
+        }
+
         // Create new user with Supabase ID and existing user's data
         const [newUser] = await tx
           .insert(users)
           .values({
             id: supabaseId, // Use Supabase ID as primary key
             email: existingUser.email,
-            username: existingUser.username,
+            username: uniqueUsername, // Use unique username to avoid conflicts
             password: existingUser.password,
             firstName: supabaseUserData.first_name || existingUser.firstName,
             lastName: supabaseUserData.last_name || existingUser.lastName,
@@ -297,10 +325,38 @@ export class DatabaseStorage implements IStorage {
       });
     }
 
-    // User doesn't exist, create new one
+    // User doesn't exist, create new one with unique username
+    const baseUsername = supabaseUserData.username || email.split('@')[0];
+    let uniqueUsername = baseUsername;
+    let attemptCount = 0;
+    
+    // Ensure username is unique for new user creation
+    while (attemptCount < 10) {
+      try {
+        const existingByUsername = await db
+          .select({ id: users.id })
+          .from(users)
+          .where(eq(users.username, uniqueUsername))
+          .limit(1);
+        
+        if (existingByUsername.length === 0) {
+          break; // Username is available
+        }
+        
+        // Generate new username with suffix
+        attemptCount++;
+        uniqueUsername = `${baseUsername}_${attemptCount}`;
+        
+      } catch (err) {
+        // If check fails, use timestamp suffix as fallback
+        uniqueUsername = `${baseUsername}_${Date.now()}`;
+        break;
+      }
+    }
+    
     return this.createUserWithSupabaseId(supabaseId, {
       email: email,
-      username: supabaseUserData.username || email.split('@')[0],
+      username: uniqueUsername, // Use unique username
       password: '', // Not needed for Supabase users
       firstName: supabaseUserData.first_name || '',
       lastName: supabaseUserData.last_name || '',
