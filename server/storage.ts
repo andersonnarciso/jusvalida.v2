@@ -11,6 +11,7 @@ export interface IStorage {
   getUsersByRole(role: string): Promise<User[]>;
   createUser(user: InsertUser): Promise<User>;
   createUserWithSupabaseId(supabaseId: string, user: InsertUser & { role?: string }): Promise<User>;
+  migrateUserToSupabaseId(supabaseId: string, email: string, supabaseUserData: any): Promise<User>;
   updateUserCredits(id: string, credits: number): Promise<User>;
   deductUserCredits(userId: string, amount: number, description: string): Promise<void>;
   updateUserRole(id: string, role: string): Promise<User>;
@@ -240,6 +241,44 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     return user;
+  }
+
+  // Migrate existing user to use Supabase ID
+  async migrateUserToSupabaseId(supabaseId: string, email: string, supabaseUserData: any): Promise<User> {
+    // First try to find user by Supabase ID
+    let user = await this.getUser(supabaseId);
+    if (user) {
+      return user; // Already migrated
+    }
+
+    // Try to find existing user by email
+    const existingUser = await this.getUserByEmail(email);
+    if (existingUser) {
+      // Update existing user with Supabase ID and latest metadata
+      const [updatedUser] = await db
+        .update(users)
+        .set({ 
+          id: supabaseId,
+          firstName: supabaseUserData.first_name || existingUser.firstName,
+          lastName: supabaseUserData.last_name || existingUser.lastName,
+          username: supabaseUserData.username || existingUser.username,
+          updatedAt: new Date()
+        })
+        .where(eq(users.id, existingUser.id))
+        .returning();
+      return updatedUser;
+    }
+
+    // User doesn't exist, create new one
+    return this.createUserWithSupabaseId(supabaseId, {
+      email: email,
+      username: supabaseUserData.username || email.split('@')[0],
+      password: '', // Not needed for Supabase users
+      firstName: supabaseUserData.first_name || '',
+      lastName: supabaseUserData.last_name || '',
+      credits: 20, // Default credits
+      role: supabaseUserData.role || 'user',
+    });
   }
 
   async updateUserCredits(id: string, credits: number): Promise<User> {

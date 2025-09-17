@@ -42,50 +42,27 @@ export const requireSupabaseAuth = async (
     // Map role from Supabase app_metadata (defaults to 'user')
     const supabaseRole = user.app_metadata?.role || 'user';
     
-    // Get the user data from our database using Supabase ID
-    try {
-      const dbUser = await storage.getUser(user.id);
-      if (!dbUser) {
-        throw new Error('User not found in database');
-      }
-      req.user = {
-        id: user.id, // Use Supabase ID
-        email: dbUser.email,
-        firstName: dbUser.firstName,
-        lastName: dbUser.lastName,
-        username: dbUser.username,
-        role: supabaseRole, // Use role from Supabase metadata
-        credits: dbUser.credits,
-        stripeCustomerId: dbUser.stripeCustomerId,
-        createdAt: dbUser.createdAt.toISOString(),
-        updatedAt: dbUser.updatedAt.toISOString(),
-      };
-      next();
-    } catch (dbError) {
-      // If user doesn't exist in our database, create them with Supabase ID
-      const newUser = await storage.createUserWithSupabaseId(user.id, {
-        email: user.email || '',
-        username: user.user_metadata?.username || user.email?.split('@')[0] || '',
-        password: '', // Not needed for Supabase users
-        firstName: user.user_metadata?.first_name || '',
-        lastName: user.user_metadata?.last_name || '',
-        credits: 20, // Default credits for new users
-        role: supabaseRole, // Set role from Supabase metadata
-      });
-      req.user = {
-        id: user.id, // Use Supabase ID
-        email: newUser.email,
-        firstName: newUser.firstName,
-        lastName: newUser.lastName,
-        username: newUser.username,
-        role: supabaseRole, // Use role from Supabase metadata
-        credits: newUser.credits,
-        stripeCustomerId: newUser.stripeCustomerId,
-        createdAt: newUser.createdAt.toISOString(),
-        updatedAt: newUser.updatedAt.toISOString(),
-      };
-      next();
-    }
+    // Get or migrate the user to our database using Supabase ID
+    const dbUser = await storage.migrateUserToSupabaseId(user.id, user.email || '', {
+      first_name: user.user_metadata?.first_name,
+      last_name: user.user_metadata?.last_name,
+      username: user.user_metadata?.username,
+      role: supabaseRole
+    });
+    
+    req.user = {
+      id: user.id, // Use Supabase ID
+      email: dbUser.email,
+      firstName: dbUser.firstName,
+      lastName: dbUser.lastName,
+      username: dbUser.username,
+      role: supabaseRole, // Use role from Supabase metadata
+      credits: dbUser.credits,
+      stripeCustomerId: dbUser.stripeCustomerId,
+      createdAt: dbUser.createdAt.toISOString(),
+      updatedAt: dbUser.updatedAt.toISOString(),
+    };
+    next();
   } catch (error: any) {
     console.error('Supabase auth error:', error);
     return res.status(401).json({ message: 'Authentication failed' });
