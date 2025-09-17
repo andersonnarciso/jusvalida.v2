@@ -10,7 +10,6 @@ export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
   getUsersByRole(role: string): Promise<User[]>;
   createUser(user: InsertUser): Promise<User>;
-  createUserWithSupabaseId(supabaseId: string, user: InsertUser & { role?: string }): Promise<User>;
   ensureUserBySupabase(supabaseId: string, email: string, supabaseUserData: any): Promise<User>;
   updateUserCredits(id: string, credits: number): Promise<User>;
   deductUserCredits(userId: string, amount: number, description: string): Promise<void>;
@@ -231,17 +230,6 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async createUserWithSupabaseId(supabaseId: string, insertUser: InsertUser & { role?: string }): Promise<User> {
-    const [user] = await db
-      .insert(users)
-      .values({
-        id: supabaseId, // Use Supabase ID as primary key
-        ...insertUser,
-        role: (insertUser.role || 'user') as "user" | "admin" | "support", // Default to 'user' role
-      })
-      .returning();
-    return user;
-  }
 
   // Ensure user exists with Supabase mapping (idempotent and safe)
   async ensureUserBySupabase(supabaseId: string, email: string, supabaseUserData: any): Promise<User> {
