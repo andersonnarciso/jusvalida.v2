@@ -13,6 +13,7 @@ export const users = pgTable("users", {
   role: text("role").notNull().default("user").$type<"user" | "admin" | "support">(),
   credits: integer("credits").notNull().default(5), // Start with 5 free credits
   stripeCustomerId: text("stripe_customer_id"),
+  stripeMode: text("stripe_mode").notNull().default("test").$type<"test" | "live">(), // Stripe mode preference
   supabaseId: text("supabase_id").unique(), // Supabase user ID mapping - nullable for local users
   createdAt: timestamp("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   updatedAt: timestamp("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),

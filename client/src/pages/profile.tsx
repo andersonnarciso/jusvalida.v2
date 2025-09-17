@@ -7,16 +7,137 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
-import { Eye, EyeOff, Key, Save, Trash2, Plus } from 'lucide-react';
+import { Eye, EyeOff, Key, Save, Trash2, Plus, CreditCard, AlertTriangle } from 'lucide-react';
 
 interface AIProviderConfig {
   id: string;
   provider: string;
   apiKey: string;
   isActive: boolean;
+}
+
+interface UserProfile {
+  userProfile: {
+    credits: number;
+    stripeMode: 'test' | 'live';
+  };
+}
+
+function StripeModeSetting() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  // Load user profile data including stripe mode
+  const { data: userProfile, isLoading } = useQuery<UserProfile>({
+    queryKey: ['/api/user/profile']
+  });
+
+  const updateStripeModeMutation = useMutation({
+    mutationFn: async (stripeMode: 'test' | 'live') => {
+      const response = await apiRequest('PATCH', '/api/user/stripe-mode', { stripeMode });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Modo Stripe Atualizado",
+        description: `Agora você está no modo ${data.stripeMode === 'test' ? 'teste' : 'produção'}`,
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/user/profile'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro",
+        description: error.message || "Erro ao atualizar modo Stripe",
+        variant: "destructive",
+      });
+    }
+  });
+
+  const currentMode = userProfile?.userProfile?.stripeMode || 'test';
+  const isLiveMode = currentMode === 'live';
+
+  const handleToggleMode = () => {
+    const newMode = isLiveMode ? 'test' : 'live';
+    updateStripeModeMutation.mutate(newMode);
+  };
+
+  if (isLoading) {
+    return <div>Carregando...</div>;
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between p-4 border rounded-lg">
+        <div className="flex items-center space-x-3">
+          <CreditCard className="text-primary" size={20} />
+          <div>
+            <h3 className="font-medium" data-testid="text-stripe-mode-title">
+              Modo do Stripe
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              {isLiveMode ? 'Pagamentos reais ativados' : 'Modo de teste ativado'}
+            </p>
+          </div>
+        </div>
+        
+        <div className="flex items-center space-x-3">
+          <Label htmlFor="stripe-mode" className="text-sm font-medium">
+            {isLiveMode ? 'Produção' : 'Teste'}
+          </Label>
+          <Switch
+            id="stripe-mode"
+            checked={isLiveMode}
+            onCheckedChange={handleToggleMode}
+            disabled={updateStripeModeMutation.isPending}
+            data-testid="switch-stripe-mode"
+          />
+        </div>
+      </div>
+
+      {isLiveMode && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex items-start space-x-3">
+            <AlertTriangle className="text-red-600 mt-0.5" size={16} />
+            <div>
+              <h4 className="font-medium text-red-900 mb-1">⚠️ Modo Produção Ativo</h4>
+              <p className="text-sm text-red-800">
+                Você está no modo produção. Todos os pagamentos serão reais e processados através do Stripe live. 
+                Certifique-se de que as chaves de produção estão configuradas corretamente.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!isLiveMode && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-start space-x-3">
+            <CreditCard className="text-blue-600 mt-0.5" size={16} />
+            <div>
+              <h4 className="font-medium text-blue-900 mb-1">🧪 Modo Teste Ativo</h4>
+              <p className="text-sm text-blue-800">
+                Você está no modo teste. Use cartões de teste do Stripe para simular pagamentos sem custos reais. 
+                Cartão de teste: 4242 4242 4242 4242 com qualquer data futura.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+        <h4 className="font-medium text-yellow-900 mb-2">💡 Sobre os Modos</h4>
+        <ul className="text-sm text-yellow-800 space-y-1">
+          <li><strong>Teste:</strong> Use para desenvolvimento e testes. Pagamentos simulados.</li>
+          <li><strong>Produção:</strong> Use para processar pagamentos reais de clientes.</li>
+          <li>Você pode alternar entre os modos a qualquer momento.</li>
+        </ul>
+      </div>
+    </div>
+  );
 }
 
 export default function Profile() {
@@ -137,12 +258,15 @@ export default function Profile() {
         </div>
 
         <Tabs defaultValue="personal" className="space-y-6">
-          <TabsList className="grid grid-cols-2 w-full md:w-auto">
+          <TabsList className="grid grid-cols-3 w-full md:w-auto">
             <TabsTrigger value="personal" data-testid="tab-personal">
               Informações Pessoais
             </TabsTrigger>
             <TabsTrigger value="ai-keys" data-testid="tab-ai-keys">
               Chaves de API
+            </TabsTrigger>
+            <TabsTrigger value="payment" data-testid="tab-payment">
+              Pagamentos
             </TabsTrigger>
           </TabsList>
 
@@ -370,6 +494,20 @@ export default function Profile() {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          <TabsContent value="payment">
+            <Card>
+              <CardHeader>
+                <CardTitle data-testid="text-payment-settings-title">Configurações de Pagamento</CardTitle>
+                <CardDescription>
+                  Configure o modo do Stripe para testes ou pagamentos reais
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <StripeModeSetting />
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>

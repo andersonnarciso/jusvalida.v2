@@ -15,6 +15,7 @@ export interface IStorage {
   deductUserCredits(userId: string, amount: number, description: string): Promise<void>;
   updateUserRole(id: string, role: string): Promise<User>;
   updateStripeCustomerId(id: string, customerId: string): Promise<User>;
+  updateUserStripeMode(id: string, stripeMode: 'test' | 'live'): Promise<User>;
 
   // Admin-specific user management
   getAllUsers(page?: number, limit?: number): Promise<{users: User[], total: number}>;
@@ -356,6 +357,16 @@ export class DatabaseStorage implements IStorage {
     const [user] = await db
       .update(users)
       .set({ stripeCustomerId: customerId, updatedAt: new Date() })
+      .where(eq(users.id, id))
+      .returning();
+    if (!user) throw new Error("User not found");
+    return user;
+  }
+
+  async updateUserStripeMode(id: string, stripeMode: 'test' | 'live'): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({ stripeMode, updatedAt: new Date() })
       .where(eq(users.id, id))
       .returning();
     if (!user) throw new Error("User not found");

@@ -42,13 +42,25 @@ function validateFileType(file: Express.Multer.File): boolean {
   return allowedTypes.includes(file.mimetype);
 }
 
+// Stripe configuration - support both test and live modes
 if (!process.env.STRIPE_SECRET_KEY) {
   throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
 }
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+// Initialize Stripe instances
+const stripeTest = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: "2025-08-27.basil",
 });
+
+// For live mode, fallback to test credentials if live not available
+const stripeLive = new Stripe(process.env.STRIPE_LIVE_SECRET_KEY || process.env.STRIPE_SECRET_KEY, {
+  apiVersion: "2025-08-27.basil",
+});
+
+// Function to get correct Stripe instance based on user's mode preference
+function getStripeInstance(stripeMode: 'test' | 'live'): Stripe {
+  return stripeMode === 'live' ? stripeLive : stripeTest;
+}
 
 // Helper function to check if user can use free analysis (3 per month)
 async function checkFreeAnalysisLimit(userId: string): Promise<boolean> {
@@ -255,9 +267,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     let event;
 
     try {
-      // MANDATORY signature verification for security
-      event = stripe.webhooks.constructEvent(req.body, sig as string, webhookSecret);
-      console.log(`✅ Webhook signature verified for event: ${event.type}`);
+      // MANDATORY signature verification for security - try both test and live instances
+      try {
+        event = stripeTest.webhooks.constructEvent(req.body, sig as string, webhookSecret);
+        console.log(`✅ Webhook signature verified (test mode) for event: ${event.type}`);
+      } catch (testErr) {
+        // If test fails, try live instance
+        event = stripeLive.webhooks.constructEvent(req.body, sig as string, webhookSecret);
+        console.log(`✅ Webhook signature verified (live mode) for event: ${event.type}`);
+      }
     } catch (err: any) {
       console.error("❌ Webhook signature verification failed:", err.message);
       return res.status(400).send(`Webhook Error: ${err.message}`);
@@ -311,6 +329,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         credits: localUser?.credits || 0,
         role: req.user?.role || 'user',
         stripeCustomerId: localUser?.stripeCustomerId || null,
+        stripeMode: localUser?.stripeMode || 'test',
         createdAt: req.user?.createdAt || new Date().toISOString(),
         updatedAt: req.user?.updatedAt || new Date().toISOString()
       };
@@ -326,6 +345,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error fetching user profile:', error);
       res.status(500).json({ message: 'Error fetching user profile' });
+    }
+  });
+
+  // Update user's Stripe mode preference
+  app.patch("/api/user/stripe-mode", requireSupabaseAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { stripeMode } = req.body;
+      
+      // Validate stripe mode
+      if (!stripeMode || !['test', 'live'].includes(stripeMode)) {
+        return res.status(400).json({ message: "Invalid stripe mode. Must be 'test' or 'live'" });
+      }
+      
+      // Update user's stripe mode preference
+      const updatedUser = await storage.updateUserStripeMode(req.user.id, stripeMode);
+      
+      res.json({ 
+        message: `Stripe mode updated to ${stripeMode}`,
+        stripeMode: updatedUser.stripeMode
+      });
+    } catch (error: any) {
+      console.error('Error updating stripe mode:', error);
+      res.status(500).json({ message: 'Error updating stripe mode: ' + error.message });
     }
   });
 
@@ -595,6 +637,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Package ID is required" });
       }
 
+      // Get user's stripe mode preference
+      const user = await storage.getUser(req.user.id);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Get correct Stripe instance based on user's mode preference
+      const stripe = getStripeInstance(user.stripeMode || 'test');
+
       // Get package details from database (trusted source)
       const creditPackage = await storage.getCreditPackage(packageId);
       
@@ -611,6 +662,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         metadata: {
           userId: req.user.id,
           packageId: packageId, // Store packageId instead of credits
+          stripeMode: user.stripeMode || 'test', // Store mode for webhook processing
         },
       });
 
@@ -633,7 +685,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     let event: Stripe.Event;
 
     try {
-      event = stripe.webhooks.constructEvent(req.body, sig as string, endpointSecret);
+      // Try to verify webhook with test instance first, then live
+      try {
+        event = stripeTest.webhooks.constructEvent(req.body, sig as string, endpointSecret);
+      } catch (testErr) {
+        // If test fails, try live instance
+        event = stripeLive.webhooks.constructEvent(req.body, sig as string, endpointSecret);
+      }
     } catch (err: any) {
       console.error(`❌ Webhook signature verification failed: ${err.message}`);
       return res.status(400).json({ error: `Webhook Error: ${err.message}` });
@@ -660,6 +718,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/confirm-payment", requireSupabaseAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const { paymentIntentId } = req.body;
+      
+      // Get user's stripe mode preference to use correct instance
+      const user = await storage.getUser(req.user.id);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      const stripe = getStripeInstance(user.stripeMode || 'test');
       
       const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
       
