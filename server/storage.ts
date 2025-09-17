@@ -11,7 +11,7 @@ export interface IStorage {
   getUsersByRole(role: string): Promise<User[]>;
   createUser(user: InsertUser): Promise<User>;
   createUserWithSupabaseId(supabaseId: string, user: InsertUser & { role?: string }): Promise<User>;
-  migrateUserToSupabaseId(supabaseId: string, email: string, supabaseUserData: any): Promise<User>;
+  ensureUserBySupabase(supabaseId: string, email: string, supabaseUserData: any): Promise<User>;
   updateUserCredits(id: string, credits: number): Promise<User>;
   deductUserCredits(userId: string, amount: number, description: string): Promise<void>;
   updateUserRole(id: string, role: string): Promise<User>;
@@ -243,65 +243,35 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  // Migrate existing user to use Supabase ID
-  async migrateUserToSupabaseId(supabaseId: string, email: string, supabaseUserData: any): Promise<User> {
-    // First try to find user by Supabase ID
-    let user = await this.getUser(supabaseId);
-    if (user) {
-      return user; // Already migrated
+  // Ensure user exists with Supabase mapping (idempotent and safe)
+  async ensureUserBySupabase(supabaseId: string, email: string, supabaseUserData: any): Promise<User> {
+    // First try to find user by Supabase ID mapping
+    const [userBySupabaseId] = await db
+      .select()
+      .from(users)
+      .where(eq(users.supabaseId, supabaseId))
+      .limit(1);
+    
+    if (userBySupabaseId) {
+      return userBySupabaseId; // Already mapped
     }
 
     // Try to find existing user by email
     const existingUser = await this.getUserByEmail(email);
     if (existingUser) {
-      // Create new user with Supabase ID and copy all data
-      return await db.transaction(async (tx) => {
-        // Create new user with Supabase ID
-        const [newUser] = await tx
-          .insert(users)
-          .values({
-            id: supabaseId, // Supabase ID as primary key
-            email: existingUser.email,
-            username: existingUser.username,
-            password: existingUser.password,
-            firstName: supabaseUserData.first_name || existingUser.firstName,
-            lastName: supabaseUserData.last_name || existingUser.lastName,
-            role: existingUser.role,
-            credits: existingUser.credits,
-            stripeCustomerId: existingUser.stripeCustomerId,
-            createdAt: existingUser.createdAt,
-            updatedAt: new Date()
-          })
-          .returning();
-        
-        // Update all foreign key references to new user ID
-        await tx
-          .update(creditTransactions)
-          .set({ userId: supabaseId })
-          .where(eq(creditTransactions.userId, existingUser.id));
-        
-        await tx
-          .update(documentAnalyses)
-          .set({ userId: supabaseId })
-          .where(eq(documentAnalyses.userId, existingUser.id));
-        
-        await tx
-          .update(supportTickets) 
-          .set({ userId: supabaseId })
-          .where(eq(supportTickets.userId, existingUser.id));
-        
-        await tx
-          .update(aiProviders)
-          .set({ userId: supabaseId })
-          .where(eq(aiProviders.userId, existingUser.id));
-        
-        // Delete old user record
-        await tx
-          .delete(users)
-          .where(eq(users.id, existingUser.id));
-
-        return newUser;
-      });
+      // Map existing user to Supabase ID (safe - no PK changes, no FK rewrites)
+      const [mappedUser] = await db
+        .update(users)
+        .set({ 
+          supabaseId: supabaseId,
+          firstName: supabaseUserData.first_name || existingUser.firstName,
+          lastName: supabaseUserData.last_name || existingUser.lastName,
+          updatedAt: new Date()
+        })
+        .where(eq(users.id, existingUser.id))
+        .returning();
+      
+      return mappedUser;
     }
 
     // User doesn't exist, create new one with unique username
@@ -333,15 +303,22 @@ export class DatabaseStorage implements IStorage {
       }
     }
     
-    return this.createUserWithSupabaseId(supabaseId, {
-      email: email,
-      username: uniqueUsername, // Use unique username
-      password: '', // Not needed for Supabase users
-      firstName: supabaseUserData.first_name || '',
-      lastName: supabaseUserData.last_name || '',
-      credits: 20, // Default credits
-      role: supabaseUserData.role || 'user',
-    });
+    // Create new user with local UUID as PK and Supabase ID as mapping
+    const [newUser] = await db
+      .insert(users)
+      .values({
+        email: email,
+        username: uniqueUsername,
+        password: '', // Not needed for Supabase users
+        firstName: supabaseUserData.first_name || '',
+        lastName: supabaseUserData.last_name || '',
+        credits: 20, // Default credits
+        role: (supabaseUserData.role || 'user') as "user" | "admin" | "support",
+        supabaseId: supabaseId, // Map to Supabase ID
+      })
+      .returning();
+    
+    return newUser;
   }
 
   async updateUserCredits(id: string, credits: number): Promise<User> {
