@@ -254,74 +254,42 @@ export class DatabaseStorage implements IStorage {
     // Try to find existing user by email
     const existingUser = await this.getUserByEmail(email);
     if (existingUser) {
-      // Use transaction to safely migrate user data without violating constraints
+      // Simply update existing user's ID to Supabase ID - no need to create new user
       return await db.transaction(async (tx) => {
-        // Get all user's credit transactions
-        const userTransactions = await tx
-          .select()
-          .from(creditTransactions)
+        // Update all foreign key references first
+        await tx
+          .update(creditTransactions)
+          .set({ userId: supabaseId })
           .where(eq(creditTransactions.userId, existingUser.id));
-
-        // Generate unique username to avoid conflicts
-        let uniqueUsername = existingUser.username;
-        let attemptCount = 0;
         
-        // Check if username already exists and generate unique one if needed
-        while (attemptCount < 10) {
-          try {
-            const existingByUsername = await tx
-              .select({ id: users.id })
-              .from(users)
-              .where(eq(users.username, uniqueUsername))
-              .limit(1);
-            
-            if (existingByUsername.length === 0) {
-              break; // Username is available
-            }
-            
-            // Generate new username with suffix
-            attemptCount++;
-            uniqueUsername = `${existingUser.username}_${attemptCount}`;
-            
-          } catch (err) {
-            // If check fails, use timestamp suffix as fallback
-            uniqueUsername = `${existingUser.username}_${Date.now()}`;
-            break;
-          }
-        }
-
-        // Create new user with Supabase ID and existing user's data
-        const [newUser] = await tx
-          .insert(users)
-          .values({
-            id: supabaseId, // Use Supabase ID as primary key
-            email: existingUser.email,
-            username: uniqueUsername, // Use unique username to avoid conflicts
-            password: existingUser.password,
+        await tx
+          .update(documentAnalyses)
+          .set({ userId: supabaseId })
+          .where(eq(documentAnalyses.userId, existingUser.id));
+        
+        await tx
+          .update(supportTickets) 
+          .set({ userId: supabaseId })
+          .where(eq(supportTickets.userId, existingUser.id));
+        
+        await tx
+          .update(aiProviders)
+          .set({ userId: supabaseId })
+          .where(eq(aiProviders.userId, existingUser.id));
+        
+        // Now update the user's ID
+        const [updatedUser] = await tx
+          .update(users)
+          .set({ 
+            id: supabaseId,
             firstName: supabaseUserData.first_name || existingUser.firstName,
             lastName: supabaseUserData.last_name || existingUser.lastName,
-            role: existingUser.role,
-            credits: existingUser.credits, // Preserve existing credits
-            stripeCustomerId: existingUser.stripeCustomerId,
-            createdAt: existingUser.createdAt,
             updatedAt: new Date()
           })
+          .where(eq(users.id, existingUser.id))
           .returning();
 
-        // Migrate all credit transactions to new user ID
-        if (userTransactions.length > 0) {
-          await tx
-            .update(creditTransactions)
-            .set({ userId: supabaseId })
-            .where(eq(creditTransactions.userId, existingUser.id));
-        }
-
-        // Delete old user record (now that all references are updated)
-        await tx
-          .delete(users)
-          .where(eq(users.id, existingUser.id));
-
-        return newUser;
+        return updatedUser;
       });
     }
 
