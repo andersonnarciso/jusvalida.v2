@@ -254,19 +254,47 @@ export class DatabaseStorage implements IStorage {
     // Try to find existing user by email
     const existingUser = await this.getUserByEmail(email);
     if (existingUser) {
-      // Update existing user with Supabase ID and latest metadata
-      const [updatedUser] = await db
-        .update(users)
-        .set({ 
-          id: supabaseId,
-          firstName: supabaseUserData.first_name || existingUser.firstName,
-          lastName: supabaseUserData.last_name || existingUser.lastName,
-          username: supabaseUserData.username || existingUser.username,
-          updatedAt: new Date()
-        })
-        .where(eq(users.id, existingUser.id))
-        .returning();
-      return updatedUser;
+      // Use transaction to safely migrate user data without violating constraints
+      return await db.transaction(async (tx) => {
+        // Get all user's credit transactions
+        const userTransactions = await tx
+          .select()
+          .from(creditTransactions)
+          .where(eq(creditTransactions.userId, existingUser.id));
+
+        // Create new user with Supabase ID and existing user's data
+        const [newUser] = await tx
+          .insert(users)
+          .values({
+            id: supabaseId, // Use Supabase ID as primary key
+            email: existingUser.email,
+            username: existingUser.username,
+            password: existingUser.password,
+            firstName: supabaseUserData.first_name || existingUser.firstName,
+            lastName: supabaseUserData.last_name || existingUser.lastName,
+            role: existingUser.role,
+            credits: existingUser.credits, // Preserve existing credits
+            stripeCustomerId: existingUser.stripeCustomerId,
+            createdAt: existingUser.createdAt,
+            updatedAt: new Date()
+          })
+          .returning();
+
+        // Migrate all credit transactions to new user ID
+        if (userTransactions.length > 0) {
+          await tx
+            .update(creditTransactions)
+            .set({ userId: supabaseId })
+            .where(eq(creditTransactions.userId, existingUser.id));
+        }
+
+        // Delete old user record (now that all references are updated)
+        await tx
+          .delete(users)
+          .where(eq(users.id, existingUser.id));
+
+        return newUser;
+      });
     }
 
     // User doesn't exist, create new one
