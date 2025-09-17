@@ -43,7 +43,7 @@ function CheckoutForm({ selectedPackage, onPaymentSuccess }: CheckoutFormProps) 
       const { error } = await stripe.confirmPayment({
         elements,
         confirmParams: {
-          return_url: window.location.origin + '/billing?success=true',
+          return_url: window.location.origin + '/payment-success',
         },
         redirect: 'if_required'
       });

@@ -15,6 +15,7 @@ import Profile from "@/pages/profile";
 import Billing from "@/pages/billing";
 import Support from "@/pages/support";
 import Checkout from "@/pages/checkout";
+import PaymentSuccess from "@/pages/payment-success";
 import Analyses from "@/pages/analyses";
 import AnalysisDetails from "@/pages/analysis-details";
 import Trash from "@/pages/trash";
@@ -38,6 +39,7 @@ function Router() {
           <Route path="/billing" component={Billing} />
           <Route path="/support" component={Support} />
           <Route path="/checkout" component={Checkout} />
+          <Route path="/payment-success" component={PaymentSuccess} />
           <Route path="/analyses/:id" component={AnalysisDetails} />
           <Route path="/analyses" component={Analyses} />
           <Route path="/trash" component={Trash} />
