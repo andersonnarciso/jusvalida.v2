@@ -5,21 +5,49 @@ import Stripe from "stripe";
 import { storage } from "./storage";
 import { aiService } from "./services/ai";
 import { batchProcessor } from "./services/batchProcessor";
-import { requireSupabaseAuth, requireSupabaseAdmin } from "./middleware/supabase-auth";
-import { insertDocumentAnalysisSchema, insertSupportTicketSchema, insertTicketMessageSchema, adminTicketMessageSchema, adminUserUpdateSchema, insertAiProviderConfigSchema, insertCreditPackageSchema, insertDocumentTemplateSchema, insertLegalClauseSchema, insertTemplatePromptSchema, insertTemplateAnalysisRuleSchema, insertBatchJobSchema, insertBatchDocumentSchema, insertQueueJobSchema } from "@shared/schema";
+import { requireSupabaseAuth, requireSupabaseAdmin, type AuthenticatedRequest } from "./middleware/supabase-auth";
+import { insertDocumentAnalysisSchema, insertSupportTicketSchema, insertTicketMessageSchema, adminTicketMessageSchema, adminUserUpdateSchema, insertAiProviderConfigSchema, insertCreditPackageSchema, insertDocumentTemplateSchema, insertLegalClauseSchema, insertTemplatePromptSchema, insertTemplateAnalysisRuleSchema, insertBatchJobSchema, insertBatchDocumentSchema, insertQueueJobSchema, users, creditTransactions } from "@shared/schema";
+import { db } from "./db";
+import { sql, eq, desc, count, sum, gte, and } from "drizzle-orm";
 import multer from "multer";
 import { z } from "zod";
 import fs from "fs";
 import path from "path";
 
+// Note: @types/pdf-parse package is now installed
+
+// Helper function to ensure user is authenticated (for TypeScript)
+function ensureAuthenticated(req: AuthenticatedRequest): asserts req is AuthenticatedRequest & { user: NonNullable<AuthenticatedRequest['user']> } {
+  if (!req.user) {
+    throw new Error('User not authenticated');
+  }
+}
+
 // Global types cleaned up - using Supabase Auth instead of sessions
+
+// Utility function to sanitize user data for API responses
+function toSafeUser(user: any) {
+  const { password, ...safeUser } = user;
+  return safeUser;
+}
+
+// Helper function to validate file types
+function validateFileType(file: Express.Multer.File): boolean {
+  const allowedTypes = [
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'text/plain'
+  ];
+  return allowedTypes.includes(file.mimetype);
+}
 
 if (!process.env.STRIPE_SECRET_KEY) {
   throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
 }
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2024-06-20",
+  apiVersion: "2025-08-27.basil",
 });
 
 // Helper function to check if user can use free analysis (3 per month)
@@ -104,7 +132,7 @@ const batchUpload = multer({
 }).array('files', 25);
 
 // Middleware to validate total batch size (max 500MB)
-async function validateBatchSize(req: express.Request, res: express.Response, next: express.NextFunction) {
+async function validateBatchSize(req: AuthenticatedRequest, res: express.Response, next: express.NextFunction) {
   if (!req.files || !Array.isArray(req.files)) {
     return res.status(400).json({ message: 'No files provided' });
   }
@@ -257,7 +285,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Express setup for Supabase Auth - no sessions needed
 
 
-  app.get("/api/auth/me", requireSupabaseAuth, (req, res) => {
+  app.get("/api/auth/me", requireSupabaseAuth, (req: AuthenticatedRequest, res) => {
     // Prevent caching to avoid 304 responses that break JSON parsing
     res.set({
       'Cache-Control': 'no-store, no-cache, must-revalidate',
@@ -268,7 +296,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ user: req.user });
   });
 
-  app.get("/api/user/profile", requireSupabaseAuth, async (req, res) => {
+  app.get("/api/user/profile", requireSupabaseAuth, async (req: AuthenticatedRequest, res) => {
     try {
       // Get user from local database to get credits and other local data
       const localUser = await storage.getUser(req.user.id);
@@ -277,14 +305,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userProfile = {
         id: req.user.id,
         email: req.user.email,
-        firstName: req.user.user_metadata?.first_name || req.user.email.split('@')[0],
-        lastName: req.user.user_metadata?.last_name || '',
-        username: req.user.user_metadata?.username || req.user.email.split('@')[0],
+        firstName: req.user?.firstName || req.user?.email?.split('@')[0] || '',
+        lastName: req.user?.lastName || '',
+        username: req.user?.username || req.user?.email?.split('@')[0] || '',
         credits: localUser?.credits || 0,
-        role: req.user.app_metadata?.role || 'user',
+        role: req.user?.role || 'user',
         stripeCustomerId: localUser?.stripeCustomerId || null,
-        createdAt: req.user.created_at,
-        updatedAt: req.user.updated_at
+        createdAt: req.user?.createdAt || new Date().toISOString(),
+        updatedAt: req.user?.updatedAt || new Date().toISOString()
       };
 
       res.set({
@@ -302,7 +330,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Document analysis routes
-  app.post("/api/analyze", requireSupabaseAuth, upload.single('file'), async (req, res) => {
+  app.post("/api/analyze", requireSupabaseAuth, upload.single('file'), async (req: AuthenticatedRequest, res) => {
     try {
       let content = '';
       
@@ -442,7 +470,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/analyses", requireSupabaseAuth, async (req, res) => {
+  app.get("/api/analyses", requireSupabaseAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
       const analyses = await storage.getDocumentAnalyses(req.user.id, limit);
@@ -452,7 +480,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/analyses/:id", requireSupabaseAuth, async (req, res) => {
+  app.get("/api/analyses/:id", requireSupabaseAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const analysis = await storage.getDocumentAnalysis(req.params.id, req.user.id);
       if (!analysis) {
@@ -465,7 +493,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Soft delete analysis (move to trash)
-  app.delete("/api/analyses/:id", requireSupabaseAuth, async (req, res) => {
+  app.delete("/api/analyses/:id", requireSupabaseAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const analysis = await storage.softDeleteAnalysis(req.params.id, req.user.id, req.user.id);
       res.json({ 
@@ -478,7 +506,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get deleted analyses (trash)
-  app.get("/api/analyses/trash/list", requireSupabaseAuth, async (req, res) => {
+  app.get("/api/analyses/trash/list", requireSupabaseAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const deletedAnalyses = await storage.getDeletedAnalyses(req.user.id);
       res.json(deletedAnalyses);
@@ -488,7 +516,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Restore analysis from trash
-  app.post("/api/analyses/:id/restore", requireSupabaseAuth, async (req, res) => {
+  app.post("/api/analyses/:id/restore", requireSupabaseAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const analysis = await storage.restoreAnalysis(req.params.id, req.user.id);
       res.json({ 
@@ -501,7 +529,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // AI Provider management routes
-  app.get("/api/ai-providers", requireSupabaseAuth, async (req, res) => {
+  app.get("/api/ai-providers", requireSupabaseAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const providers = await storage.getAiProviders(req.user.id);
       // Don't return API keys in the response
@@ -515,7 +543,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/ai-providers", requireSupabaseAuth, async (req, res) => {
+  app.post("/api/ai-providers", requireSupabaseAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const { provider, apiKey } = req.body;
       
@@ -539,7 +567,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/ai-providers/:id", requireSupabaseAuth, async (req, res) => {
+  app.delete("/api/ai-providers/:id", requireSupabaseAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const { id } = req.params;
       
@@ -559,7 +587,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Credit purchase routes
-  app.post("/api/create-payment-intent", requireSupabaseAuth, async (req, res) => {
+  app.post("/api/create-payment-intent", requireSupabaseAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const { packageId } = req.body;
       
@@ -592,7 +620,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/confirm-payment", requireSupabaseAuth, async (req, res) => {
+  // Stripe webhook endpoint (no auth required - Stripe handles verification)
+  app.post("/api/stripe-webhook", express.raw({ type: 'application/json' }), async (req, res) => {
+    const sig = req.headers['stripe-signature'];
+    const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+    if (!endpointSecret) {
+      console.error('❌ Missing STRIPE_WEBHOOK_SECRET environment variable');
+      return res.status(400).json({ error: 'Webhook secret not configured' });
+    }
+
+    let event: Stripe.Event;
+
+    try {
+      event = stripe.webhooks.constructEvent(req.body, sig as string, endpointSecret);
+    } catch (err: any) {
+      console.error(`❌ Webhook signature verification failed: ${err.message}`);
+      return res.status(400).json({ error: `Webhook Error: ${err.message}` });
+    }
+
+    console.log(`🎯 Received Stripe webhook: ${event.type}`);
+
+    // Handle the event
+    switch (event.type) {
+      case 'payment_intent.succeeded':
+        const paymentIntent = event.data.object as Stripe.PaymentIntent;
+        await handleSuccessfulPayment(paymentIntent);
+        break;
+      case 'payment_intent.payment_failed':
+        console.log(`💳 Payment failed: ${event.data.object.id}`);
+        break;
+      default:
+        console.log(`🤷 Unhandled event type: ${event.type}`);
+    }
+
+    res.json({ received: true });
+  });
+
+  app.post("/api/confirm-payment", requireSupabaseAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const { paymentIntentId } = req.body;
       
@@ -641,7 +706,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/credit-transactions", requireSupabaseAuth, async (req, res) => {
+  app.get("/api/credit-transactions", requireSupabaseAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const transactions = await storage.getCreditTransactions(req.user.id);
       res.json(transactions);
@@ -651,7 +716,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Credit analytics for users
-  app.get("/api/credit-analytics", requireSupabaseAuth, async (req, res) => {
+  app.get("/api/credit-analytics", requireSupabaseAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const [transactions, analyses] = await Promise.all([
         storage.getCreditTransactions(req.user.id),
@@ -705,7 +770,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Support ticket routes
-  app.get("/api/support/tickets", requireSupabaseAuth, async (req, res) => {
+  app.get("/api/support/tickets", requireSupabaseAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const tickets = await storage.getSupportTickets(req.user.id);
       res.json(tickets);
@@ -714,7 +779,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/support/tickets", requireSupabaseAuth, async (req, res) => {
+  app.post("/api/support/tickets", requireSupabaseAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const ticketData = insertSupportTicketSchema.parse(req.body);
       const ticket = await storage.createSupportTicket(req.user.id, ticketData);
@@ -733,7 +798,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/support/tickets/:id", requireSupabaseAuth, async (req, res) => {
+  app.get("/api/support/tickets/:id", requireSupabaseAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const ticket = await storage.getSupportTicket(req.params.id, req.user.id);
       if (!ticket) {
@@ -747,7 +812,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/support/tickets/:id/messages", requireSupabaseAuth, async (req, res) => {
+  app.post("/api/support/tickets/:id/messages", requireSupabaseAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const ticket = await storage.getSupportTicket(req.params.id, req.user.id);
       if (!ticket) {
@@ -768,7 +833,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update ticket status (limited for users)
-  app.patch("/api/support/tickets/:id", requireSupabaseAuth, async (req, res) => {
+  app.patch("/api/support/tickets/:id", requireSupabaseAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const ticket = await storage.getSupportTicket(req.params.id, req.user.id);
       if (!ticket) {
@@ -827,7 +892,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin middleware (legacy - removed in favor of Supabase Auth with role metadata)
 
   // Admin routes
-  app.get("/api/admin/tickets", requireSupabaseAdmin, async (req, res) => {
+  app.get("/api/admin/tickets", requireSupabaseAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       // Get all tickets from all users (admin view)
       const { userId } = req.query;
@@ -846,7 +911,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/tickets/:id/messages", requireSupabaseAdmin, async (req, res) => {
+  app.post("/api/admin/tickets/:id/messages", requireSupabaseAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       // Admin can reply to any ticket
       const { id } = req.params;
@@ -875,7 +940,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/admin/tickets/:id/status", requireSupabaseAdmin, async (req, res) => {
+  app.patch("/api/admin/tickets/:id/status", requireSupabaseAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const { id } = req.params;
       const { status } = req.body;
@@ -894,7 +959,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin user management routes
-  app.get("/api/admin/users", requireSupabaseAdmin, async (req, res) => {
+  app.get("/api/admin/users", requireSupabaseAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 20;
@@ -911,7 +976,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/admin/users/:id", requireSupabaseAdmin, async (req, res) => {
+  app.patch("/api/admin/users/:id", requireSupabaseAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const { id } = req.params;
       
@@ -951,7 +1016,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin analytics routes
-  app.get("/api/admin/analytics", requireSupabaseAdmin, async (req, res) => {
+  app.get("/api/admin/analytics", requireSupabaseAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const analytics = await storage.getPlatformAnalytics();
       res.json(analytics);
@@ -960,7 +1025,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/admin/ai-usage", requireSupabaseAdmin, async (req, res) => {
+  app.get("/api/admin/ai-usage", requireSupabaseAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const aiUsage = await storage.getAiUsageAnalytics();
       res.json(aiUsage);
@@ -970,7 +1035,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin financial analytics endpoints
-  app.get("/api/admin/financial-details", requireSupabaseAdmin, async (req, res) => {
+  app.get("/api/admin/financial-details", requireSupabaseAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const [
         transactions, 
@@ -1014,7 +1079,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Process package popularity
       const packageSales: Record<string, number> = {};
-      recentTransactions.forEach(tx => {
+      recentTransactions.forEach((tx: any) => {
         if (tx.type === 'purchase') {
           const packageName = tx.description.match(/\(([^)]+)\)$/)?.[1] || 'Unknown';
           packageSales[packageName] = (packageSales[packageName] || 0) + 1;
@@ -1037,7 +1102,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/admin/credit-trends", requireSupabaseAdmin, async (req, res) => {
+  app.get("/api/admin/credit-trends", requireSupabaseAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const days = parseInt(req.query.days as string) || 30;
       const startDate = new Date();
@@ -1100,7 +1165,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin data seeding endpoints
-  app.post("/api/admin/seed-data", requireSupabaseAdmin, async (req, res) => {
+  app.post("/api/admin/seed-data", requireSupabaseAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       // Seed AI Provider Configs
       const aiProviderConfigsData = [
@@ -1287,7 +1352,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/templates", requireSupabaseAdmin, async (req, res) => {
+  app.post("/api/templates", requireSupabaseAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const templateData = insertDocumentTemplateSchema.parse(req.body);
       const template = await storage.createDocumentTemplate(templateData);
@@ -1300,7 +1365,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/templates/:id", requireSupabaseAdmin, async (req, res) => {
+  app.put("/api/templates/:id", requireSupabaseAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const { id } = req.params;
       const templateData = insertDocumentTemplateSchema.partial().parse(req.body);
@@ -1317,7 +1382,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/templates/:id", requireSupabaseAdmin, async (req, res) => {
+  app.delete("/api/templates/:id", requireSupabaseAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const { id } = req.params;
       await storage.deleteDocumentTemplate(id);
@@ -1357,7 +1422,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/legal-clauses", requireSupabaseAdmin, async (req, res) => {
+  app.post("/api/legal-clauses", requireSupabaseAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const clauseData = insertLegalClauseSchema.parse(req.body);
       const clause = await storage.createLegalClause(clauseData);
@@ -1370,7 +1435,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/legal-clauses/:id", requireSupabaseAdmin, async (req, res) => {
+  app.put("/api/legal-clauses/:id", requireSupabaseAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const { id } = req.params;
       const clauseData = insertLegalClauseSchema.partial().parse(req.body);
@@ -1387,7 +1452,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/legal-clauses/:id", requireSupabaseAdmin, async (req, res) => {
+  app.delete("/api/legal-clauses/:id", requireSupabaseAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const { id } = req.params;
       await storage.deleteLegalClause(id);
@@ -1398,7 +1463,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Template Prompts Routes
-  app.get("/api/templates/:templateId/prompts", requireSupabaseAdmin, async (req, res) => {
+  app.get("/api/templates/:templateId/prompts", requireSupabaseAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const { templateId } = req.params;
       const template = await storage.getDocumentTemplateById(templateId);
@@ -1412,7 +1477,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/template-prompts", requireSupabaseAdmin, async (req, res) => {
+  app.post("/api/template-prompts", requireSupabaseAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const promptData = insertTemplatePromptSchema.parse(req.body);
       const prompt = await storage.createTemplatePrompt(promptData);
@@ -1425,7 +1490,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/template-prompts/:id", requireSupabaseAdmin, async (req, res) => {
+  app.put("/api/template-prompts/:id", requireSupabaseAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const { id } = req.params;
       const promptData = insertTemplatePromptSchema.partial().parse(req.body);
@@ -1442,7 +1507,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/template-prompts/:id", requireSupabaseAdmin, async (req, res) => {
+  app.delete("/api/template-prompts/:id", requireSupabaseAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const { id } = req.params;
       await storage.deleteTemplatePrompt(id);
@@ -1453,7 +1518,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Template Analysis Rules Routes
-  app.get("/api/templates/:templateId/analysis-rules", requireSupabaseAdmin, async (req, res) => {
+  app.get("/api/templates/:templateId/analysis-rules", requireSupabaseAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const { templateId } = req.params;
       const template = await storage.getDocumentTemplateById(templateId);
@@ -1467,7 +1532,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/template-analysis-rules", requireSupabaseAdmin, async (req, res) => {
+  app.post("/api/template-analysis-rules", requireSupabaseAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const ruleData = insertTemplateAnalysisRuleSchema.parse(req.body);
       const rule = await storage.createTemplateAnalysisRule(ruleData);
@@ -1480,7 +1545,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/template-analysis-rules/:id", requireSupabaseAdmin, async (req, res) => {
+  app.put("/api/template-analysis-rules/:id", requireSupabaseAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const { id } = req.params;
       const ruleData = insertTemplateAnalysisRuleSchema.partial().parse(req.body);
@@ -1497,7 +1562,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/template-analysis-rules/:id", requireSupabaseAdmin, async (req, res) => {
+  app.delete("/api/template-analysis-rules/:id", requireSupabaseAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const { id } = req.params;
       await storage.deleteTemplateAnalysisRule(id);
@@ -1563,7 +1628,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     fileFilter: (req, file, cb) => {
       // Enhanced validation with both MIME type and extension check
       if (!validateFileType(file)) {
-        return cb(new Error(`Invalid file type: ${file.mimetype}. Only PDF, DOC, DOCX, and TXT files are allowed.`), false);
+        return cb(new Error(`Invalid file type: ${file.mimetype}. Only PDF, DOC, DOCX, and TXT files are allowed.`) as any, false);
       }
       
       cb(null, true);
@@ -1571,7 +1636,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Middleware to validate total batch size before processing
-  const validateBatchSize = (req: any, res: any, next: any) => {
+  const validateBatchSizeLocal = (req: AuthenticatedRequest, res: express.Response, next: express.NextFunction) => {
     if (req.files && Array.isArray(req.files)) {
       const totalSize = req.files.reduce((sum: number, file: Express.Multer.File) => sum + file.size, 0);
       const maxTotalSize = 500 * 1024 * 1024; // 500MB total batch limit
@@ -1601,7 +1666,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   };
 
   // Create batch job with multiple files - SECURE: Disk-based storage with atomic credit reservation
-  app.post("/api/batch/create", requireSupabaseAuth, batchUpload.array('files', 25), validateBatchSize, async (req, res) => {
+  app.post("/api/batch/create", requireSupabaseAuth, batchUpload.array('files', 25), validateBatchSizeLocal, async (req: AuthenticatedRequest, res) => {
     let uploadedFiles: Express.Multer.File[] = [];
     let batchJobCreated = false;
     
@@ -1723,7 +1788,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // If credits were deducted but batch creation failed, refund them
       if (!batchJobCreated && uploadedFiles.length > 0) {
         try {
-          const creditsPerDocument = aiService.getProviderCredits(`${aiProvider}-${aiModel}`);
+          // Reconstruct aiProvider and aiModel from request body for refund calculation
+          const { aiProvider: refundAiProvider, aiModel: refundAiModel } = req.body;
+          const creditsPerDocument = aiService.getProviderCredits(`${refundAiProvider}-${refundAiModel}`);
           const totalCreditsNeeded = creditsPerDocument * uploadedFiles.length;
           await storage.createCreditTransaction(
             req.user.id, 
@@ -1742,7 +1809,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get user's batch jobs
-  app.get("/api/batch/jobs", requireSupabaseAuth, async (req, res) => {
+  app.get("/api/batch/jobs", requireSupabaseAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
       const batchJobs = await storage.getBatchJobs(req.user.id, limit);
@@ -1753,7 +1820,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get specific batch job with details
-  app.get("/api/batch/jobs/:id", requireSupabaseAuth, async (req, res) => {
+  app.get("/api/batch/jobs/:id", requireSupabaseAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const { id } = req.params;
       const batchJob = await storage.getBatchJob(id, req.user.id);
@@ -1769,7 +1836,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get batch job statistics
-  app.get("/api/batch/statistics", requireSupabaseAuth, async (req, res) => {
+  app.get("/api/batch/statistics", requireSupabaseAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const statistics = await storage.getBatchJobStatistics(req.user.id);
       res.json(statistics);
@@ -1779,7 +1846,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Cancel batch job (if still pending)
-  app.post("/api/batch/jobs/:id/cancel", requireSupabaseAuth, async (req, res) => {
+  app.post("/api/batch/jobs/:id/cancel", requireSupabaseAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const { id } = req.params;
       const batchJob = await storage.getBatchJob(id, req.user.id);
@@ -1799,7 +1866,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete batch job
-  app.delete("/api/batch/jobs/:id", requireSupabaseAuth, async (req, res) => {
+  app.delete("/api/batch/jobs/:id", requireSupabaseAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const { id } = req.params;
       const batchJob = await storage.getBatchJob(id, req.user.id);
@@ -1815,7 +1882,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get batch processing results
-  app.get("/api/batch/jobs/:id/results", requireSupabaseAuth, async (req, res) => {
+  app.get("/api/batch/jobs/:id/results", requireSupabaseAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const { id } = req.params;
       const batchJob = await storage.getBatchJob(id, req.user.id);
@@ -1860,7 +1927,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin endpoints for batch management
-  app.get("/api/admin/batch/jobs", requireSupabaseAdmin, async (req, res) => {
+  app.get("/api/admin/batch/jobs", requireSupabaseAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const page = req.query.page ? parseInt(req.query.page as string) : 1;
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
@@ -1871,7 +1938,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/admin/batch/statistics", requireSupabaseAdmin, async (req, res) => {
+  app.get("/api/admin/batch/statistics", requireSupabaseAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const statistics = await storage.getBatchJobStatistics(); // No userId for admin view
       res.json(statistics);
@@ -1881,7 +1948,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Queue management endpoints
-  app.get("/api/admin/queue/jobs", requireSupabaseAdmin, async (req, res) => {
+  app.get("/api/admin/queue/jobs", requireSupabaseAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const status = req.query.status as string;
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
@@ -1892,7 +1959,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/queue/jobs/:id/retry", requireSupabaseAdmin, async (req, res) => {
+  app.post("/api/admin/queue/jobs/:id/retry", requireSupabaseAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const { id } = req.params;
       const retryJob = await storage.retryFailedQueueJob(id);
@@ -1902,7 +1969,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/admin/queue/jobs/:id", requireSupabaseAdmin, async (req, res) => {
+  app.delete("/api/admin/queue/jobs/:id", requireSupabaseAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const { id } = req.params;
       await storage.deleteQueueJob(id);
