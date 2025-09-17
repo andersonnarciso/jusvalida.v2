@@ -1,21 +1,49 @@
-import { useState, useEffect } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
-import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
-import { useLocation } from 'wouter';
-import { DashboardHeader } from '@/components/layout/dashboard-header';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Skeleton } from '@/components/ui/skeleton';
-import { useToast } from '@/hooks/use-toast';
-import { apiRequest, queryClient } from '@/lib/queryClient';
-import { Users, Activity, TrendingUp, Zap, DollarSign, FileText, AlertTriangle, CheckCircle } from 'lucide-react';
-import { format } from 'date-fns';
+import { useState, useEffect } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { useUser } from "@/hooks/use-user";
+import { useLocation } from "wouter";
+import { DashboardHeader } from "@/components/layout/dashboard-header";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import {
+  Users,
+  Activity,
+  TrendingUp,
+  Zap,
+  DollarSign,
+  FileText,
+  AlertTriangle,
+  CheckCircle,
+} from "lucide-react";
+import { format } from "date-fns";
 
 interface User {
   id: string;
@@ -23,7 +51,7 @@ interface User {
   firstName: string;
   lastName: string;
   username: string;
-  role: 'user' | 'admin' | 'support';
+  role: "user" | "admin" | "support";
   credits: number;
   stripeCustomerId?: string | null;
   createdAt: string;
@@ -41,20 +69,35 @@ interface PlatformAnalytics {
   totalCreditsUsed: number;
   totalCreditsPurchased: number;
   totalRevenue: number;
-  userGrowth: Array<{date: string, count: number}>;
-  analysisGrowth: Array<{date: string, count: number}>;
-  supportTicketsStats: {open: number, pending: number, resolved: number, closed: number};
+  userGrowth: Array<{ date: string; count: number }>;
+  analysisGrowth: Array<{ date: string; count: number }>;
+  supportTicketsStats: {
+    open: number;
+    pending: number;
+    resolved: number;
+    closed: number;
+  };
 }
 
 interface AiUsageAnalytics {
-  providerUsage: Array<{provider: string, model: string, count: number, totalCredits: number}>;
-  analysisTypes: Array<{type: string, count: number}>;
-  errorRates: Array<{provider: string, model: string, successRate: number}>;
+  providerUsage: Array<{
+    provider: string;
+    model: string;
+    count: number;
+    totalCredits: number;
+  }>;
+  analysisTypes: Array<{ type: string; count: number }>;
+  errorRates: Array<{ provider: string; model: string; successRate: number }>;
 }
 
 interface FinancialDetails {
-  dailyTransactions: Array<{date: string, type: string, amount: number, count: number}>;
-  packagePopularity: Array<{name: string, sales: number}>;
+  dailyTransactions: Array<{
+    date: string;
+    type: string;
+    amount: number;
+    count: number;
+  }>;
+  packagePopularity: Array<{ name: string; sales: number }>;
   userStatistics: {
     totalUsers: number;
     averageCredits: number;
@@ -76,7 +119,12 @@ interface FinancialDetails {
 }
 
 interface CreditTrends {
-  creditTrends: Array<{date: string, purchases: number, usage: number, net: number}>;
+  creditTrends: Array<{
+    date: string;
+    purchases: number;
+    usage: number;
+    net: number;
+  }>;
   topSpenders: Array<{
     userId: string;
     userEmail: string;
@@ -85,112 +133,146 @@ interface CreditTrends {
     totalPurchased: number;
     transactionCount: number;
   }>;
-  hourlyUsage: Array<{hour: number, transactions: number, credits: number}>;
-  period: {days: number, startDate: string, endDate: string};
+  hourlyUsage: Array<{ hour: number; transactions: number; credits: number }>;
+  period: { days: number; startDate: string; endDate: string };
 }
 
 export default function Admin() {
-  const { user } = useSupabaseAuth();
+  const { isAdmin, isSupport, loading } = useUser();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [userPage, setUserPage] = useState(1);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
-  // Admin verification using Supabase user metadata
+  // Admin verification
   useEffect(() => {
-    if (!user || !['admin', 'support'].includes(user?.app_metadata?.role || '')) {
-      setLocation('/dashboard');
+    if (!loading && !isAdmin && !isSupport) {
+      setLocation("/dashboard");
     }
-  }, [user, setLocation]);
+  }, [isAdmin, isSupport, loading, setLocation]);
 
-  // Admin verification using Supabase user metadata
-  if (!user || !['admin', 'support'].includes(user?.app_metadata?.role || '')) {
+  // Admin verification
+  if (loading) {
+    return <div className="min-h-screen bg-background flex items-center justify-center">Loading...</div>;
+  }
+  
+  if (!isAdmin && !isSupport) {
     return null;
   }
 
   // Fetch users with pagination
-  const { data: usersData, isLoading: usersLoading } = useQuery<UserListResponse>({
-    queryKey: ['/api/admin/users', userPage],
-    queryFn: async () => {
-      const response = await apiRequest('GET', `/api/admin/users?page=${userPage}&limit=10`);
-      return response.json();
-    }
-  });
+  const { data: usersData, isLoading: usersLoading } =
+    useQuery<UserListResponse>({
+      queryKey: ["/api/admin/users", userPage],
+      queryFn: async () => {
+        const response = await apiRequest(
+          "GET",
+          `/api/admin/users?page=${userPage}&limit=10`,
+        );
+        return response.json();
+      },
+    });
 
   // Fetch platform analytics
-  const { data: analytics, isLoading: analyticsLoading } = useQuery<PlatformAnalytics>({
-    queryKey: ['/api/admin/analytics'],
-    queryFn: async () => {
-      const response = await apiRequest('GET', '/api/admin/analytics');
-      return response.json();
-    }
-  });
+  const { data: analytics, isLoading: analyticsLoading } =
+    useQuery<PlatformAnalytics>({
+      queryKey: ["/api/admin/analytics"],
+      queryFn: async () => {
+        const response = await apiRequest("GET", "/api/admin/analytics");
+        return response.json();
+      },
+    });
 
   // Fetch AI usage analytics
-  const { data: aiUsage, isLoading: aiUsageLoading } = useQuery<AiUsageAnalytics>({
-    queryKey: ['/api/admin/ai-usage'],
-    queryFn: async () => {
-      const response = await apiRequest('GET', '/api/admin/ai-usage');
-      return response.json();
-    }
-  });
+  const { data: aiUsage, isLoading: aiUsageLoading } =
+    useQuery<AiUsageAnalytics>({
+      queryKey: ["/api/admin/ai-usage"],
+      queryFn: async () => {
+        const response = await apiRequest("GET", "/api/admin/ai-usage");
+        return response.json();
+      },
+    });
 
   // Fetch financial details
-  const { data: financialDetails, isLoading: financialLoading } = useQuery<FinancialDetails>({
-    queryKey: ['/api/admin/financial-details'],
-    queryFn: async () => {
-      const response = await apiRequest('GET', '/api/admin/financial-details');
-      return response.json();
-    }
-  });
+  const { data: financialDetails, isLoading: financialLoading } =
+    useQuery<FinancialDetails>({
+      queryKey: ["/api/admin/financial-details"],
+      queryFn: async () => {
+        const response = await apiRequest(
+          "GET",
+          "/api/admin/financial-details",
+        );
+        return response.json();
+      },
+    });
 
   // Fetch credit trends
-  const { data: creditTrends, isLoading: trendsLoading } = useQuery<CreditTrends>({
-    queryKey: ['/api/admin/credit-trends'],
-    queryFn: async () => {
-      const response = await apiRequest('GET', '/api/admin/credit-trends?days=30');
-      return response.json();
-    }
-  });
+  const { data: creditTrends, isLoading: trendsLoading } =
+    useQuery<CreditTrends>({
+      queryKey: ["/api/admin/credit-trends"],
+      queryFn: async () => {
+        const response = await apiRequest(
+          "GET",
+          "/api/admin/credit-trends?days=30",
+        );
+        return response.json();
+      },
+    });
 
   // Update user mutation
   const updateUserMutation = useMutation({
-    mutationFn: ({ userId, updates }: { userId: string; updates: { role?: string; credits?: number } }) =>
-      apiRequest('PATCH', `/api/admin/users/${userId}`, updates),
+    mutationFn: ({
+      userId,
+      updates,
+    }: {
+      userId: string;
+      updates: { role?: string; credits?: number };
+    }) => apiRequest("PATCH", `/api/admin/users/${userId}`, updates),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
       toast({ title: "Success", description: "User updated successfully" });
       setSelectedUser(null);
     },
     onError: (error: any) => {
-      toast({ 
-        title: "Error", 
+      toast({
+        title: "Error",
         description: error.message || "Failed to update user",
-        variant: "destructive"
+        variant: "destructive",
       });
-    }
+    },
   });
 
-  const handleUpdateUser = (userId: string, updates: { role?: string; credits?: number }) => {
+  const handleUpdateUser = (
+    userId: string,
+    updates: { role?: string; credits?: number },
+  ) => {
     updateUserMutation.mutate({ userId, updates });
   };
 
   const getRoleBadgeVariant = (role: string) => {
     switch (role) {
-      case 'admin': return 'destructive';
-      case 'support': return 'secondary';
-      default: return 'default';
+      case "admin":
+        return "destructive";
+      case "support":
+        return "secondary";
+      default:
+        return "default";
     }
   };
 
   return (
     <div className="min-h-screen bg-background">
       <DashboardHeader />
-      
+
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2">Painel Administrativo</h1>
-          <p className="text-muted-foreground">Gerencie usuários, monitore o uso de IA e visualize análises da plataforma</p>
+          <h1 className="text-3xl font-bold text-foreground mb-2">
+            Painel Administrativo
+          </h1>
+          <p className="text-muted-foreground">
+            Gerencie usuários, monitore o uso de IA e visualize análises da
+            plataforma
+          </p>
         </div>
 
         <Tabs defaultValue="users" className="space-y-6">
@@ -245,25 +327,33 @@ export default function Admin() {
                       <TableBody>
                         {usersData?.users.map((user: User) => (
                           <TableRow key={user.id}>
-                            <TableCell data-testid={`text-user-name-${user.id}`}>
+                            <TableCell
+                              data-testid={`text-user-name-${user.id}`}
+                            >
                               {user.firstName} {user.lastName}
                             </TableCell>
-                            <TableCell data-testid={`text-user-email-${user.id}`}>
+                            <TableCell
+                              data-testid={`text-user-email-${user.id}`}
+                            >
                               {user.email}
                             </TableCell>
                             <TableCell>
-                              <Badge 
+                              <Badge
                                 variant={getRoleBadgeVariant(user.role)}
                                 data-testid={`badge-user-role-${user.id}`}
                               >
                                 {user.role}
                               </Badge>
                             </TableCell>
-                            <TableCell data-testid={`text-user-credits-${user.id}`}>
+                            <TableCell
+                              data-testid={`text-user-credits-${user.id}`}
+                            >
                               {user.credits}
                             </TableCell>
-                            <TableCell data-testid={`text-user-created-${user.id}`}>
-                              {format(new Date(user.createdAt), 'dd/MM/yyyy')}
+                            <TableCell
+                              data-testid={`text-user-created-${user.id}`}
+                            >
+                              {format(new Date(user.createdAt), "dd/MM/yyyy")}
                             </TableCell>
                             <TableCell>
                               <Button
@@ -279,16 +369,17 @@ export default function Admin() {
                         ))}
                       </TableBody>
                     </Table>
-                    
+
                     <div className="flex justify-between items-center mt-4">
                       <p className="text-sm text-muted-foreground">
-                        Mostrando {usersData?.users.length || 0} de {usersData?.total || 0} usuários
+                        Mostrando {usersData?.users.length || 0} de{" "}
+                        {usersData?.total || 0} usuários
                       </p>
                       <div className="space-x-2">
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => setUserPage(p => Math.max(1, p - 1))}
+                          onClick={() => setUserPage((p) => Math.max(1, p - 1))}
                           disabled={userPage === 1}
                           data-testid="button-users-prev"
                         >
@@ -297,7 +388,7 @@ export default function Admin() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => setUserPage(p => p + 1)}
+                          onClick={() => setUserPage((p) => p + 1)}
                           disabled={!usersData || usersData.users.length < 10}
                           data-testid="button-users-next"
                         >
@@ -323,9 +414,11 @@ export default function Admin() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="role">Role</Label>
-                      <Select 
+                      <Select
                         defaultValue={selectedUser.role}
-                        onValueChange={(role) => handleUpdateUser(selectedUser.id, { role })}
+                        onValueChange={(role) =>
+                          handleUpdateUser(selectedUser.id, { role })
+                        }
                       >
                         <SelectTrigger data-testid="select-user-role">
                           <SelectValue />
@@ -337,7 +430,7 @@ export default function Admin() {
                         </SelectContent>
                       </Select>
                     </div>
-                    
+
                     <div className="space-y-2">
                       <Label htmlFor="credits">Créditos</Label>
                       <div className="flex gap-2">
@@ -350,7 +443,8 @@ export default function Admin() {
                         />
                         <Button
                           onClick={(e) => {
-                            const input = e.currentTarget.previousElementSibling as HTMLInputElement;
+                            const input = e.currentTarget
+                              .previousElementSibling as HTMLInputElement;
                             const credits = parseInt(input.value);
                             if (credits >= 0) {
                               handleUpdateUser(selectedUser.id, { credits });
@@ -363,9 +457,9 @@ export default function Admin() {
                       </div>
                     </div>
                   </div>
-                  
-                  <Button 
-                    variant="outline" 
+
+                  <Button
+                    variant="outline"
                     onClick={() => setSelectedUser(null)}
                     data-testid="button-cancel-edit"
                   >
@@ -377,41 +471,71 @@ export default function Admin() {
           </TabsContent>
 
           {/* AI Monitoring Tab */}
-          <TabsContent value="ai-monitoring" data-testid="content-ai-monitoring">
+          <TabsContent
+            value="ai-monitoring"
+            data-testid="content-ai-monitoring"
+          >
             <div className="grid gap-6">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Total de Análises</CardTitle>
+                    <CardTitle className="text-sm font-medium">
+                      Total de Análises
+                    </CardTitle>
                     <FileText className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold" data-testid="text-total-analyses">
-                      {analyticsLoading ? <Skeleton className="h-6 w-16" /> : analytics?.totalAnalyses || 0}
+                    <div
+                      className="text-2xl font-bold"
+                      data-testid="text-total-analyses"
+                    >
+                      {analyticsLoading ? (
+                        <Skeleton className="h-6 w-16" />
+                      ) : (
+                        analytics?.totalAnalyses || 0
+                      )}
                     </div>
                   </CardContent>
                 </Card>
 
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Créditos Utilizados</CardTitle>
+                    <CardTitle className="text-sm font-medium">
+                      Créditos Utilizados
+                    </CardTitle>
                     <Zap className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold" data-testid="text-credits-used">
-                      {analyticsLoading ? <Skeleton className="h-6 w-16" /> : analytics?.totalCreditsUsed || 0}
+                    <div
+                      className="text-2xl font-bold"
+                      data-testid="text-credits-used"
+                    >
+                      {analyticsLoading ? (
+                        <Skeleton className="h-6 w-16" />
+                      ) : (
+                        analytics?.totalCreditsUsed || 0
+                      )}
                     </div>
                   </CardContent>
                 </Card>
 
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Receita Total</CardTitle>
+                    <CardTitle className="text-sm font-medium">
+                      Receita Total
+                    </CardTitle>
                     <DollarSign className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold" data-testid="text-total-revenue">
-                      {analyticsLoading ? <Skeleton className="h-6 w-16" /> : `R$ ${analytics?.totalRevenue.toFixed(2) || '0.00'}`}
+                    <div
+                      className="text-2xl font-bold"
+                      data-testid="text-total-revenue"
+                    >
+                      {analyticsLoading ? (
+                        <Skeleton className="h-6 w-16" />
+                      ) : (
+                        `R$ ${analytics?.totalRevenue.toFixed(2) || "0.00"}`
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -420,7 +544,9 @@ export default function Admin() {
               <Card>
                 <CardHeader>
                   <CardTitle>Uso por Provedor de IA</CardTitle>
-                  <CardDescription>Estatísticas de uso dos provedores de IA</CardDescription>
+                  <CardDescription>
+                    Estatísticas de uso dos provedores de IA
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   {aiUsageLoading ? (
@@ -437,39 +563,65 @@ export default function Admin() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {aiUsage?.providerUsage.map((provider: { provider: string; model: string; count: number; totalCredits: number }, index: number) => {
-                          const errorRate = aiUsage?.errorRates.find(
-                            (e: { provider: string; model: string; successRate: number }) => e.provider === provider.provider && e.model === provider.model
-                          );
-                          return (
-                            <TableRow key={index}>
-                              <TableCell data-testid={`text-provider-${index}`}>
-                                {provider.provider}
-                              </TableCell>
-                              <TableCell data-testid={`text-model-${index}`}>
-                                {provider.model}
-                              </TableCell>
-                              <TableCell data-testid={`text-usage-count-${index}`}>
-                                {provider.count}
-                              </TableCell>
-                              <TableCell data-testid={`text-credits-${index}`}>
-                                {provider.totalCredits}
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex items-center gap-2">
-                                  {errorRate && errorRate.successRate > 90 ? (
-                                    <CheckCircle className="h-4 w-4 text-green-500" />
-                                  ) : (
-                                    <AlertTriangle className="h-4 w-4 text-yellow-500" />
-                                  )}
-                                  <span data-testid={`text-success-rate-${index}`}>
-                                    {errorRate ? `${errorRate.successRate.toFixed(1)}%` : 'N/A'}
-                                  </span>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
+                        {aiUsage?.providerUsage.map(
+                          (
+                            provider: {
+                              provider: string;
+                              model: string;
+                              count: number;
+                              totalCredits: number;
+                            },
+                            index: number,
+                          ) => {
+                            const errorRate = aiUsage?.errorRates.find(
+                              (e: {
+                                provider: string;
+                                model: string;
+                                successRate: number;
+                              }) =>
+                                e.provider === provider.provider &&
+                                e.model === provider.model,
+                            );
+                            return (
+                              <TableRow key={index}>
+                                <TableCell
+                                  data-testid={`text-provider-${index}`}
+                                >
+                                  {provider.provider}
+                                </TableCell>
+                                <TableCell data-testid={`text-model-${index}`}>
+                                  {provider.model}
+                                </TableCell>
+                                <TableCell
+                                  data-testid={`text-usage-count-${index}`}
+                                >
+                                  {provider.count}
+                                </TableCell>
+                                <TableCell
+                                  data-testid={`text-credits-${index}`}
+                                >
+                                  {provider.totalCredits}
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-2">
+                                    {errorRate && errorRate.successRate > 90 ? (
+                                      <CheckCircle className="h-4 w-4 text-green-500" />
+                                    ) : (
+                                      <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                                    )}
+                                    <span
+                                      data-testid={`text-success-rate-${index}`}
+                                    >
+                                      {errorRate
+                                        ? `${errorRate.successRate.toFixed(1)}%`
+                                        : "N/A"}
+                                    </span>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          },
+                        )}
                       </TableBody>
                     </Table>
                   )}
@@ -484,48 +636,84 @@ export default function Admin() {
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Total de Usuários</CardTitle>
+                    <CardTitle className="text-sm font-medium">
+                      Total de Usuários
+                    </CardTitle>
                     <Users className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold" data-testid="text-total-users">
-                      {analyticsLoading ? <Skeleton className="h-6 w-16" /> : analytics?.totalUsers || 0}
+                    <div
+                      className="text-2xl font-bold"
+                      data-testid="text-total-users"
+                    >
+                      {analyticsLoading ? (
+                        <Skeleton className="h-6 w-16" />
+                      ) : (
+                        analytics?.totalUsers || 0
+                      )}
                     </div>
                   </CardContent>
                 </Card>
 
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Análises Realizadas</CardTitle>
+                    <CardTitle className="text-sm font-medium">
+                      Análises Realizadas
+                    </CardTitle>
                     <FileText className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold" data-testid="text-platform-total-analyses">
-                      {analyticsLoading ? <Skeleton className="h-6 w-16" /> : analytics?.totalAnalyses || 0}
+                    <div
+                      className="text-2xl font-bold"
+                      data-testid="text-platform-total-analyses"
+                    >
+                      {analyticsLoading ? (
+                        <Skeleton className="h-6 w-16" />
+                      ) : (
+                        analytics?.totalAnalyses || 0
+                      )}
                     </div>
                   </CardContent>
                 </Card>
 
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Créditos Comprados</CardTitle>
+                    <CardTitle className="text-sm font-medium">
+                      Créditos Comprados
+                    </CardTitle>
                     <Zap className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold" data-testid="text-credits-purchased">
-                      {analyticsLoading ? <Skeleton className="h-6 w-16" /> : analytics?.totalCreditsPurchased || 0}
+                    <div
+                      className="text-2xl font-bold"
+                      data-testid="text-credits-purchased"
+                    >
+                      {analyticsLoading ? (
+                        <Skeleton className="h-6 w-16" />
+                      ) : (
+                        analytics?.totalCreditsPurchased || 0
+                      )}
                     </div>
                   </CardContent>
                 </Card>
 
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Receita</CardTitle>
+                    <CardTitle className="text-sm font-medium">
+                      Receita
+                    </CardTitle>
                     <DollarSign className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold" data-testid="text-total-revenue-2">
-                      {analyticsLoading ? <Skeleton className="h-6 w-16" /> : `R$ ${analytics?.totalRevenue.toFixed(2) || '0.00'}`}
+                    <div
+                      className="text-2xl font-bold"
+                      data-testid="text-total-revenue-2"
+                    >
+                      {analyticsLoading ? (
+                        <Skeleton className="h-6 w-16" />
+                      ) : (
+                        `R$ ${analytics?.totalRevenue.toFixed(2) || "0.00"}`
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -539,48 +727,86 @@ export default function Admin() {
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Usuários Ativos</CardTitle>
+                    <CardTitle className="text-sm font-medium">
+                      Usuários Ativos
+                    </CardTitle>
                     <Users className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold" data-testid="text-active-users">
-                      {financialLoading ? <Skeleton className="h-6 w-16" /> : financialDetails?.userStatistics.usersWithCredits || 0}
+                    <div
+                      className="text-2xl font-bold"
+                      data-testid="text-active-users"
+                    >
+                      {financialLoading ? (
+                        <Skeleton className="h-6 w-16" />
+                      ) : (
+                        financialDetails?.userStatistics.usersWithCredits || 0
+                      )}
                     </div>
                   </CardContent>
                 </Card>
 
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Média de Créditos</CardTitle>
+                    <CardTitle className="text-sm font-medium">
+                      Média de Créditos
+                    </CardTitle>
                     <Zap className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold" data-testid="text-avg-credits">
-                      {financialLoading ? <Skeleton className="h-6 w-16" /> : Math.round(financialDetails?.userStatistics.averageCredits || 0)}
+                    <div
+                      className="text-2xl font-bold"
+                      data-testid="text-avg-credits"
+                    >
+                      {financialLoading ? (
+                        <Skeleton className="h-6 w-16" />
+                      ) : (
+                        Math.round(
+                          financialDetails?.userStatistics.averageCredits || 0,
+                        )
+                      )}
                     </div>
                   </CardContent>
                 </Card>
 
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Pacotes Ativos</CardTitle>
+                    <CardTitle className="text-sm font-medium">
+                      Pacotes Ativos
+                    </CardTitle>
                     <CheckCircle className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold" data-testid="text-active-packages">
-                      {financialLoading ? <Skeleton className="h-6 w-16" /> : `${financialDetails?.activePackages || 0}/${financialDetails?.totalPackages || 0}`}
+                    <div
+                      className="text-2xl font-bold"
+                      data-testid="text-active-packages"
+                    >
+                      {financialLoading ? (
+                        <Skeleton className="h-6 w-16" />
+                      ) : (
+                        `${financialDetails?.activePackages || 0}/${financialDetails?.totalPackages || 0}`
+                      )}
                     </div>
                   </CardContent>
                 </Card>
 
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Transações Recentes</CardTitle>
+                    <CardTitle className="text-sm font-medium">
+                      Transações Recentes
+                    </CardTitle>
                     <Activity className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold" data-testid="text-recent-transactions">
-                      {financialLoading ? <Skeleton className="h-6 w-16" /> : financialDetails?.recentTransactions.length || 0}
+                    <div
+                      className="text-2xl font-bold"
+                      data-testid="text-recent-transactions"
+                    >
+                      {financialLoading ? (
+                        <Skeleton className="h-6 w-16" />
+                      ) : (
+                        financialDetails?.recentTransactions.length || 0
+                      )}
                     </div>
                   </CardContent>
                 </Card>

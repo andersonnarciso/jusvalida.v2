@@ -5,7 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { CookieBanner } from "@/components/ui/cookie-banner";
 import { Footer } from "@/components/ui/footer";
-import { SupabaseAuthProvider } from "@/hooks/use-supabase-auth";
+import { UserProvider } from "@/hooks/use-user";
 import { CookieConsentProvider } from "@/hooks/use-cookie-preferences";
 import Landing from "@/pages/landing";
 import Dashboard from "@/pages/dashboard";
@@ -61,12 +61,12 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <CookieConsentProvider>
-        <SupabaseAuthProvider>
+        <UserProvider>
           <TooltipProvider>
             <Toaster />
             <Router />
           </TooltipProvider>
-        </SupabaseAuthProvider>
+        </UserProvider>
       </CookieConsentProvider>
     </QueryClientProvider>
   );
