@@ -43,12 +43,18 @@ export const requireSupabaseAuth = async (
     const supabaseRole = user.app_metadata?.role || 'user';
     
     // Get or migrate the user to our database using Supabase ID
-    const dbUser = await storage.migrateUserToSupabaseId(user.id, user.email || '', {
-      first_name: user.user_metadata?.first_name,
-      last_name: user.user_metadata?.last_name,
-      username: user.user_metadata?.username,
-      role: supabaseRole
-    });
+    let dbUser;
+    try {
+      dbUser = await storage.migrateUserToSupabaseId(user.id, user.email || '', {
+        first_name: user.user_metadata?.first_name,
+        last_name: user.user_metadata?.last_name,
+        username: user.user_metadata?.username,
+        role: supabaseRole
+      });
+    } catch (migrationError: any) {
+      console.error('User migration failed:', migrationError);
+      return res.status(500).json({ message: 'User migration failed', details: migrationError.message });
+    }
     
     req.user = {
       id: user.id, // Use Supabase ID
@@ -64,8 +70,9 @@ export const requireSupabaseAuth = async (
     };
     next();
   } catch (error: any) {
-    console.error('Supabase auth error:', error);
-    return res.status(401).json({ message: 'Authentication failed' });
+    // This should only catch unexpected errors, not auth or migration issues
+    console.error('Unexpected auth middleware error:', error);
+    return res.status(500).json({ message: 'Internal server error' });
   }
 };
 
@@ -118,31 +125,37 @@ export const requireSupabaseAdmin = async (
       next();
     } catch (dbError) {
       // If user doesn't exist in our database, create them with Supabase ID
-      const newUser = await storage.createUserWithSupabaseId(user.id, {
-        email: user.email || '',
-        username: user.user_metadata?.username || user.email?.split('@')[0] || '',
-        password: '', // Not needed for Supabase users
-        firstName: user.user_metadata?.first_name || '',
-        lastName: user.user_metadata?.last_name || '',
-        credits: 20, // Default credits for new users
-        role: userRole, // Set role from Supabase metadata
-      });
-      req.user = {
-        id: user.id, // Use Supabase ID
-        email: newUser.email,
-        firstName: newUser.firstName,
-        lastName: newUser.lastName,
-        username: newUser.username,
-        role: userRole, // Use role from Supabase metadata
-        credits: newUser.credits,
-        stripeCustomerId: newUser.stripeCustomerId,
-        createdAt: newUser.createdAt.toISOString(),
-        updatedAt: newUser.updatedAt.toISOString(),
-      };
-      next();
+      try {
+        const newUser = await storage.createUserWithSupabaseId(user.id, {
+          email: user.email || '',
+          username: user.user_metadata?.username || user.email?.split('@')[0] || '',
+          password: '', // Not needed for Supabase users
+          firstName: user.user_metadata?.first_name || '',
+          lastName: user.user_metadata?.last_name || '',
+          credits: 20, // Default credits for new users
+          role: userRole, // Set role from Supabase metadata
+        });
+        req.user = {
+          id: user.id, // Use Supabase ID
+          email: newUser.email,
+          firstName: newUser.firstName,
+          lastName: newUser.lastName,
+          username: newUser.username,
+          role: userRole, // Use role from Supabase metadata
+          credits: newUser.credits,
+          stripeCustomerId: newUser.stripeCustomerId,
+          createdAt: newUser.createdAt.toISOString(),
+          updatedAt: newUser.updatedAt.toISOString(),
+        };
+        next();
+      } catch (createError: any) {
+        console.error('Admin user creation failed:', createError);
+        return res.status(500).json({ message: 'User creation failed', details: createError.message });
+      }
     }
   } catch (error: any) {
-    console.error('Supabase admin auth error:', error);
-    return res.status(401).json({ message: 'Authentication failed' });
+    // This should only catch unexpected errors, not auth or database issues
+    console.error('Unexpected admin auth middleware error:', error);
+    return res.status(500).json({ message: 'Internal server error' });
   }
 };
