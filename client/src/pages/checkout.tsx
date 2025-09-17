@@ -45,7 +45,7 @@ function CheckoutForm({ selectedPackage, onPaymentSuccess }: CheckoutFormProps) 
         confirmParams: {
           return_url: window.location.origin + '/payment-success',
         },
-        redirect: 'if_required'
+        redirect: 'always'
       });
 
       if (error) {

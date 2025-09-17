@@ -18,7 +18,7 @@ export default function PaymentSuccess() {
   const paymentIntentClientSecret = urlParams.get('payment_intent_client_secret');
 
   // Fetch updated user profile to show new credit balance
-  const { data: userProfile, isLoading } = useQuery({
+  const { data: userProfile, isLoading } = useQuery<{userProfile: {credits: number}}>({
     queryKey: ['/api/user/profile'],
     enabled: !!user,
     refetchInterval: 2000, // Refresh every 2 seconds to catch webhook updates
@@ -100,7 +100,7 @@ export default function PaymentSuccess() {
                 <Skeleton className="h-6 w-16" />
               ) : (
                 <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                  {userProfile?.credits || 0}
+                  {userProfile?.userProfile?.credits || 0}
                 </span>
               )}
             </div>
