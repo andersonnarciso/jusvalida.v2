@@ -4,7 +4,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 export const users = pgTable("users", {
-  id: varchar("id").primaryKey(), // Supabase ID will be provided, no auto-generation
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`), // Local UUID as stable primary key
   username: text("username").notNull().unique(),
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
@@ -13,6 +13,7 @@ export const users = pgTable("users", {
   role: text("role").notNull().default("user").$type<"user" | "admin" | "support">(),
   credits: integer("credits").notNull().default(5), // Start with 5 free credits
   stripeCustomerId: text("stripe_customer_id"),
+  supabaseId: text("supabase_id").unique(), // Supabase user ID mapping - nullable for local users
   createdAt: timestamp("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   updatedAt: timestamp("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });

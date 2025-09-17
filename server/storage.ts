@@ -254,9 +254,27 @@ export class DatabaseStorage implements IStorage {
     // Try to find existing user by email
     const existingUser = await this.getUserByEmail(email);
     if (existingUser) {
-      // Simply update existing user's ID to Supabase ID - no need to create new user
+      // Create new user with Supabase ID and copy all data
       return await db.transaction(async (tx) => {
-        // Update all foreign key references first
+        // Create new user with Supabase ID
+        const [newUser] = await tx
+          .insert(users)
+          .values({
+            id: supabaseId, // Supabase ID as primary key
+            email: existingUser.email,
+            username: existingUser.username,
+            password: existingUser.password,
+            firstName: supabaseUserData.first_name || existingUser.firstName,
+            lastName: supabaseUserData.last_name || existingUser.lastName,
+            role: existingUser.role,
+            credits: existingUser.credits,
+            stripeCustomerId: existingUser.stripeCustomerId,
+            createdAt: existingUser.createdAt,
+            updatedAt: new Date()
+          })
+          .returning();
+        
+        // Update all foreign key references to new user ID
         await tx
           .update(creditTransactions)
           .set({ userId: supabaseId })
@@ -277,19 +295,12 @@ export class DatabaseStorage implements IStorage {
           .set({ userId: supabaseId })
           .where(eq(aiProviders.userId, existingUser.id));
         
-        // Now update the user's ID
-        const [updatedUser] = await tx
-          .update(users)
-          .set({ 
-            id: supabaseId,
-            firstName: supabaseUserData.first_name || existingUser.firstName,
-            lastName: supabaseUserData.last_name || existingUser.lastName,
-            updatedAt: new Date()
-          })
-          .where(eq(users.id, existingUser.id))
-          .returning();
+        // Delete old user record
+        await tx
+          .delete(users)
+          .where(eq(users.id, existingUser.id));
 
-        return updatedUser;
+        return newUser;
       });
     }
 
