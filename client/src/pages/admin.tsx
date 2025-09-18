@@ -144,22 +144,6 @@ export default function Admin() {
   const [userPage, setUserPage] = useState(1);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
-  // Admin verification
-  useEffect(() => {
-    if (!loading && !isAdmin && !isSupport) {
-      setLocation("/dashboard");
-    }
-  }, [isAdmin, isSupport, loading, setLocation]);
-
-  // Admin verification
-  if (loading) {
-    return <div className="min-h-screen bg-background flex items-center justify-center">Loading...</div>;
-  }
-  
-  if (!isAdmin && !isSupport) {
-    return null;
-  }
-
   // Fetch users with pagination
   const { data: usersData, isLoading: usersLoading } =
     useQuery<UserListResponse>({
@@ -171,6 +155,7 @@ export default function Admin() {
         );
         return response.json();
       },
+      enabled: !loading && (isAdmin || isSupport),
     });
 
   // Fetch platform analytics
@@ -181,6 +166,7 @@ export default function Admin() {
         const response = await apiRequest("GET", "/api/admin/analytics");
         return response.json();
       },
+      enabled: !loading && (isAdmin || isSupport),
     });
 
   // Fetch AI usage analytics
@@ -191,6 +177,7 @@ export default function Admin() {
         const response = await apiRequest("GET", "/api/admin/ai-usage");
         return response.json();
       },
+      enabled: !loading && (isAdmin || isSupport),
     });
 
   // Fetch financial details
@@ -204,6 +191,7 @@ export default function Admin() {
         );
         return response.json();
       },
+      enabled: !loading && (isAdmin || isSupport),
     });
 
   // Fetch credit trends
@@ -217,6 +205,7 @@ export default function Admin() {
         );
         return response.json();
       },
+      enabled: !loading && (isAdmin || isSupport),
     });
 
   // Update user mutation
@@ -241,6 +230,22 @@ export default function Admin() {
       });
     },
   });
+
+  // Admin verification
+  useEffect(() => {
+    if (!loading && !isAdmin && !isSupport) {
+      setLocation("/dashboard");
+    }
+  }, [isAdmin, isSupport, loading, setLocation]);
+
+  // Admin verification
+  if (loading) {
+    return <div className="min-h-screen bg-background flex items-center justify-center">Loading...</div>;
+  }
+  
+  if (!isAdmin && !isSupport) {
+    return null;
+  }
 
   const handleUpdateUser = (
     userId: string,
