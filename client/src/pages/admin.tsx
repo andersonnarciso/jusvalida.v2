@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useUser } from "@/hooks/use-user";
 import { useLocation } from "wouter";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { DashboardHeader } from "@/components/layout/dashboard-header";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,6 +33,17 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import {
@@ -42,8 +55,26 @@ import {
   FileText,
   AlertTriangle,
   CheckCircle,
+  Settings,
+  Mail,
+  Bell,
+  Plus,
+  Edit2,
+  Trash2,
+  TestTube,
 } from "lucide-react";
 import { format } from "date-fns";
+import {
+  insertSiteConfigSchema,
+  insertSmtpConfigSchema,
+  insertAdminNotificationSchema,
+  type SiteConfig,
+  type SmtpConfig,
+  type AdminNotification,
+  type InsertSiteConfig,
+  type InsertSmtpConfig,
+  type InsertAdminNotification,
+} from "@shared/schema";
 
 interface User {
   id: string;
@@ -165,6 +196,696 @@ interface CreditTrends {
   period: { days: number; startDate: string; endDate: string };
 }
 
+// Site Config Form Component
+function SiteConfigForm({ 
+  configs, 
+  onSave, 
+  onUpdate, 
+  isLoading 
+}: {
+  configs: SiteConfig[];
+  onSave: (data: InsertSiteConfig) => void;
+  onUpdate: ({ id, data }: { id: string; data: Partial<InsertSiteConfig> }) => void;
+  isLoading: boolean;
+}) {
+  const form = useForm<InsertSiteConfig>({
+    resolver: zodResolver(insertSiteConfigSchema),
+    defaultValues: {
+      section: "footer",
+      key: "",
+      value: "",
+      dataType: "string",
+      isActive: true,
+    },
+  });
+
+  // Get specific config values
+  const getConfigValue = (section: string, key: string) => {
+    return configs.find(c => c.section === section && c.key === key)?.value || "";
+  };
+
+  const updateConfig = (section: string, key: string, value: string) => {
+    const existingConfig = configs.find(c => c.section === section && c.key === key);
+    
+    if (existingConfig) {
+      onUpdate({ id: existingConfig.id, data: { value } });
+    } else {
+      onSave({ section, key, value, dataType: "string", isActive: true });
+    }
+  };
+
+  return (
+    <div className="grid gap-6 md:grid-cols-2">
+      <div className="space-y-4">
+        <h3 className="text-lg font-medium">Informações da Empresa</h3>
+        
+        <div className="space-y-2">
+          <Label htmlFor="siteName">Nome do Site</Label>
+          <Input
+            id="siteName"
+            placeholder="JusValida"
+            defaultValue={getConfigValue("company", "siteName")}
+            onBlur={(e) => updateConfig("company", "siteName", e.target.value)}
+            data-testid="input-site-name"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="contactEmail">E-mail de Contato</Label>
+          <Input
+            id="contactEmail"
+            type="email"
+            placeholder="contato@jusvalida.com"
+            defaultValue={getConfigValue("contact", "contactEmail")}
+            onBlur={(e) => updateConfig("contact", "contactEmail", e.target.value)}
+            data-testid="input-contact-email"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="contactPhone">Telefone de Contato</Label>
+          <Input
+            id="contactPhone"
+            placeholder="(11) 99999-9999"
+            defaultValue={getConfigValue("contact", "contactPhone")}
+            onBlur={(e) => updateConfig("contact", "contactPhone", e.target.value)}
+            data-testid="input-contact-phone"
+          />
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <h3 className="text-lg font-medium">Endereço da Empresa</h3>
+        
+        <div className="space-y-2">
+          <Label htmlFor="companyAddress">Endereço Completo</Label>
+          <Textarea
+            id="companyAddress"
+            placeholder="Rua dos Advogados, 123 - Centro, São Paulo - SP"
+            defaultValue={getConfigValue("company", "companyAddress")}
+            onBlur={(e) => updateConfig("company", "companyAddress", e.target.value)}
+            data-testid="textarea-company-address"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="footerText">Texto do Rodapé</Label>
+          <Textarea
+            id="footerText"
+            placeholder="© 2024 JusValida. Todos os direitos reservados."
+            defaultValue={getConfigValue("footer", "footerText")}
+            onBlur={(e) => updateConfig("footer", "footerText", e.target.value)}
+            data-testid="textarea-footer-text"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="socialLinks">Links das Redes Sociais (JSON)</Label>
+          <Textarea
+            id="socialLinks"
+            placeholder='{"facebook": "https://facebook.com/...", "linkedin": "https://linkedin.com/..."}'
+            defaultValue={getConfigValue("social", "socialLinks")}
+            onBlur={(e) => updateConfig("social", "socialLinks", e.target.value)}
+            data-testid="textarea-social-links"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// SMTP Config Form Component
+function SmtpConfigForm({ 
+  config, 
+  onSave, 
+  onTest, 
+  isSaving, 
+  isTesting 
+}: {
+  config?: SmtpConfig;
+  onSave: (data: InsertSmtpConfig) => void;
+  onTest: (testEmail: string) => void;
+  isSaving: boolean;
+  isTesting: boolean;
+}) {
+  const form = useForm<InsertSmtpConfig>({
+    resolver: zodResolver(insertSmtpConfigSchema),
+    defaultValues: {
+      host: config?.host || "",
+      port: config?.port || 587,
+      secure: config?.secure || false,
+      username: config?.username || "",
+      password: "", // Never pre-fill password
+      fromEmail: config?.fromEmail || "",
+      fromName: config?.fromName || "",
+      isActive: config?.isActive ?? true,
+    },
+  });
+
+  const [testEmail, setTestEmail] = useState("");
+
+  const onSubmit = (data: InsertSmtpConfig) => {
+    onSave(data);
+  };
+
+  return (
+    <div className="space-y-6">
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4 md:grid-cols-2">
+          <FormField
+            control={form.control}
+            name="host"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Servidor SMTP</FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="smtp.gmail.com"
+                    data-testid="input-smtp-host"
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="port"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Porta</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    placeholder="587"
+                    data-testid="input-smtp-port"
+                    {...field}
+                    onChange={(e) => field.onChange(parseInt(e.target.value))}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="username"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Usuário</FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="seu-email@gmail.com"
+                    data-testid="input-smtp-username"
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="password"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Senha</FormLabel>
+                <FormControl>
+                  <Input
+                    type="password"
+                    placeholder="sua-senha-de-app"
+                    data-testid="input-smtp-password"
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="fromEmail"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>E-mail do Remetente</FormLabel>
+                <FormControl>
+                  <Input
+                    type="email"
+                    placeholder="noreply@jusvalida.com"
+                    data-testid="input-smtp-from-email"
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="fromName"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Nome do Remetente</FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="JusValida"
+                    data-testid="input-smtp-from-name"
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="secure"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                <div className="space-y-0.5">
+                  <FormLabel className="text-base">Conexão Segura (SSL/TLS)</FormLabel>
+                  <FormDescription>
+                    Use true para porta 465, false para outras portas
+                  </FormDescription>
+                </div>
+                <FormControl>
+                  <Switch
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                    data-testid="switch-smtp-secure"
+                  />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="isActive"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                <div className="space-y-0.5">
+                  <FormLabel className="text-base">Configuração Ativa</FormLabel>
+                  <FormDescription>
+                    Habilitar ou desabilitar esta configuração SMTP
+                  </FormDescription>
+                </div>
+                <FormControl>
+                  <Switch
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                    data-testid="switch-smtp-active"
+                  />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+
+          <div className="md:col-span-2 flex gap-4">
+            <Button 
+              type="submit" 
+              disabled={isSaving}
+              data-testid="button-save-smtp"
+            >
+              {isSaving ? "Salvando..." : "Salvar Configuração"}
+            </Button>
+          </div>
+        </form>
+      </Form>
+
+      {/* Test SMTP Configuration */}
+      <div className="border-t pt-6">
+        <h3 className="text-lg font-medium mb-4">Testar Configuração</h3>
+        <div className="flex gap-4 items-end">
+          <div className="flex-1">
+            <Label htmlFor="testEmail">E-mail para Teste</Label>
+            <Input
+              id="testEmail"
+              type="email"
+              placeholder="teste@exemplo.com"
+              value={testEmail}
+              onChange={(e) => setTestEmail(e.target.value)}
+              data-testid="input-test-email"
+            />
+          </div>
+          <Button
+            onClick={() => onTest(testEmail)}
+            disabled={isTesting || !testEmail}
+            data-testid="button-test-smtp"
+          >
+            <TestTube className="mr-2 h-4 w-4" />
+            {isTesting ? "Testando..." : "Testar"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Notifications List Component
+function NotificationsList({
+  notifications,
+  onEdit,
+  onDelete,
+  isDeleting
+}: {
+  notifications: AdminNotification[];
+  onEdit: (notification: AdminNotification) => void;
+  onDelete: (id: string) => void;
+  isDeleting: boolean;
+}) {
+  const getTypeVariant = (type: string) => {
+    switch (type) {
+      case "error": return "destructive";
+      case "warning": return "secondary";
+      case "success": return "default";
+      case "info": return "outline";
+      default: return "default";
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      {notifications.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground">
+          Nenhuma notificação encontrada
+        </div>
+      ) : (
+        notifications.map((notification) => (
+          <div
+            key={notification.id}
+            className="border rounded-lg p-4 space-y-3"
+            data-testid={`notification-card-${notification.id}`}
+          >
+            <div className="flex items-start justify-between">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <h4 className="font-medium" data-testid={`notification-title-${notification.id}`}>
+                    {notification.title}
+                  </h4>
+                  <Badge variant={getTypeVariant(notification.type)}>
+                    {notification.type}
+                  </Badge>
+                  {notification.priority > 0 && (
+                    <Badge variant="secondary">
+                      Prioridade: {notification.priority}
+                    </Badge>
+                  )}
+                </div>
+                <p className="text-sm text-muted-foreground" data-testid={`notification-message-${notification.id}`}>
+                  {notification.message}
+                </p>
+                <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                  <span>Público: {notification.targetAudience}</span>
+                  {notification.expiresAt && (
+                    <span>Expira: {format(new Date(notification.expiresAt), "dd/MM/yyyy HH:mm")}</span>
+                  )}
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onEdit(notification)}
+                  data-testid={`button-edit-notification-${notification.id}`}
+                >
+                  <Edit2 className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => onDelete(notification.id)}
+                  disabled={isDeleting}
+                  data-testid={`button-delete-notification-${notification.id}`}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
+
+// Notification Form Component
+function NotificationForm({
+  notification,
+  onSave,
+  onCancel,
+  isLoading
+}: {
+  notification?: AdminNotification | null;
+  onSave: (data: InsertAdminNotification) => void;
+  onCancel: () => void;
+  isLoading: boolean;
+}) {
+  const form = useForm<InsertAdminNotification>({
+    resolver: zodResolver(insertAdminNotificationSchema),
+    defaultValues: {
+      title: notification?.title || "",
+      message: notification?.message || "",
+      type: notification?.type || "info",
+      targetAudience: notification?.targetAudience || "all",
+      priority: notification?.priority || 0,
+      isActive: notification?.isActive ?? true,
+      showOnDashboard: notification?.showOnDashboard ?? true,
+      showOnLogin: notification?.showOnLogin ?? false,
+      expiresAt: notification?.expiresAt || undefined,
+      createdBy: "", // Will be set by backend
+    },
+  });
+
+  const onSubmit = (data: InsertAdminNotification) => {
+    onSave(data);
+  };
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <div className="grid gap-4 md:grid-cols-2">
+          <FormField
+            control={form.control}
+            name="title"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Título</FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="Título da notificação"
+                    data-testid="input-notification-title"
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="type"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Tipo</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger data-testid="select-notification-type">
+                      <SelectValue placeholder="Selecione o tipo" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="info">Informação</SelectItem>
+                    <SelectItem value="success">Sucesso</SelectItem>
+                    <SelectItem value="warning">Aviso</SelectItem>
+                    <SelectItem value="error">Erro</SelectItem>
+                    <SelectItem value="announcement">Anúncio</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <FormField
+          control={form.control}
+          name="message"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Mensagem</FormLabel>
+              <FormControl>
+                <Textarea
+                  placeholder="Conteúdo da notificação"
+                  data-testid="textarea-notification-message"
+                  {...field}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <FormField
+            control={form.control}
+            name="targetAudience"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Público Alvo</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger data-testid="select-notification-audience">
+                      <SelectValue placeholder="Selecione o público" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os usuários</SelectItem>
+                    <SelectItem value="premium">Usuários premium</SelectItem>
+                    <SelectItem value="trial">Usuários em período de teste</SelectItem>
+                    <SelectItem value="admins">Apenas administradores</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="priority"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Prioridade</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    placeholder="0"
+                    min="0"
+                    max="10"
+                    data-testid="input-notification-priority"
+                    {...field}
+                    onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                  />
+                </FormControl>
+                <FormDescription>
+                  Números maiores indicam maior prioridade (0-10)
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <FormField
+          control={form.control}
+          name="expiresAt"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Data de Expiração (opcional)</FormLabel>
+              <FormControl>
+                <Input
+                  type="datetime-local"
+                  data-testid="input-notification-expires"
+                  {...field}
+                  value={field.value ? new Date(field.value).toISOString().slice(0, 16) : ""}
+                  onChange={(e) => field.onChange(e.target.value ? new Date(e.target.value).toISOString() : undefined)}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <div className="grid gap-4 md:grid-cols-3">
+          <FormField
+            control={form.control}
+            name="isActive"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                <div className="space-y-0.5">
+                  <FormLabel className="text-base">Ativa</FormLabel>
+                  <FormDescription className="text-sm">
+                    Notificação está ativa
+                  </FormDescription>
+                </div>
+                <FormControl>
+                  <Switch
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                    data-testid="switch-notification-active"
+                  />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="showOnDashboard"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                <div className="space-y-0.5">
+                  <FormLabel className="text-base">Dashboard</FormLabel>
+                  <FormDescription className="text-sm">
+                    Mostrar no dashboard
+                  </FormDescription>
+                </div>
+                <FormControl>
+                  <Switch
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                    data-testid="switch-notification-dashboard"
+                  />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="showOnLogin"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                <div className="space-y-0.5">
+                  <FormLabel className="text-base">Login</FormLabel>
+                  <FormDescription className="text-sm">
+                    Mostrar no login
+                  </FormDescription>
+                </div>
+                <FormControl>
+                  <Switch
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                    data-testid="switch-notification-login"
+                  />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <div className="flex gap-4 pt-4">
+          <Button type="submit" disabled={isLoading} data-testid="button-save-notification">
+            {isLoading ? "Salvando..." : "Salvar Notificação"}
+          </Button>
+          <Button type="button" variant="outline" onClick={onCancel} data-testid="button-cancel-notification">
+            Cancelar
+          </Button>
+        </div>
+      </form>
+    </Form>
+  );
+}
+
 export default function Admin() {
   const { isAdmin, isSupport, loading } = useUser();
   const [, setLocation] = useLocation();
@@ -245,6 +966,39 @@ export default function Admin() {
         return response.json();
       },
       enabled: !loading && isAdmin, // Only admins can access system keys
+    });
+
+  // Fetch site configurations
+  const { data: siteConfigs, isLoading: siteConfigsLoading } =
+    useQuery<SiteConfig[]>({
+      queryKey: ["/api/admin/site-config"],
+      queryFn: async () => {
+        const response = await apiRequest("GET", "/api/admin/site-config");
+        return response.json();
+      },
+      enabled: !loading && isAdmin,
+    });
+
+  // Fetch SMTP configuration
+  const { data: smtpConfig, isLoading: smtpConfigLoading } =
+    useQuery<SmtpConfig>({
+      queryKey: ["/api/admin/smtp-config"],
+      queryFn: async () => {
+        const response = await apiRequest("GET", "/api/admin/smtp-config");
+        return response.json();
+      },
+      enabled: !loading && isAdmin,
+    });
+
+  // Fetch admin notifications
+  const { data: adminNotifications, isLoading: notificationsLoading } =
+    useQuery<AdminNotification[]>({
+      queryKey: ["/api/admin/notifications"],
+      queryFn: async () => {
+        const response = await apiRequest("GET", "/api/admin/notifications");
+        return response.json();
+      },
+      enabled: !loading && isAdmin,
     });
 
   // Update user mutation
@@ -358,6 +1112,128 @@ export default function Admin() {
     },
   });
 
+  // Site configuration mutations
+  const createSiteConfigMutation = useMutation({
+    mutationFn: (data: InsertSiteConfig) => apiRequest("POST", "/api/admin/site-config", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/site-config"] });
+      toast({ title: "Sucesso", description: "Configuração salva com sucesso" });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro",
+        description: error.message || "Falha ao salvar configuração",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateSiteConfigMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<InsertSiteConfig> }) => 
+      apiRequest("PUT", `/api/admin/site-config/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/site-config"] });
+      toast({ title: "Sucesso", description: "Configuração atualizada com sucesso" });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro",
+        description: error.message || "Falha ao atualizar configuração",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // SMTP configuration mutations
+  const saveSmtpConfigMutation = useMutation({
+    mutationFn: (data: InsertSmtpConfig) => {
+      if (smtpConfig?.id) {
+        return apiRequest("PUT", `/api/admin/smtp-config/${smtpConfig.id}`, data);
+      } else {
+        return apiRequest("POST", "/api/admin/smtp-config", data);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/smtp-config"] });
+      toast({ title: "Sucesso", description: "Configuração SMTP salva com sucesso" });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro",
+        description: error.message || "Falha ao salvar configuração SMTP",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // SMTP test mutation
+  const testSmtpMutation = useMutation({
+    mutationFn: (testEmail: string) => 
+      apiRequest("POST", "/api/admin/smtp-test", { testEmail }),
+    onSuccess: () => {
+      toast({ title: "Sucesso", description: "E-mail de teste enviado com sucesso" });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro",
+        description: error.message || "Falha ao enviar e-mail de teste",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Admin notifications mutations
+  const createNotificationMutation = useMutation({
+    mutationFn: (data: InsertAdminNotification) => 
+      apiRequest("POST", "/api/admin/notifications", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/notifications"] });
+      toast({ title: "Sucesso", description: "Notificação criada com sucesso" });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro",
+        description: error.message || "Falha ao criar notificação",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateNotificationMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<InsertAdminNotification> }) => 
+      apiRequest("PUT", `/api/admin/notifications/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/notifications"] });
+      toast({ title: "Sucesso", description: "Notificação atualizada com sucesso" });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro",
+        description: error.message || "Falha ao atualizar notificação",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteNotificationMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/admin/notifications/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/notifications"] });
+      toast({ title: "Sucesso", description: "Notificação excluída com sucesso" });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro",
+        description: error.message || "Falha ao excluir notificação",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // State for new tabs
+  const [selectedNotification, setSelectedNotification] = useState<AdminNotification | null>(null);
+  const [showNotificationForm, setShowNotificationForm] = useState(false);
+
   // Admin verification
   useEffect(() => {
     if (!loading && !isAdmin && !isSupport) {
@@ -408,7 +1284,7 @@ export default function Admin() {
         </div>
 
         <Tabs defaultValue="users" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-8">
             <TabsTrigger value="users" data-testid="tab-users">
               <Users className="mr-2 h-4 w-4" />
               Usuários
@@ -428,6 +1304,18 @@ export default function Admin() {
             <TabsTrigger value="financial" data-testid="tab-financial">
               <DollarSign className="mr-2 h-4 w-4" />
               Análise Financeira
+            </TabsTrigger>
+            <TabsTrigger value="site-settings" data-testid="tab-site-settings">
+              <Settings className="mr-2 h-4 w-4" />
+              Configurações do Site
+            </TabsTrigger>
+            <TabsTrigger value="smtp-settings" data-testid="tab-smtp-settings">
+              <Mail className="mr-2 h-4 w-4" />
+              Configurações SMTP
+            </TabsTrigger>
+            <TabsTrigger value="notifications" data-testid="tab-notifications">
+              <Bell className="mr-2 h-4 w-4" />
+              Notificações
             </TabsTrigger>
           </TabsList>
 
@@ -1143,6 +2031,149 @@ export default function Admin() {
                   </CardContent>
                 </Card>
               </div>
+            </div>
+          </TabsContent>
+
+          {/* Site Settings Tab */}
+          <TabsContent value="site-settings" data-testid="content-site-settings">
+            <Card>
+              <CardHeader>
+                <CardTitle>Configurações do Site</CardTitle>
+                <CardDescription>
+                  Configure as informações do rodapé e contato do site
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {siteConfigsLoading ? (
+                  <div className="space-y-4">
+                    {[...Array(6)].map((_, i) => (
+                      <Skeleton key={i} className="h-10 w-full" />
+                    ))}
+                  </div>
+                ) : (
+                  <SiteConfigForm 
+                    configs={siteConfigs || []}
+                    onSave={createSiteConfigMutation.mutate}
+                    onUpdate={updateSiteConfigMutation.mutate}
+                    isLoading={createSiteConfigMutation.isPending || updateSiteConfigMutation.isPending}
+                  />
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* SMTP Settings Tab */}
+          <TabsContent value="smtp-settings" data-testid="content-smtp-settings">
+            <Card>
+              <CardHeader>
+                <CardTitle>Configurações SMTP</CardTitle>
+                <CardDescription>
+                  Configure as configurações de e-mail para envio de notificações
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {smtpConfigLoading ? (
+                  <div className="space-y-4">
+                    {[...Array(7)].map((_, i) => (
+                      <Skeleton key={i} className="h-10 w-full" />
+                    ))}
+                  </div>
+                ) : (
+                  <SmtpConfigForm 
+                    config={smtpConfig}
+                    onSave={saveSmtpConfigMutation.mutate}
+                    onTest={testSmtpMutation.mutate}
+                    isSaving={saveSmtpConfigMutation.isPending}
+                    isTesting={testSmtpMutation.isPending}
+                  />
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Notifications Tab */}
+          <TabsContent value="notifications" data-testid="content-notifications">
+            <div className="space-y-6">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle>Notificações do Sistema</CardTitle>
+                    <CardDescription>
+                      Gerencie notificações para usuários da plataforma
+                    </CardDescription>
+                  </div>
+                  <Button
+                    onClick={() => {
+                      setSelectedNotification(null);
+                      setShowNotificationForm(true);
+                    }}
+                    data-testid="button-create-notification"
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Nova Notificação
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  {notificationsLoading ? (
+                    <div className="space-y-3">
+                      {[...Array(5)].map((_, i) => (
+                        <Skeleton key={i} className="h-16 w-full" />
+                      ))}
+                    </div>
+                  ) : (
+                    <NotificationsList 
+                      notifications={adminNotifications || []}
+                      onEdit={(notification) => {
+                        setSelectedNotification(notification);
+                        setShowNotificationForm(true);
+                      }}
+                      onDelete={deleteNotificationMutation.mutate}
+                      isDeleting={deleteNotificationMutation.isPending}
+                    />
+                  )}
+                </CardContent>
+              </Card>
+
+              {showNotificationForm && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>
+                      {selectedNotification ? 'Editar' : 'Criar'} Notificação
+                    </CardTitle>
+                    <CardDescription>
+                      {selectedNotification 
+                        ? 'Edite os detalhes da notificação'
+                        : 'Crie uma nova notificação para os usuários'
+                      }
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <NotificationForm 
+                      notification={selectedNotification}
+                      onSave={(data) => {
+                        if (selectedNotification) {
+                          updateNotificationMutation.mutate({ 
+                            id: selectedNotification.id, 
+                            data 
+                          });
+                        } else {
+                          createNotificationMutation.mutate(data);
+                        }
+                        setShowNotificationForm(false);
+                        setSelectedNotification(null);
+                      }}
+                      onCancel={() => {
+                        setShowNotificationForm(false);
+                        setSelectedNotification(null);
+                      }}
+                      isLoading={
+                        createNotificationMutation.isPending || 
+                        updateNotificationMutation.isPending
+                      }
+                    />
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </TabsContent>
         </Tabs>
