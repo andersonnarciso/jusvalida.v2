@@ -62,18 +62,22 @@ import {
   Edit2,
   Trash2,
   TestTube,
+  CreditCard,
 } from "lucide-react";
 import { format } from "date-fns";
 import {
   insertSiteConfigSchema,
   insertSmtpConfigSchema,
   insertAdminNotificationSchema,
+  insertStripeConfigSchema,
   type SiteConfig,
   type SmtpConfig,
   type AdminNotification,
+  type StripeConfig,
   type InsertSiteConfig,
   type InsertSmtpConfig,
   type InsertAdminNotification,
+  type InsertStripeConfig,
 } from "@shared/schema";
 
 interface User {
@@ -542,6 +546,235 @@ function SmtpConfigForm({
           >
             <TestTube className="mr-2 h-4 w-4" />
             {isTesting ? "Testando..." : "Testar"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Stripe Config Form Component
+function StripeConfigForm({ 
+  config, 
+  onSave, 
+  onTest, 
+  isSaving, 
+  isTesting 
+}: {
+  config?: StripeConfig;
+  onSave: (data: InsertStripeConfig) => void;
+  onTest: (operationMode: 'test' | 'live') => void;
+  isSaving: boolean;
+  isTesting: boolean;
+}) {
+  const form = useForm<InsertStripeConfig>({
+    resolver: zodResolver(insertStripeConfigSchema),
+    defaultValues: {
+      testSecretKey: "", // Never pre-fill sensitive keys
+      liveSecretKey: "", // Never pre-fill sensitive keys
+      publicKey: config?.publicKey || "",
+      webhookSecret: "", // Never pre-fill sensitive keys
+      isActive: config?.isActive ?? true,
+      operationMode: config?.operationMode || "test",
+    },
+  });
+
+  const [selectedMode, setSelectedMode] = useState<'test' | 'live'>(config?.operationMode || 'test');
+  const watchedOperationMode = form.watch('operationMode');
+
+  useEffect(() => {
+    setSelectedMode(watchedOperationMode as 'test' | 'live');
+  }, [watchedOperationMode]);
+
+  const onSubmit = (data: InsertStripeConfig) => {
+    onSave(data);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-medium">Configurações do Stripe</h3>
+          <p className="text-sm text-muted-foreground">
+            Configure as chaves API do Stripe para processar pagamentos
+          </p>
+        </div>
+        <Badge 
+          variant={selectedMode === 'live' ? 'destructive' : 'secondary'}
+          data-testid="badge-stripe-mode"
+        >
+          Modo: {selectedMode === 'live' ? 'Produção' : 'Teste'}
+        </Badge>
+      </div>
+
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="testSecretKey"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Chave Secreta (Teste)</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="password"
+                      placeholder="sk_test_..."
+                      data-testid="input-stripe-test-secret"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Chave secreta do Stripe para ambiente de teste
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="liveSecretKey"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Chave Secreta (Produção)</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="password"
+                      placeholder="sk_live_..."
+                      data-testid="input-stripe-live-secret"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Chave secreta do Stripe para ambiente de produção
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="publicKey"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Chave Pública</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="pk_test_... ou pk_live_..."
+                      data-testid="input-stripe-public-key"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Chave pública do Stripe (visível no frontend)
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="webhookSecret"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Webhook Secret</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="password"
+                      placeholder="whsec_..."
+                      data-testid="input-stripe-webhook-secret"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Segredo do webhook para validar eventos do Stripe
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="operationMode"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Modo de Operação</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger data-testid="select-stripe-mode">
+                        <SelectValue placeholder="Selecionar modo" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="test">Teste</SelectItem>
+                      <SelectItem value="live">Produção</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormDescription>
+                    Modo de operação do Stripe (teste ou produção)
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="isActive"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                  <div className="space-y-0.5">
+                    <FormLabel className="text-base">Ativar Stripe</FormLabel>
+                    <FormDescription>
+                      Habilitar ou desabilitar integração com Stripe
+                    </FormDescription>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      data-testid="switch-stripe-active"
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <div className="flex gap-4">
+            <Button 
+              type="submit" 
+              disabled={isSaving}
+              data-testid="button-save-stripe"
+            >
+              {isSaving ? "Salvando..." : "Salvar Configuração"}
+            </Button>
+          </div>
+        </form>
+      </Form>
+
+      {/* Test Stripe Configuration */}
+      <div className="border-t pt-6">
+        <h3 className="text-lg font-medium mb-4">Testar Configuração</h3>
+        <div className="flex gap-4 items-center">
+          <div className="flex-1">
+            <p className="text-sm text-muted-foreground mb-2">
+              Teste a conexão com o Stripe no modo selecionado: <strong>{selectedMode}</strong>
+            </p>
+          </div>
+          <Button
+            onClick={() => onTest(selectedMode)}
+            disabled={isTesting}
+            data-testid="button-test-stripe"
+          >
+            <TestTube className="mr-2 h-4 w-4" />
+            {isTesting ? "Testando..." : "Testar Conexão"}
           </Button>
         </div>
       </div>
@@ -1182,6 +1415,58 @@ export default function Admin() {
     },
   });
 
+  // Fetch Stripe configuration
+  const { data: stripeConfig, isLoading: stripeConfigLoading } =
+    useQuery<StripeConfig>({
+      queryKey: ["/api/admin/stripe-config"],
+      queryFn: async () => {
+        const response = await apiRequest("GET", "/api/admin/stripe-config");
+        return response.json();
+      },
+      enabled: !loading && isAdmin,
+    });
+
+  // Stripe configuration mutations
+  const saveStripeConfigMutation = useMutation({
+    mutationFn: (data: InsertStripeConfig) => {
+      if (stripeConfig?.id) {
+        return apiRequest("PUT", `/api/admin/stripe-config/${stripeConfig.id}`, data);
+      } else {
+        return apiRequest("POST", "/api/admin/stripe-config", data);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/stripe-config"] });
+      toast({ title: "Sucesso", description: "Configuração do Stripe salva com sucesso" });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro",
+        description: error.message || "Falha ao salvar configuração do Stripe",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Stripe test mutation
+  const testStripeMutation = useMutation({
+    mutationFn: (operationMode: 'test' | 'live') => 
+      apiRequest("POST", "/api/admin/stripe-test", { operationMode }),
+    onSuccess: (response: any) => {
+      toast({ 
+        title: "Sucesso", 
+        description: response.message || "Configuração do Stripe testada com sucesso" 
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro",
+        description: error.message || "Falha ao testar configuração do Stripe",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Admin notifications mutations
   const createNotificationMutation = useMutation({
     mutationFn: (data: InsertAdminNotification) => 
@@ -1284,7 +1569,7 @@ export default function Admin() {
         </div>
 
         <Tabs defaultValue="users" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-8">
+          <TabsList className="grid w-full grid-cols-9">
             <TabsTrigger value="users" data-testid="tab-users">
               <Users className="mr-2 h-4 w-4" />
               Usuários
@@ -1312,6 +1597,10 @@ export default function Admin() {
             <TabsTrigger value="smtp-settings" data-testid="tab-smtp-settings">
               <Mail className="mr-2 h-4 w-4" />
               Configurações SMTP
+            </TabsTrigger>
+            <TabsTrigger value="stripe-settings" data-testid="tab-stripe-settings">
+              <CreditCard className="mr-2 h-4 w-4" />
+              Configurações Stripe
             </TabsTrigger>
             <TabsTrigger value="notifications" data-testid="tab-notifications">
               <Bell className="mr-2 h-4 w-4" />
@@ -2085,6 +2374,35 @@ export default function Admin() {
                     onTest={testSmtpMutation.mutate}
                     isSaving={saveSmtpConfigMutation.isPending}
                     isTesting={testSmtpMutation.isPending}
+                  />
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Stripe Settings Tab */}
+          <TabsContent value="stripe-settings" data-testid="content-stripe-settings">
+            <Card>
+              <CardHeader>
+                <CardTitle>Configurações do Stripe</CardTitle>
+                <CardDescription>
+                  Configure as chaves API do Stripe para processar pagamentos
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {stripeConfigLoading ? (
+                  <div className="space-y-4">
+                    {[...Array(6)].map((_, i) => (
+                      <Skeleton key={i} className="h-10 w-full" />
+                    ))}
+                  </div>
+                ) : (
+                  <StripeConfigForm 
+                    config={stripeConfig}
+                    onSave={saveStripeConfigMutation.mutate}
+                    onTest={testStripeMutation.mutate}
+                    isSaving={saveStripeConfigMutation.isPending}
+                    isTesting={testStripeMutation.isPending}
                   />
                 )}
               </CardContent>

@@ -1,8 +1,8 @@
-import { type User, type InsertUser, type LoginUser, type AiProvider, type InsertAiProvider, type SystemAiProvider, type InsertSystemAiProvider, type DocumentAnalysis, type InsertDocumentAnalysis, type CreditTransaction, type SupportTicket, type InsertSupportTicket, type TicketMessage, type InsertTicketMessage, type AiProviderConfig, type InsertAiProviderConfig, type CreditPackage, type InsertCreditPackage, type PlatformStats, type InsertPlatformStats, type DocumentTemplate, type InsertDocumentTemplate, type LegalClause, type InsertLegalClause, type TemplatePrompt, type InsertTemplatePrompt, type TemplateAnalysisRule, type InsertTemplateAnalysisRule, type BatchJob, type InsertBatchJob, type BatchDocument, type InsertBatchDocument, type QueueJob, type InsertQueueJob, type BatchDocumentMetadata, type SiteConfig, type InsertSiteConfig, type SmtpConfig, type InsertSmtpConfig, type AdminNotification, type InsertAdminNotification, type UserNotificationView, type InsertUserNotificationView } from "@shared/schema";
+import { type User, type InsertUser, type LoginUser, type AiProvider, type InsertAiProvider, type SystemAiProvider, type InsertSystemAiProvider, type DocumentAnalysis, type InsertDocumentAnalysis, type CreditTransaction, type SupportTicket, type InsertSupportTicket, type TicketMessage, type InsertTicketMessage, type AiProviderConfig, type InsertAiProviderConfig, type CreditPackage, type InsertCreditPackage, type PlatformStats, type InsertPlatformStats, type DocumentTemplate, type InsertDocumentTemplate, type LegalClause, type InsertLegalClause, type TemplatePrompt, type InsertTemplatePrompt, type TemplateAnalysisRule, type InsertTemplateAnalysisRule, type BatchJob, type InsertBatchJob, type BatchDocument, type InsertBatchDocument, type QueueJob, type InsertQueueJob, type BatchDocumentMetadata, type SiteConfig, type InsertSiteConfig, type SmtpConfig, type InsertSmtpConfig, type AdminNotification, type InsertAdminNotification, type UserNotificationView, type InsertUserNotificationView, type StripeConfig, type InsertStripeConfig } from "@shared/schema";
 import { encryptApiKey, decryptApiKey, migrateApiKey, isLegacyFormat, batchMigrateApiKeys } from "./lib/encryption";
 import type { Express } from "express";
 import { db } from "./db";
-import { users, aiProviders, systemAiProviders, documentAnalyses, creditTransactions, supportTickets, ticketMessages, aiProviderConfigs, creditPackages, platformStats, documentTemplates, legalClauses, templatePrompts, templateAnalysisRules, batchJobs, batchDocuments, queueJobs, siteConfig, smtpConfig, adminNotifications, userNotificationViews } from "@shared/schema";
+import { users, aiProviders, systemAiProviders, documentAnalyses, creditTransactions, supportTickets, ticketMessages, aiProviderConfigs, creditPackages, platformStats, documentTemplates, legalClauses, templatePrompts, templateAnalysisRules, batchJobs, batchDocuments, queueJobs, siteConfig, smtpConfig, adminNotifications, userNotificationViews, stripeConfig } from "@shared/schema";
 import { eq, desc, and, count, sum, gte, sql, isNotNull, isNull, lte } from "drizzle-orm";
 
 export interface IStorage {
@@ -117,6 +117,12 @@ export interface IStorage {
   createSmtpConfig(config: InsertSmtpConfig): Promise<SmtpConfig>;
   updateSmtpConfig(id: string, config: Partial<InsertSmtpConfig>): Promise<SmtpConfig>;
   deleteSmtpConfig(id: string): Promise<void>;
+
+  // Stripe Configuration
+  getStripeConfig(): Promise<StripeConfig | undefined>;
+  createStripeConfig(config: InsertStripeConfig): Promise<StripeConfig>;
+  updateStripeConfig(id: string, config: Partial<InsertStripeConfig>): Promise<StripeConfig>;
+  deleteStripeConfig(id: string): Promise<void>;
 
   // Admin Notifications
   getAdminNotifications(targetAudience?: string): Promise<AdminNotification[]>;
@@ -1038,6 +1044,48 @@ export class DatabaseStorage implements IStorage {
 
   async deleteSmtpConfig(id: string): Promise<void> {
     await db.delete(smtpConfig).where(eq(smtpConfig.id, id));
+  }
+
+  // Stripe Configuration methods
+  async getStripeConfig(): Promise<StripeConfig | undefined> {
+    const [config] = await db.select().from(stripeConfig).limit(1);
+    return config || undefined;
+  }
+
+  async createStripeConfig(configData: InsertStripeConfig): Promise<StripeConfig> {
+    // Encrypt sensitive keys before storing
+    const encryptedConfig = {
+      ...configData,
+      testSecretKey: configData.testSecretKey ? await encryptApiKey(configData.testSecretKey) : null,
+      liveSecretKey: configData.liveSecretKey ? await encryptApiKey(configData.liveSecretKey) : null,
+      webhookSecret: configData.webhookSecret ? await encryptApiKey(configData.webhookSecret) : null,
+    };
+    const [config] = await db.insert(stripeConfig).values(encryptedConfig).returning();
+    return config;
+  }
+
+  async updateStripeConfig(id: string, configData: Partial<InsertStripeConfig>): Promise<StripeConfig> {
+    // Encrypt sensitive keys if provided
+    const updatedData = { ...configData };
+    if (configData.testSecretKey) {
+      updatedData.testSecretKey = await encryptApiKey(configData.testSecretKey);
+    }
+    if (configData.liveSecretKey) {
+      updatedData.liveSecretKey = await encryptApiKey(configData.liveSecretKey);
+    }
+    if (configData.webhookSecret) {
+      updatedData.webhookSecret = await encryptApiKey(configData.webhookSecret);
+    }
+    
+    const [config] = await db.update(stripeConfig)
+      .set(updatedData)
+      .where(eq(stripeConfig.id, id))
+      .returning();
+    return config;
+  }
+
+  async deleteStripeConfig(id: string): Promise<void> {
+    await db.delete(stripeConfig).where(eq(stripeConfig.id, id));
   }
 
   // Admin Notifications methods

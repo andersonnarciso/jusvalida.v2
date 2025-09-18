@@ -316,6 +316,18 @@ export const userNotificationViews = pgTable("user_notification_views", {
   userNotificationIndex: uniqueIndex("user_notification_views_idx").on(table.userId, table.notificationId),
 }));
 
+export const stripeConfig = pgTable("stripe_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  testSecretKey: text("test_secret_key"), // Encrypted
+  liveSecretKey: text("live_secret_key"), // Encrypted  
+  publicKey: text("public_key"),
+  webhookSecret: text("webhook_secret"), // Encrypted
+  isActive: boolean("is_active").default(true),
+  operationMode: text("operation_mode").default("test").$type<"test" | "live">(), // 'test' | 'live'
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -495,6 +507,12 @@ export const insertUserNotificationViewSchema = createInsertSchema(userNotificat
   viewedAt: true,
 });
 
+export const insertStripeConfigSchema = createInsertSchema(stripeConfig).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Contact form schema
 export const contactFormSchema = z.object({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
@@ -595,6 +613,8 @@ export type InsertSiteConfig = z.infer<typeof insertSiteConfigSchema>;
 export type InsertSmtpConfig = z.infer<typeof insertSmtpConfigSchema>;
 export type InsertAdminNotification = z.infer<typeof insertAdminNotificationSchema>;
 export type InsertUserNotificationView = z.infer<typeof insertUserNotificationViewSchema>;
+export type StripeConfig = typeof stripeConfig.$inferSelect;
+export type InsertStripeConfig = z.infer<typeof insertStripeConfigSchema>;
 
 // Relations
 import { relations } from "drizzle-orm";

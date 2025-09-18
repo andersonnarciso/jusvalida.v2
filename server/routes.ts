@@ -7,7 +7,7 @@ import { aiService } from "./services/ai";
 import { batchProcessor } from "./services/batchProcessor";
 import { emailService } from "./services/email";
 import { requireSupabaseAuth, requireSupabaseAdmin, type AuthenticatedRequest } from "./middleware/supabase-auth";
-import { insertDocumentAnalysisSchema, insertSupportTicketSchema, insertTicketMessageSchema, adminTicketMessageSchema, adminUserUpdateSchema, insertAiProviderConfigSchema, insertCreditPackageSchema, insertDocumentTemplateSchema, insertLegalClauseSchema, insertTemplatePromptSchema, insertTemplateAnalysisRuleSchema, insertBatchJobSchema, insertBatchDocumentSchema, insertQueueJobSchema, insertSystemAiProviderSchema, users, creditTransactions, contactFormSchema, insertSiteConfigSchema, insertSmtpConfigSchema, insertAdminNotificationSchema, smtpTestSchema } from "@shared/schema";
+import { insertDocumentAnalysisSchema, insertSupportTicketSchema, insertTicketMessageSchema, adminTicketMessageSchema, adminUserUpdateSchema, insertAiProviderConfigSchema, insertCreditPackageSchema, insertDocumentTemplateSchema, insertLegalClauseSchema, insertTemplatePromptSchema, insertTemplateAnalysisRuleSchema, insertBatchJobSchema, insertBatchDocumentSchema, insertQueueJobSchema, insertSystemAiProviderSchema, users, creditTransactions, contactFormSchema, insertSiteConfigSchema, insertSmtpConfigSchema, insertAdminNotificationSchema, smtpTestSchema, insertStripeConfigSchema } from "@shared/schema";
 import { db } from "./db";
 import { sql, eq, desc, count, sum, gte, and } from "drizzle-orm";
 import multer from "multer";
@@ -43,24 +43,25 @@ function validateFileType(file: Express.Multer.File): boolean {
   return allowedTypes.includes(file.mimetype);
 }
 
-// Stripe configuration - support both test and live modes
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
-}
-
-// Initialize Stripe instances
-const stripeTest = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2025-08-27.basil",
-});
-
-// For live mode, fallback to test credentials if live not available
-const stripeLive = new Stripe(process.env.STRIPE_LIVE_SECRET_KEY || process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2025-08-27.basil",
-});
-
-// Function to get correct Stripe instance based on user's mode preference
-function getStripeInstance(stripeMode: 'test' | 'live'): Stripe {
-  return stripeMode === 'live' ? stripeLive : stripeTest;
+// Função para criar cliente Stripe dinamicamente usando configuração do admin
+async function getStripeClient(operationMode: 'test' | 'live' = 'test'): Promise<Stripe> {
+  const config = await storage.getStripeConfig();
+  if (!config || !config.isActive) {
+    throw new Error('Stripe não está configurado ou ativo');
+  }
+  
+  const secretKey = operationMode === 'live' ? config.liveSecretKey : config.testSecretKey;
+  if (!secretKey) {
+    throw new Error(`Chave ${operationMode} do Stripe não configurada`);
+  }
+  
+  // Descriptografar a chave antes de usar
+  const { decryptApiKey } = await import('./lib/encryption');
+  const decryptedKey = await decryptApiKey(secretKey);
+  
+  return new Stripe(decryptedKey, {
+    apiVersion: "2024-10-28", // Versão válida
+  });
 }
 
 // Helper function to check if user can use free analysis (3 per month)
@@ -268,14 +269,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     let event;
 
     try {
-      // MANDATORY signature verification for security - try both test and live instances
+      // Get Stripe configuration to verify webhook with correct keys
+      const config = await storage.getStripeConfig();
+      if (!config || !config.isActive) {
+        console.error("❌ Stripe configuration not found or inactive");
+        return res.status(500).send("Stripe not configured");
+      }
+
+      let webhookSecret = config.webhookSecret;
+      if (webhookSecret) {
+        const { decryptApiKey } = await import('./lib/encryption');
+        webhookSecret = await decryptApiKey(webhookSecret);
+      } else {
+        // Fallback to environment variable if no webhook secret in config
+        webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
+      }
+
+      // Try to verify with test mode first, then live mode
       try {
-        event = stripeTest.webhooks.constructEvent(req.body, sig as string, webhookSecret);
+        const stripeClient = await getStripeClient('test');
+        event = stripeClient.webhooks.constructEvent(req.body, sig as string, webhookSecret);
         console.log(`✅ Webhook signature verified (test mode) for event: ${event.type}`);
       } catch (testErr) {
-        // If test fails, try live instance
-        event = stripeLive.webhooks.constructEvent(req.body, sig as string, webhookSecret);
-        console.log(`✅ Webhook signature verified (live mode) for event: ${event.type}`);
+        try {
+          const stripeClient = await getStripeClient('live');
+          event = stripeClient.webhooks.constructEvent(req.body, sig as string, webhookSecret);
+          console.log(`✅ Webhook signature verified (live mode) for event: ${event.type}`);
+        } catch (liveErr) {
+          throw testErr; // Use test error as primary
+        }
       }
     } catch (err: any) {
       console.error("❌ Webhook signature verification failed:", err.message);
@@ -644,8 +666,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "User not found" });
       }
 
-      // Get correct Stripe instance based on user's mode preference
-      const stripe = getStripeInstance(user.stripeMode || 'test');
+      // Get correct Stripe client based on user's mode preference
+      const stripe = await getStripeClient(user.stripeMode || 'test');
 
       // Get package details from database (trusted source)
       const creditPackage = await storage.getCreditPackage(packageId);
@@ -686,12 +708,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     let event: Stripe.Event;
 
     try {
-      // Try to verify webhook with test instance first, then live
+      // Get Stripe configuration to verify webhook with correct keys
+      const config = await storage.getStripeConfig();
+      if (!config || !config.isActive) {
+        console.error("❌ Stripe configuration not found or inactive");
+        return res.status(500).json({ error: "Stripe not configured" });
+      }
+
+      let webhookSecret = config.webhookSecret;
+      if (webhookSecret) {
+        const { decryptApiKey } = await import('./lib/encryption');
+        webhookSecret = await decryptApiKey(webhookSecret);
+      } else {
+        // Fallback to environment variable if no webhook secret in config
+        webhookSecret = endpointSecret;
+      }
+
+      // Try to verify with test mode first, then live mode
       try {
-        event = stripeTest.webhooks.constructEvent(req.body, sig as string, endpointSecret);
+        const stripeClient = await getStripeClient('test');
+        event = stripeClient.webhooks.constructEvent(req.body, sig as string, webhookSecret);
       } catch (testErr) {
-        // If test fails, try live instance
-        event = stripeLive.webhooks.constructEvent(req.body, sig as string, endpointSecret);
+        try {
+          const stripeClient = await getStripeClient('live');
+          event = stripeClient.webhooks.constructEvent(req.body, sig as string, webhookSecret);
+        } catch (liveErr) {
+          throw testErr; // Use test error as primary
+        }
       }
     } catch (err: any) {
       console.error(`❌ Webhook signature verification failed: ${err.message}`);
@@ -725,7 +768,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
-      const stripe = getStripeInstance(user.stripeMode || 'test');
+      const stripe = await getStripeClient(user.stripeMode || 'test');
       
       const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
       
@@ -2359,6 +2402,190 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.status(500).json({ 
         message: 'Erro ao testar configuração SMTP: ' + error.message 
+      });
+    }
+  });
+
+  // Stripe configuration routes (Admin only)
+  app.get('/api/admin/stripe-config', requireSupabaseAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const config = await storage.getStripeConfig();
+      if (config) {
+        // Mask sensitive keys for security
+        const { testSecretKey, liveSecretKey, webhookSecret, ...safeConfig } = config;
+        res.json({ 
+          ...safeConfig, 
+          testSecretKey: testSecretKey ? '********' : null,
+          liveSecretKey: liveSecretKey ? '********' : null,
+          webhookSecret: webhookSecret ? '********' : null,
+        });
+      } else {
+        res.json(null);
+      }
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post('/api/admin/stripe-config', requireSupabaseAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const validatedData = insertStripeConfigSchema.parse(req.body);
+      const config = await storage.createStripeConfig(validatedData);
+      // Mask sensitive keys for security
+      const { testSecretKey, liveSecretKey, webhookSecret, ...safeConfig } = config;
+      res.json({ 
+        ...safeConfig, 
+        testSecretKey: testSecretKey ? '********' : null,
+        liveSecretKey: liveSecretKey ? '********' : null,
+        webhookSecret: webhookSecret ? '********' : null,
+      });
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: 'Dados inválidos', errors: error.errors });
+      }
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.put('/api/admin/stripe-config/:id', requireSupabaseAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Validate request body with insertStripeConfigSchema
+      const validatedData = insertStripeConfigSchema.parse(req.body);
+      
+      const config = await storage.updateStripeConfig(id, validatedData);
+      // Mask sensitive keys for security
+      const { testSecretKey, liveSecretKey, webhookSecret, ...safeConfig } = config;
+      res.json({ 
+        ...safeConfig, 
+        testSecretKey: testSecretKey ? '********' : null,
+        liveSecretKey: liveSecretKey ? '********' : null,
+        webhookSecret: webhookSecret ? '********' : null,
+      });
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: 'Dados inválidos', errors: error.errors });
+      }
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Endpoint para testar conectividade do Stripe usando configurações fornecidas
+  app.post('/api/admin/stripe-config/test', requireSupabaseAdmin, async (req, res) => {
+    try {
+      const { testSecretKey, liveSecretKey, operationMode = 'test' } = req.body;
+      
+      // Usar as chaves fornecidas no request para teste (sem persistir)
+      const secretKey = operationMode === 'live' ? liveSecretKey : testSecretKey;
+      if (!secretKey) {
+        return res.status(400).json({ 
+          success: false,
+          message: `Chave secreta do Stripe não fornecida para o modo ${operationMode}` 
+        });
+      }
+
+      // Criar instância Stripe com a chave fornecida
+      const stripe = new Stripe(secretKey, {
+        apiVersion: "2024-10-28",
+      });
+
+      // Testar conectividade com chamada lightweight
+      const account = await stripe.accounts.retrieve();
+      
+      res.json({ 
+        success: true, 
+        message: `Conexão com Stripe (${operationMode}) testada com sucesso!`,
+        accountId: account.id,
+        country: account.country
+      });
+    } catch (error: any) {
+      console.error('Stripe config test error:', error);
+      
+      // Handle Stripe-specific errors
+      if (error.type === 'StripeInvalidRequestError') {
+        return res.status(400).json({ 
+          success: false,
+          message: 'Chave do Stripe inválida: ' + error.message 
+        });
+      }
+      
+      if (error.type === 'StripeAuthenticationError') {
+        return res.status(401).json({ 
+          success: false,
+          message: 'Falha na autenticação do Stripe: Verifique suas chaves API' 
+        });
+      }
+      
+      res.status(500).json({ 
+        success: false,
+        message: 'Erro interno ao testar Stripe: ' + error.message 
+      });
+    }
+  });
+
+  // Stripe test endpoint (existente - mantido para compatibilidade)
+  app.post('/api/admin/stripe-test', requireSupabaseAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { operationMode } = req.body;
+      
+      // Get the current Stripe configuration
+      const config = await storage.getStripeConfig();
+      if (!config) {
+        return res.status(400).json({ 
+          success: false,
+          message: 'Configuração do Stripe não encontrada' 
+        });
+      }
+
+      // Get the appropriate secret key based on operation mode
+      const secretKey = operationMode === 'live' ? config.liveSecretKey : config.testSecretKey;
+      if (!secretKey) {
+        return res.status(400).json({ 
+          success: false,
+          message: `Chave secreta do Stripe não configurada para o modo ${operationMode}` 
+        });
+      }
+
+      // Decrypt the secret key for testing
+      const { decryptApiKey } = await import('./lib/encryption');
+      const decryptedKey = await decryptApiKey(secretKey);
+      
+      // Create Stripe instance with the decrypted key
+      const stripe = new Stripe(decryptedKey, {
+        apiVersion: "2024-10-28",
+      });
+
+      // Test the connection by retrieving account information
+      const account = await stripe.accounts.retrieve();
+      
+      res.json({ 
+        success: true, 
+        message: `Conexão com Stripe (${operationMode}) testada com sucesso!`,
+        accountId: account.id,
+        country: account.country
+      });
+    } catch (error: any) {
+      console.error('Stripe test error:', error);
+      
+      // Handle Stripe-specific errors
+      if (error.type === 'StripeInvalidRequestError') {
+        return res.status(400).json({ 
+          success: false,
+          message: 'Chave do Stripe inválida: ' + error.message 
+        });
+      }
+      
+      if (error.type === 'StripeAuthenticationError') {
+        return res.status(401).json({ 
+          success: false,
+          message: 'Falha na autenticação do Stripe: Verifique suas chaves API' 
+        });
+      }
+      
+      res.status(500).json({ 
+        success: false,
+        message: 'Erro ao testar configuração do Stripe: ' + error.message 
       });
     }
   });
