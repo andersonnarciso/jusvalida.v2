@@ -5,8 +5,9 @@ import Stripe from "stripe";
 import { storage } from "./storage";
 import { aiService } from "./services/ai";
 import { batchProcessor } from "./services/batchProcessor";
+import { emailService } from "./services/email";
 import { requireSupabaseAuth, requireSupabaseAdmin, type AuthenticatedRequest } from "./middleware/supabase-auth";
-import { insertDocumentAnalysisSchema, insertSupportTicketSchema, insertTicketMessageSchema, adminTicketMessageSchema, adminUserUpdateSchema, insertAiProviderConfigSchema, insertCreditPackageSchema, insertDocumentTemplateSchema, insertLegalClauseSchema, insertTemplatePromptSchema, insertTemplateAnalysisRuleSchema, insertBatchJobSchema, insertBatchDocumentSchema, insertQueueJobSchema, insertSystemAiProviderSchema, users, creditTransactions } from "@shared/schema";
+import { insertDocumentAnalysisSchema, insertSupportTicketSchema, insertTicketMessageSchema, adminTicketMessageSchema, adminUserUpdateSchema, insertAiProviderConfigSchema, insertCreditPackageSchema, insertDocumentTemplateSchema, insertLegalClauseSchema, insertTemplatePromptSchema, insertTemplateAnalysisRuleSchema, insertBatchJobSchema, insertBatchDocumentSchema, insertQueueJobSchema, insertSystemAiProviderSchema, users, creditTransactions, contactFormSchema, insertSiteConfigSchema, insertSmtpConfigSchema, insertAdminNotificationSchema, smtpTestSchema } from "@shared/schema";
 import { db } from "./db";
 import { sql, eq, desc, count, sum, gte, and } from "drizzle-orm";
 import multer from "multer";
@@ -2204,6 +2205,233 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (complianceScores.length === 0) return 0;
     return Math.round(complianceScores.reduce((sum, score) => sum + score, 0) / complianceScores.length);
   }
+
+  // Contact form endpoint with validation and email sending
+  app.post('/api/contact', async (req, res) => {
+    try {
+      // Validate request body with Zod schema
+      const validatedData = contactFormSchema.parse(req.body);
+      
+      // Send email using the email service
+      await emailService.sendContactEmail(validatedData);
+      
+      res.json({ 
+        success: true, 
+        message: 'Mensagem enviada com sucesso! Retornaremos em breve.' 
+      });
+    } catch (error: any) {
+      console.error('Error processing contact form:', error);
+      
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ 
+          message: 'Dados inválidos', 
+          errors: error.errors 
+        });
+      }
+      
+      // Handle email service errors
+      if (error.message?.includes('SMTP') || error.message?.includes('configuração')) {
+        return res.status(503).json({ 
+          message: 'Serviço de e-mail temporariamente indisponível. Tente novamente em alguns minutos.' 
+        });
+      }
+      
+      res.status(500).json({ 
+        message: 'Erro interno do servidor. Tente novamente.' 
+      });
+    }
+  });
+
+  // Site configuration routes (Admin only)
+  app.get('/api/admin/site-config', requireSupabaseAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { section } = req.query;
+      const configs = await storage.getSiteConfigs(section as string);
+      res.json(configs);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post('/api/admin/site-config', requireSupabaseAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const validatedData = insertSiteConfigSchema.parse(req.body);
+      const config = await storage.createSiteConfig(validatedData);
+      res.json(config);
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: 'Dados inválidos', errors: error.errors });
+      }
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.put('/api/admin/site-config/:id', requireSupabaseAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { id } = req.params;
+      const validatedData = insertSiteConfigSchema.partial().parse(req.body);
+      const config = await storage.updateSiteConfig(id, validatedData);
+      res.json(config);
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: 'Dados inválidos', errors: error.errors });
+      }
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete('/api/admin/site-config/:id', requireSupabaseAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteSiteConfig(id);
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // SMTP configuration routes (Admin only)
+  app.get('/api/admin/smtp-config', requireSupabaseAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const config = await storage.getSmtpConfig();
+      if (config) {
+        // Mask the password for security
+        const { password, ...safeConfig } = config;
+        res.json({ ...safeConfig, password: '********' });
+      } else {
+        res.json(null);
+      }
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post('/api/admin/smtp-config', requireSupabaseAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const validatedData = insertSmtpConfigSchema.parse(req.body);
+      const config = await storage.createSmtpConfig(validatedData);
+      const { password, ...safeConfig } = config;
+      res.json({ ...safeConfig, password: '********' });
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: 'Dados inválidos', errors: error.errors });
+      }
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.put('/api/admin/smtp-config/:id', requireSupabaseAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { id } = req.params;
+      const config = await storage.updateSmtpConfig(id, req.body);
+      const { password, ...safeConfig } = config;
+      res.json({ ...safeConfig, password: '********' });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // SMTP test endpoint
+  app.post('/api/admin/smtp-test', requireSupabaseAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const validatedData = smtpTestSchema.parse(req.body);
+      await emailService.sendTestEmail(validatedData.testEmail);
+      res.json({ 
+        success: true, 
+        message: 'E-mail de teste enviado com sucesso!' 
+      });
+    } catch (error: any) {
+      console.error('SMTP test error:', error);
+      
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ 
+          message: 'Dados inválidos', 
+          errors: error.errors 
+        });
+      }
+      
+      // Handle email service errors
+      if (error.message?.includes('SMTP') || error.message?.includes('configuração')) {
+        return res.status(503).json({ 
+          message: 'Configuração SMTP inválida: ' + error.message 
+        });
+      }
+      
+      res.status(500).json({ 
+        message: 'Erro ao testar configuração SMTP: ' + error.message 
+      });
+    }
+  });
+
+  // Admin notifications routes
+  app.get('/api/admin/notifications', requireSupabaseAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { targetAudience } = req.query;
+      const notifications = await storage.getAdminNotifications(targetAudience as string);
+      res.json(notifications);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post('/api/admin/notifications', requireSupabaseAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      ensureAuthenticated(req);
+      const notificationData = {
+        ...req.body,
+        createdBy: req.user.id
+      };
+      const notification = await storage.createAdminNotification(notificationData);
+      res.json(notification);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.put('/api/admin/notifications/:id', requireSupabaseAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { id } = req.params;
+      const notification = await storage.updateAdminNotification(id, req.body);
+      res.json(notification);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete('/api/admin/notifications/:id', requireSupabaseAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteAdminNotification(id);
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // User notifications (for regular users)
+  app.get('/api/notifications/unread', requireSupabaseAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      ensureAuthenticated(req);
+      const notifications = await storage.getUnreadNotificationsForUser(req.user.id);
+      res.json(notifications);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post('/api/notifications/:id/view', requireSupabaseAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      ensureAuthenticated(req);
+      const { id } = req.params;
+      await storage.createUserNotificationView({
+        userId: req.user.id,
+        notificationId: id
+      });
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
 
   const httpServer = createServer(app);
   return httpServer;

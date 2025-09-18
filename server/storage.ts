@@ -1,8 +1,8 @@
-import { type User, type InsertUser, type LoginUser, type AiProvider, type InsertAiProvider, type SystemAiProvider, type InsertSystemAiProvider, type DocumentAnalysis, type InsertDocumentAnalysis, type CreditTransaction, type SupportTicket, type InsertSupportTicket, type TicketMessage, type InsertTicketMessage, type AiProviderConfig, type InsertAiProviderConfig, type CreditPackage, type InsertCreditPackage, type PlatformStats, type InsertPlatformStats, type DocumentTemplate, type InsertDocumentTemplate, type LegalClause, type InsertLegalClause, type TemplatePrompt, type InsertTemplatePrompt, type TemplateAnalysisRule, type InsertTemplateAnalysisRule, type BatchJob, type InsertBatchJob, type BatchDocument, type InsertBatchDocument, type QueueJob, type InsertQueueJob, type BatchDocumentMetadata } from "@shared/schema";
+import { type User, type InsertUser, type LoginUser, type AiProvider, type InsertAiProvider, type SystemAiProvider, type InsertSystemAiProvider, type DocumentAnalysis, type InsertDocumentAnalysis, type CreditTransaction, type SupportTicket, type InsertSupportTicket, type TicketMessage, type InsertTicketMessage, type AiProviderConfig, type InsertAiProviderConfig, type CreditPackage, type InsertCreditPackage, type PlatformStats, type InsertPlatformStats, type DocumentTemplate, type InsertDocumentTemplate, type LegalClause, type InsertLegalClause, type TemplatePrompt, type InsertTemplatePrompt, type TemplateAnalysisRule, type InsertTemplateAnalysisRule, type BatchJob, type InsertBatchJob, type BatchDocument, type InsertBatchDocument, type QueueJob, type InsertQueueJob, type BatchDocumentMetadata, type SiteConfig, type InsertSiteConfig, type SmtpConfig, type InsertSmtpConfig, type AdminNotification, type InsertAdminNotification, type UserNotificationView, type InsertUserNotificationView } from "@shared/schema";
 import { encryptApiKey, decryptApiKey, migrateApiKey, isLegacyFormat, batchMigrateApiKeys } from "./lib/encryption";
 import type { Express } from "express";
 import { db } from "./db";
-import { users, aiProviders, systemAiProviders, documentAnalyses, creditTransactions, supportTickets, ticketMessages, aiProviderConfigs, creditPackages, platformStats, documentTemplates, legalClauses, templatePrompts, templateAnalysisRules, batchJobs, batchDocuments, queueJobs } from "@shared/schema";
+import { users, aiProviders, systemAiProviders, documentAnalyses, creditTransactions, supportTickets, ticketMessages, aiProviderConfigs, creditPackages, platformStats, documentTemplates, legalClauses, templatePrompts, templateAnalysisRules, batchJobs, batchDocuments, queueJobs, siteConfig, smtpConfig, adminNotifications, userNotificationViews } from "@shared/schema";
 import { eq, desc, and, count, sum, gte, sql, isNotNull, isNull, lte } from "drizzle-orm";
 
 export interface IStorage {
@@ -104,6 +104,96 @@ export interface IStorage {
   getPlatformStats(): Promise<PlatformStats | undefined>;
   updatePlatformStats(stats: InsertPlatformStats): Promise<PlatformStats>;
   computeAndUpdatePlatformStats(): Promise<PlatformStats>;
+
+  // Site Configuration
+  getSiteConfigs(section?: string): Promise<SiteConfig[]>;
+  getSiteConfig(section: string, key: string): Promise<SiteConfig | undefined>;
+  createSiteConfig(config: InsertSiteConfig): Promise<SiteConfig>;
+  updateSiteConfig(id: string, config: Partial<InsertSiteConfig>): Promise<SiteConfig>;
+  deleteSiteConfig(id: string): Promise<void>;
+
+  // SMTP Configuration
+  getSmtpConfig(): Promise<SmtpConfig | undefined>;
+  createSmtpConfig(config: InsertSmtpConfig): Promise<SmtpConfig>;
+  updateSmtpConfig(id: string, config: Partial<InsertSmtpConfig>): Promise<SmtpConfig>;
+  deleteSmtpConfig(id: string): Promise<void>;
+
+  // Admin Notifications
+  getAdminNotifications(targetAudience?: string): Promise<AdminNotification[]>;
+  getAdminNotification(id: string): Promise<AdminNotification | undefined>;
+  createAdminNotification(notification: InsertAdminNotification): Promise<AdminNotification>;
+  updateAdminNotification(id: string, notification: Partial<InsertAdminNotification>): Promise<AdminNotification>;
+  deleteAdminNotification(id: string): Promise<void>;
+
+  // User Notification Views
+  getUserNotificationViews(userId: string): Promise<UserNotificationView[]>;
+  createUserNotificationView(view: InsertUserNotificationView): Promise<UserNotificationView>;
+  getUnreadNotificationsForUser(userId: string): Promise<AdminNotification[]>;
+
+  // Payment processing
+  processPaymentTransaction(params: {
+    userId: string;
+    stripePaymentIntentId: string;
+    amount: number;
+    credits: number;
+    packageId: string;
+    stripeMode: 'test' | 'live';
+  }): Promise<void>;
+
+  // AI Provider Configs (aliases for existing methods)
+  getAiProviderConfigs(userId: string): Promise<AiProvider[]>;
+  getAiProviderConfig(id: string): Promise<AiProvider | undefined>;
+  createAiProviderConfig(userId: string, config: InsertAiProvider): Promise<AiProvider>;
+  updateAiProviderConfig(id: string, config: Partial<InsertAiProvider>): Promise<AiProvider>;
+  deleteAiProviderConfig(id: string): Promise<void>;
+
+  // Document Templates
+  getDocumentTemplates(): Promise<DocumentTemplate[]>;
+  getDocumentTemplatesByCategory(category: string): Promise<DocumentTemplate[]>;
+  getDocumentTemplateById(id: string): Promise<DocumentTemplate | undefined>;
+  createDocumentTemplate(template: InsertDocumentTemplate): Promise<DocumentTemplate>;
+  updateDocumentTemplate(id: string, template: Partial<InsertDocumentTemplate>): Promise<DocumentTemplate>;
+  deleteDocumentTemplate(id: string): Promise<void>;
+  getTemplateWithPrompts(templateId: string, aiProvider?: string): Promise<any>;
+
+  // Legal Clauses
+  getLegalClauses(): Promise<LegalClause[]>;
+  getLegalClausesByCategory(category: string): Promise<LegalClause[]>;
+  getLegalClausesByTemplate(templateId: string): Promise<LegalClause[]>;
+  createLegalClause(clause: InsertLegalClause): Promise<LegalClause>;
+  updateLegalClause(id: string, clause: Partial<InsertLegalClause>): Promise<LegalClause>;
+  deleteLegalClause(id: string): Promise<void>;
+
+  // Template Prompts
+  getTemplatePrompts(templateId: string): Promise<TemplatePrompt[]>;
+  createTemplatePrompt(prompt: InsertTemplatePrompt): Promise<TemplatePrompt>;
+  updateTemplatePrompt(id: string, prompt: Partial<InsertTemplatePrompt>): Promise<TemplatePrompt>;
+  deleteTemplatePrompt(id: string): Promise<void>;
+
+  // Template Analysis Rules
+  getTemplateAnalysisRules(templateId: string): Promise<TemplateAnalysisRule[]>;
+  createTemplateAnalysisRule(rule: InsertTemplateAnalysisRule): Promise<TemplateAnalysisRule>;
+  updateTemplateAnalysisRule(id: string, rule: Partial<InsertTemplateAnalysisRule>): Promise<TemplateAnalysisRule>;
+  deleteTemplateAnalysisRule(id: string): Promise<void>;
+
+  // Batch Jobs
+  getBatchJobs(userId: string): Promise<BatchJob[]>;
+  getAllBatchJobs(): Promise<BatchJob[]>;
+  getBatchJob(id: string, userId?: string): Promise<BatchJob | undefined>;
+  createBatchJob(job: InsertBatchJob): Promise<BatchJob>;
+  updateBatchJobStatus(id: string, status: string): Promise<void>;
+  deleteBatchJob(id: string): Promise<void>;
+  getBatchJobStatistics(userId: string): Promise<any>;
+
+  // Batch Documents
+  getBatchDocuments(batchJobId: string): Promise<BatchDocument[]>;
+  createBatchDocument(doc: InsertBatchDocument): Promise<BatchDocument>;
+
+  // Queue Jobs
+  getQueueJobs(): Promise<QueueJob[]>;
+  createQueueJob(job: InsertQueueJob): Promise<QueueJob>;
+  retryFailedQueueJob(id: string): Promise<void>;
+  deleteQueueJob(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -126,10 +216,7 @@ export class DatabaseStorage implements IStorage {
   async createUser(insertUser: InsertUser): Promise<User> {
     const [user] = await db
       .insert(users)
-      .values({
-        id: crypto.randomUUID(),
-        ...insertUser
-      })
+      .values(insertUser)
       .returning();
     return user;
   }
@@ -677,10 +764,8 @@ export class DatabaseStorage implements IStorage {
     const statsData: InsertPlatformStats = {
       totalUsers: analytics.totalUsers,
       totalAnalyses: analytics.totalAnalyses,
-      totalCreditsUsed: analytics.totalCreditsUsed,
-      totalCreditsPurchased: analytics.totalCreditsPurchased,
-      totalRevenue: analytics.totalRevenue,
-      lastUpdated: new Date()
+      totalDocuments: 0, // Can compute from document analyses
+      averageAccuracy: "0.00"
     };
     return await this.updatePlatformStats(statsData);
   }
@@ -887,6 +972,433 @@ export class DatabaseStorage implements IStorage {
       console.warn('Failed to mark migration as completed:', error);
       // Don't throw here as this is not critical
     }
+  }
+
+  // Site Configuration methods
+  async getSiteConfigs(section?: string): Promise<SiteConfig[]> {
+    if (section) {
+      return await db.select().from(siteConfig).where(eq(siteConfig.section, section));
+    }
+    return await db.select().from(siteConfig);
+  }
+
+  async getSiteConfig(section: string, key: string): Promise<SiteConfig | undefined> {
+    const [config] = await db.select()
+      .from(siteConfig)
+      .where(and(eq(siteConfig.section, section), eq(siteConfig.key, key)))
+      .limit(1);
+    return config || undefined;
+  }
+
+  async createSiteConfig(configData: InsertSiteConfig): Promise<SiteConfig> {
+    const [config] = await db.insert(siteConfig).values(configData).returning();
+    return config;
+  }
+
+  async updateSiteConfig(id: string, configData: Partial<InsertSiteConfig>): Promise<SiteConfig> {
+    const [config] = await db.update(siteConfig)
+      .set(configData)
+      .where(eq(siteConfig.id, id))
+      .returning();
+    return config;
+  }
+
+  async deleteSiteConfig(id: string): Promise<void> {
+    await db.delete(siteConfig).where(eq(siteConfig.id, id));
+  }
+
+  // SMTP Configuration methods
+  async getSmtpConfig(): Promise<SmtpConfig | undefined> {
+    const [config] = await db.select().from(smtpConfig).where(eq(smtpConfig.isActive, true)).limit(1);
+    return config || undefined;
+  }
+
+  async createSmtpConfig(configData: InsertSmtpConfig): Promise<SmtpConfig> {
+    // Encrypt password before storing
+    const encryptedConfig = {
+      ...configData,
+      password: await encryptApiKey(configData.password)
+    };
+    const [config] = await db.insert(smtpConfig).values(encryptedConfig).returning();
+    return config;
+  }
+
+  async updateSmtpConfig(id: string, configData: Partial<InsertSmtpConfig>): Promise<SmtpConfig> {
+    // Encrypt password if provided
+    const updatedData = configData.password 
+      ? { ...configData, password: await encryptApiKey(configData.password) }
+      : configData;
+    
+    const [config] = await db.update(smtpConfig)
+      .set(updatedData)
+      .where(eq(smtpConfig.id, id))
+      .returning();
+    return config;
+  }
+
+  async deleteSmtpConfig(id: string): Promise<void> {
+    await db.delete(smtpConfig).where(eq(smtpConfig.id, id));
+  }
+
+  // Admin Notifications methods
+  async getAdminNotifications(targetAudience?: string): Promise<AdminNotification[]> {
+    let query = db.select().from(adminNotifications);
+    
+    if (targetAudience) {
+      query = query.where(eq(adminNotifications.targetAudience, targetAudience));
+    }
+    
+    return await query.orderBy(desc(adminNotifications.priority), desc(adminNotifications.createdAt));
+  }
+
+  async getAdminNotification(id: string): Promise<AdminNotification | undefined> {
+    const [notification] = await db.select().from(adminNotifications).where(eq(adminNotifications.id, id)).limit(1);
+    return notification || undefined;
+  }
+
+  async createAdminNotification(notificationData: InsertAdminNotification): Promise<AdminNotification> {
+    const [notification] = await db.insert(adminNotifications).values(notificationData).returning();
+    return notification;
+  }
+
+  async updateAdminNotification(id: string, notificationData: Partial<InsertAdminNotification>): Promise<AdminNotification> {
+    const [notification] = await db.update(adminNotifications)
+      .set(notificationData)
+      .where(eq(adminNotifications.id, id))
+      .returning();
+    return notification;
+  }
+
+  async deleteAdminNotification(id: string): Promise<void> {
+    await db.delete(adminNotifications).where(eq(adminNotifications.id, id));
+  }
+
+  // User Notification Views methods
+  async getUserNotificationViews(userId: string): Promise<UserNotificationView[]> {
+    return await db.select().from(userNotificationViews)
+      .where(eq(userNotificationViews.userId, userId))
+      .orderBy(desc(userNotificationViews.viewedAt));
+  }
+
+  async createUserNotificationView(viewData: InsertUserNotificationView): Promise<UserNotificationView> {
+    const [view] = await db.insert(userNotificationViews).values(viewData).returning();
+    return view;
+  }
+
+  async getUnreadNotificationsForUser(userId: string): Promise<AdminNotification[]> {
+    // Get notifications that the user hasn't viewed yet
+    const viewedNotificationIds = await db.select({ notificationId: userNotificationViews.notificationId })
+      .from(userNotificationViews)
+      .where(eq(userNotificationViews.userId, userId));
+    
+    const viewedIds = viewedNotificationIds.map(v => v.notificationId);
+    
+    // Get active notifications that weren't viewed by this user
+    let query = db.select()
+      .from(adminNotifications)
+      .where(
+        and(
+          eq(adminNotifications.isActive, true),
+          // Only get non-expired notifications
+          sql`(${adminNotifications.expiresAt} IS NULL OR ${adminNotifications.expiresAt} > NOW())`
+        )
+      );
+    
+    // Filter out viewed notifications if there are any
+    if (viewedIds.length > 0) {
+      query = query.where(sql`${adminNotifications.id} NOT IN (${viewedIds.map(id => `'${id}'`).join(',')})`);
+    }
+    
+    return await query.orderBy(desc(adminNotifications.priority), desc(adminNotifications.createdAt));
+  }
+
+  // Payment processing (critical method)
+  async processPaymentTransaction(params: {
+    userId: string;
+    stripePaymentIntentId: string;
+    amount: number;
+    credits: number;
+    packageId: string;
+    stripeMode: 'test' | 'live';
+  }): Promise<void> {
+    const { userId, stripePaymentIntentId, amount, credits, packageId, stripeMode } = params;
+    
+    // Use database transaction for atomicity
+    await db.transaction(async (tx) => {
+      // Check for existing transaction (idempotency)
+      const existingTransaction = await tx
+        .select()
+        .from(creditTransactions)
+        .where(eq(creditTransactions.stripePaymentIntentId, stripePaymentIntentId))
+        .limit(1);
+      
+      if (existingTransaction.length > 0) {
+        return; // Already processed
+      }
+      
+      // Get user
+      const [user] = await tx.select().from(users).where(eq(users.id, userId)).limit(1);
+      if (!user) {
+        throw new Error('User not found');
+      }
+      
+      // Update user credits
+      const newCredits = user.credits + credits;
+      await tx.update(users)
+        .set({ credits: newCredits })
+        .where(eq(users.id, userId));
+      
+      // Create transaction record
+      await tx.insert(creditTransactions).values({
+        userId,
+        amount: amount.toString(),
+        credits,
+        type: 'purchase',
+        description: `Compra de ${credits} créditos`,
+        stripePaymentIntentId,
+        stripeMode,
+        packageId,
+      });
+    });
+  }
+
+  // AI Provider Configs (aliases to existing methods)
+  async getAiProviderConfigs(userId: string): Promise<AiProvider[]> {
+    return this.getAiProviders(userId);
+  }
+
+  async getAiProviderConfig(id: string): Promise<AiProvider | undefined> {
+    const [provider] = await db.select().from(aiProviders).where(eq(aiProviders.id, id)).limit(1);
+    return provider || undefined;
+  }
+
+  async createAiProviderConfig(userId: string, config: InsertAiProvider): Promise<AiProvider> {
+    return this.createAiProvider(userId, config);
+  }
+
+  async updateAiProviderConfig(id: string, config: Partial<InsertAiProvider>): Promise<AiProvider> {
+    return this.updateAiProvider(id, config);
+  }
+
+  async deleteAiProviderConfig(id: string): Promise<void> {
+    return this.deleteAiProvider(id);
+  }
+
+  // Document Templates (basic implementations)
+  async getDocumentTemplates(): Promise<DocumentTemplate[]> {
+    return await db.select().from(documentTemplates).orderBy(documentTemplates.createdAt);
+  }
+
+  async getDocumentTemplatesByCategory(category: string): Promise<DocumentTemplate[]> {
+    return await db.select().from(documentTemplates)
+      .where(eq(documentTemplates.category, category))
+      .orderBy(documentTemplates.createdAt);
+  }
+
+  async getDocumentTemplateById(id: string): Promise<DocumentTemplate | undefined> {
+    const [template] = await db.select().from(documentTemplates).where(eq(documentTemplates.id, id)).limit(1);
+    return template || undefined;
+  }
+
+  async createDocumentTemplate(templateData: InsertDocumentTemplate): Promise<DocumentTemplate> {
+    const [template] = await db.insert(documentTemplates).values(templateData).returning();
+    return template;
+  }
+
+  async updateDocumentTemplate(id: string, templateData: Partial<InsertDocumentTemplate>): Promise<DocumentTemplate> {
+    const [template] = await db.update(documentTemplates)
+      .set(templateData)
+      .where(eq(documentTemplates.id, id))
+      .returning();
+    return template;
+  }
+
+  async deleteDocumentTemplate(id: string): Promise<void> {
+    await db.delete(documentTemplates).where(eq(documentTemplates.id, id));
+  }
+
+  async getTemplateWithPrompts(templateId: string, aiProvider?: string): Promise<any> {
+    // Basic implementation - can be enhanced later
+    const template = await this.getDocumentTemplateById(templateId);
+    if (!template) return null;
+
+    const prompts = await this.getTemplatePrompts(templateId);
+    const rules = await this.getTemplateAnalysisRules(templateId);
+    
+    return {
+      template,
+      prompts: aiProvider ? prompts.filter(p => p.aiProvider === aiProvider || p.aiProvider === 'all') : prompts,
+      analysisRules: rules,
+      requiredClauses: [],
+      optionalClauses: []
+    };
+  }
+
+  // Legal Clauses
+  async getLegalClauses(): Promise<LegalClause[]> {
+    return await db.select().from(legalClauses).orderBy(legalClauses.createdAt);
+  }
+
+  async getLegalClausesByCategory(category: string): Promise<LegalClause[]> {
+    return await db.select().from(legalClauses)
+      .where(eq(legalClauses.category, category))
+      .orderBy(legalClauses.createdAt);
+  }
+
+  async getLegalClausesByTemplate(templateId: string): Promise<LegalClause[]> {
+    return await db.select().from(legalClauses)
+      .where(eq(legalClauses.templateId, templateId))
+      .orderBy(legalClauses.sortOrder);
+  }
+
+  async createLegalClause(clauseData: InsertLegalClause): Promise<LegalClause> {
+    const [clause] = await db.insert(legalClauses).values(clauseData).returning();
+    return clause;
+  }
+
+  async updateLegalClause(id: string, clauseData: Partial<InsertLegalClause>): Promise<LegalClause> {
+    const [clause] = await db.update(legalClauses)
+      .set(clauseData)
+      .where(eq(legalClauses.id, id))
+      .returning();
+    return clause;
+  }
+
+  async deleteLegalClause(id: string): Promise<void> {
+    await db.delete(legalClauses).where(eq(legalClauses.id, id));
+  }
+
+  // Template Prompts
+  async getTemplatePrompts(templateId: string): Promise<TemplatePrompt[]> {
+    return await db.select().from(templatePrompts)
+      .where(eq(templatePrompts.templateId, templateId))
+      .orderBy(templatePrompts.priority);
+  }
+
+  async createTemplatePrompt(promptData: InsertTemplatePrompt): Promise<TemplatePrompt> {
+    const [prompt] = await db.insert(templatePrompts).values(promptData).returning();
+    return prompt;
+  }
+
+  async updateTemplatePrompt(id: string, promptData: Partial<InsertTemplatePrompt>): Promise<TemplatePrompt> {
+    const [prompt] = await db.update(templatePrompts)
+      .set(promptData)
+      .where(eq(templatePrompts.id, id))
+      .returning();
+    return prompt;
+  }
+
+  async deleteTemplatePrompt(id: string): Promise<void> {
+    await db.delete(templatePrompts).where(eq(templatePrompts.id, id));
+  }
+
+  // Template Analysis Rules
+  async getTemplateAnalysisRules(templateId: string): Promise<TemplateAnalysisRule[]> {
+    return await db.select().from(templateAnalysisRules)
+      .where(eq(templateAnalysisRules.templateId, templateId))
+      .orderBy(templateAnalysisRules.createdAt);
+  }
+
+  async createTemplateAnalysisRule(ruleData: InsertTemplateAnalysisRule): Promise<TemplateAnalysisRule> {
+    const [rule] = await db.insert(templateAnalysisRules).values(ruleData).returning();
+    return rule;
+  }
+
+  async updateTemplateAnalysisRule(id: string, ruleData: Partial<InsertTemplateAnalysisRule>): Promise<TemplateAnalysisRule> {
+    const [rule] = await db.update(templateAnalysisRules)
+      .set(ruleData)
+      .where(eq(templateAnalysisRules.id, id))
+      .returning();
+    return rule;
+  }
+
+  async deleteTemplateAnalysisRule(id: string): Promise<void> {
+    await db.delete(templateAnalysisRules).where(eq(templateAnalysisRules.id, id));
+  }
+
+  // Batch Jobs
+  async getBatchJobs(userId: string): Promise<BatchJob[]> {
+    return await db.select().from(batchJobs)
+      .where(eq(batchJobs.userId, userId))
+      .orderBy(desc(batchJobs.createdAt));
+  }
+
+  async getAllBatchJobs(): Promise<BatchJob[]> {
+    return await db.select().from(batchJobs).orderBy(desc(batchJobs.createdAt));
+  }
+
+  async getBatchJob(id: string, userId?: string): Promise<BatchJob | undefined> {
+    let query = db.select().from(batchJobs).where(eq(batchJobs.id, id));
+    
+    if (userId) {
+      query = query.where(eq(batchJobs.userId, userId));
+    }
+    
+    const [job] = await query.limit(1);
+    return job || undefined;
+  }
+
+  async createBatchJob(jobData: InsertBatchJob): Promise<BatchJob> {
+    const [job] = await db.insert(batchJobs).values(jobData).returning();
+    return job;
+  }
+
+  async updateBatchJobStatus(id: string, status: string): Promise<void> {
+    await db.update(batchJobs)
+      .set({ status })
+      .where(eq(batchJobs.id, id));
+  }
+
+  async deleteBatchJob(id: string): Promise<void> {
+    await db.delete(batchJobs).where(eq(batchJobs.id, id));
+  }
+
+  async getBatchJobStatistics(userId: string): Promise<any> {
+    const jobs = await this.getBatchJobs(userId);
+    
+    return {
+      total: jobs.length,
+      pending: jobs.filter(j => j.status === 'pending').length,
+      processing: jobs.filter(j => j.status === 'processing').length,
+      completed: jobs.filter(j => j.status === 'completed').length,
+      failed: jobs.filter(j => j.status === 'failed').length,
+    };
+  }
+
+  // Batch Documents
+  async getBatchDocuments(batchJobId: string): Promise<BatchDocument[]> {
+    return await db.select().from(batchDocuments)
+      .where(eq(batchDocuments.batchJobId, batchJobId))
+      .orderBy(batchDocuments.sortOrder);
+  }
+
+  async createBatchDocument(docData: InsertBatchDocument): Promise<BatchDocument> {
+    const [doc] = await db.insert(batchDocuments).values(docData).returning();
+    return doc;
+  }
+
+  // Queue Jobs
+  async getQueueJobs(): Promise<QueueJob[]> {
+    return await db.select().from(queueJobs).orderBy(desc(queueJobs.priority), queueJobs.scheduledFor);
+  }
+
+  async createQueueJob(jobData: InsertQueueJob): Promise<QueueJob> {
+    const [job] = await db.insert(queueJobs).values(jobData).returning();
+    return job;
+  }
+
+  async retryFailedQueueJob(id: string): Promise<void> {
+    await db.update(queueJobs)
+      .set({ 
+        status: 'pending',
+        attempts: 0,
+        scheduledFor: new Date()
+      })
+      .where(eq(queueJobs.id, id));
+  }
+
+  async deleteQueueJob(id: string): Promise<void> {
+    await db.delete(queueJobs).where(eq(queueJobs.id, id));
   }
 }
 

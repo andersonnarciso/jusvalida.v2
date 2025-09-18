@@ -174,18 +174,22 @@ export function Footer() {
               {/* Social Media */}
               <div>
                 <h4 className="font-medium text-sm text-foreground mb-3">Siga-nos</h4>
-                <div className="flex space-x-2">
-                  <Button variant="outline" size="sm" className="w-8 h-8 p-0">
-                    <Linkedin size={14} />
+                <div className="flex flex-col space-y-2">
+                  <Button variant="link" className="p-0 h-auto text-muted-foreground hover:text-primary text-sm justify-start">
+                    <Linkedin size={14} className="mr-2" />
+                    LinkedIn
                   </Button>
-                  <Button variant="outline" size="sm" className="w-8 h-8 p-0">
-                    <Twitter size={14} />
+                  <Button variant="link" className="p-0 h-auto text-muted-foreground hover:text-primary text-sm justify-start">
+                    <Twitter size={14} className="mr-2" />
+                    Twitter
                   </Button>
-                  <Button variant="outline" size="sm" className="w-8 h-8 p-0">
-                    <Instagram size={14} />
+                  <Button variant="link" className="p-0 h-auto text-muted-foreground hover:text-primary text-sm justify-start">
+                    <Instagram size={14} className="mr-2" />
+                    Instagram
                   </Button>
-                  <Button variant="outline" size="sm" className="w-8 h-8 p-0">
-                    <Facebook size={14} />
+                  <Button variant="link" className="p-0 h-auto text-muted-foreground hover:text-primary text-sm justify-start">
+                    <Facebook size={14} className="mr-2" />
+                    Facebook
                   </Button>
                 </div>
               </div>

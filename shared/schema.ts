@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, timestamp, boolean, jsonb, decimal } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, timestamp, boolean, jsonb, decimal, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -261,6 +261,61 @@ export const costModels = pgTable("cost_models", {
   updatedAt: timestamp("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
+// Site configuration tables
+export const siteConfig = pgTable("site_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  section: text("section").notNull(), // 'footer', 'contact', 'company', 'social'
+  key: text("key").notNull(),
+  value: text("value"),
+  dataType: text("data_type").notNull().default("string"), // 'string', 'number', 'boolean', 'json'
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => ({
+  sectionKeyIndex: uniqueIndex("site_config_section_key_idx").on(table.section, table.key),
+}));
+
+export const smtpConfig = pgTable("smtp_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  host: text("host").notNull(),
+  port: integer("port").notNull().default(587),
+  secure: boolean("secure").notNull().default(false), // true for 465, false for other ports
+  username: text("username").notNull(),
+  password: text("password").notNull(), // Will be encrypted
+  fromEmail: text("from_email").notNull(),
+  fromName: text("from_name").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  testEmailSent: boolean("test_email_sent").notNull().default(false),
+  lastTestAt: timestamp("last_test_at"),
+  createdAt: timestamp("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const adminNotifications = pgTable("admin_notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  type: text("type").notNull(), // 'info', 'success', 'warning', 'error', 'announcement'
+  priority: integer("priority").notNull().default(0), // Higher = more important
+  targetAudience: text("target_audience").notNull().default("all"), // 'all', 'premium', 'trial', 'admins'
+  isActive: boolean("is_active").notNull().default(true),
+  showOnDashboard: boolean("show_on_dashboard").notNull().default(true),
+  showOnLogin: boolean("show_on_login").notNull().default(false),
+  expiresAt: timestamp("expires_at"),
+  createdBy: varchar("created_by").notNull().references(() => users.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const userNotificationViews = pgTable("user_notification_views", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  notificationId: varchar("notification_id").notNull().references(() => adminNotifications.id, { onDelete: "cascade" }),
+  viewedAt: timestamp("viewed_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => ({
+  userNotificationIndex: uniqueIndex("user_notification_views_idx").on(table.userId, table.notificationId),
+}));
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -415,6 +470,55 @@ export const insertCostModelSchema = createInsertSchema(costModels).omit({
   updatedAt: true,
 });
 
+export const insertSiteConfigSchema = createInsertSchema(siteConfig).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertSmtpConfigSchema = createInsertSchema(smtpConfig).omit({
+  id: true,
+  testEmailSent: true,
+  lastTestAt: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertAdminNotificationSchema = createInsertSchema(adminNotifications).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertUserNotificationViewSchema = createInsertSchema(userNotificationViews).omit({
+  id: true,
+  viewedAt: true,
+});
+
+// Contact form schema
+export const contactFormSchema = z.object({
+  name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
+  email: z.string().email("E-mail inválido"),
+  company: z.string().optional(),
+  subject: z.enum([
+    "general",
+    "support", 
+    "sales",
+    "partnership",
+    "legal",
+    "press"
+  ], {
+    required_error: "Por favor selecione um assunto",
+  }),
+  message: z.string().min(10, "Mensagem deve ter pelo menos 10 caracteres"),
+  phone: z.string().optional(),
+});
+
+// SMTP test schema
+export const smtpTestSchema = z.object({
+  testEmail: z.string().email("E-mail inválido para teste"),
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type LoginUser = z.infer<typeof loginUserSchema>;
@@ -436,6 +540,10 @@ export type BatchJob = typeof batchJobs.$inferSelect;
 export type BatchDocument = typeof batchDocuments.$inferSelect;
 export type QueueJob = typeof queueJobs.$inferSelect;
 export type CostModel = typeof costModels.$inferSelect;
+export type SiteConfig = typeof siteConfig.$inferSelect;
+export type SmtpConfig = typeof smtpConfig.$inferSelect;
+export type AdminNotification = typeof adminNotifications.$inferSelect;
+export type UserNotificationView = typeof userNotificationViews.$inferSelect;
 
 // Metadata type interfaces for proper typing
 export interface BatchJobMetadata {
@@ -483,6 +591,10 @@ export type InsertBatchJob = z.infer<typeof insertBatchJobSchema>;
 export type InsertBatchDocument = z.infer<typeof insertBatchDocumentSchema>;
 export type InsertQueueJob = z.infer<typeof insertQueueJobSchema>;
 export type InsertCostModel = z.infer<typeof insertCostModelSchema>;
+export type InsertSiteConfig = z.infer<typeof insertSiteConfigSchema>;
+export type InsertSmtpConfig = z.infer<typeof insertSmtpConfigSchema>;
+export type InsertAdminNotification = z.infer<typeof insertAdminNotificationSchema>;
+export type InsertUserNotificationView = z.infer<typeof insertUserNotificationViewSchema>;
 
 // Relations
 import { relations } from "drizzle-orm";
