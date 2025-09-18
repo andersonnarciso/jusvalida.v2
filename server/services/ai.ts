@@ -73,6 +73,43 @@ export class AIService {
     }
   }
 
+  // Get system API key as fallback
+  private async getSystemApiKey(provider: string): Promise<string | undefined> {
+    try {
+      return await storage.getSystemApiKeyByProvider(provider);
+    } catch (error) {
+      console.warn(`Failed to get system API key for ${provider}:`, error);
+      return undefined;
+    }
+  }
+
+  // Get API key with fallback to system keys
+  private async getApiKeyWithFallback(provider: string, userApiKey?: string): Promise<string | undefined> {
+    // If user provided their own API key, use it
+    if (userApiKey) {
+      return userApiKey;
+    }
+
+    // Try to get system API key as fallback
+    const systemApiKey = await this.getSystemApiKey(provider);
+    if (systemApiKey) {
+      console.log(`Using system API key for provider: ${provider}`);
+      return systemApiKey;
+    }
+
+    // Fall back to environment variables (existing behavior)
+    switch (provider) {
+      case 'openai':
+        return process.env.OPENAI_API_KEY;
+      case 'anthropic':
+        return process.env.ANTHROPIC_API_KEY;
+      case 'gemini':
+        return process.env.GEMINI_API_KEY;
+      default:
+        return undefined;
+    }
+  }
+
   private getSystemPrompt(analysisType: string): string {
     const basePrompt = `You are JusValida, a specialized legal AI assistant for document validation and analysis. Your expertise covers Brazilian and international law, contract analysis, legal compliance, and document review.
 
@@ -205,8 +242,12 @@ Return analysis in JSON format with the following enhanced structure that includ
   }
 
   async analyzeWithOpenAI(content: string, analysisType: string, apiKey?: string, templateData?: any): Promise<AnalysisResult> {
-    const client = apiKey ? new OpenAI({ apiKey }) : this.openai;
-    if (!client) throw new Error("OpenAI API key not configured");
+    const finalApiKey = await this.getApiKeyWithFallback('openai', apiKey);
+    if (!finalApiKey) {
+      throw new Error("No OpenAI API key available (user key, system key, or environment variable)");
+    }
+
+    const client = new OpenAI({ apiKey: finalApiKey });
 
     // Use template-specific prompt if available, otherwise use standard prompt
     const systemPrompt = templateData 
@@ -234,8 +275,12 @@ Return analysis in JSON format with the following enhanced structure that includ
   }
 
   async analyzeWithAnthropic(content: string, analysisType: string, apiKey?: string, templateData?: any): Promise<AnalysisResult> {
-    const client = apiKey ? new Anthropic({ apiKey }) : this.anthropic;
-    if (!client) throw new Error("Anthropic API key not configured");
+    const finalApiKey = await this.getApiKeyWithFallback('anthropic', apiKey);
+    if (!finalApiKey) {
+      throw new Error("No Anthropic API key available (user key, system key, or environment variable)");
+    }
+
+    const client = new Anthropic({ apiKey: finalApiKey });
 
     // Use template-specific prompt if available, otherwise use standard prompt
     const systemPrompt = templateData 
@@ -264,8 +309,12 @@ Return analysis in JSON format with the following enhanced structure that includ
   }
 
   async analyzeWithGemini(content: string, analysisType: string, apiKey?: string, templateData?: any): Promise<AnalysisResult> {
-    const client = apiKey ? new GoogleGenAI({ apiKey }) : this.gemini;
-    if (!client) throw new Error("Gemini API key not configured");
+    const finalApiKey = await this.getApiKeyWithFallback('gemini', apiKey);
+    if (!finalApiKey) {
+      throw new Error("No Gemini API key available (user key, system key, or environment variable)");
+    }
+
+    const client = new GoogleGenAI({ apiKey: finalApiKey });
 
     // Use template-specific prompt if available, otherwise use standard prompt
     const systemPrompt = templateData 

@@ -1,7 +1,8 @@
-import { type User, type InsertUser, type LoginUser, type AiProvider, type InsertAiProvider, type DocumentAnalysis, type InsertDocumentAnalysis, type CreditTransaction, type SupportTicket, type InsertSupportTicket, type TicketMessage, type InsertTicketMessage, type AiProviderConfig, type InsertAiProviderConfig, type CreditPackage, type InsertCreditPackage, type PlatformStats, type InsertPlatformStats, type DocumentTemplate, type InsertDocumentTemplate, type LegalClause, type InsertLegalClause, type TemplatePrompt, type InsertTemplatePrompt, type TemplateAnalysisRule, type InsertTemplateAnalysisRule, type BatchJob, type InsertBatchJob, type BatchDocument, type InsertBatchDocument, type QueueJob, type InsertQueueJob, type BatchDocumentMetadata } from "@shared/schema";
+import { type User, type InsertUser, type LoginUser, type AiProvider, type InsertAiProvider, type SystemAiProvider, type InsertSystemAiProvider, type DocumentAnalysis, type InsertDocumentAnalysis, type CreditTransaction, type SupportTicket, type InsertSupportTicket, type TicketMessage, type InsertTicketMessage, type AiProviderConfig, type InsertAiProviderConfig, type CreditPackage, type InsertCreditPackage, type PlatformStats, type InsertPlatformStats, type DocumentTemplate, type InsertDocumentTemplate, type LegalClause, type InsertLegalClause, type TemplatePrompt, type InsertTemplatePrompt, type TemplateAnalysisRule, type InsertTemplateAnalysisRule, type BatchJob, type InsertBatchJob, type BatchDocument, type InsertBatchDocument, type QueueJob, type InsertQueueJob, type BatchDocumentMetadata } from "@shared/schema";
+import { encryptApiKey, decryptApiKey, migrateApiKey, isLegacyFormat, batchMigrateApiKeys } from "./lib/encryption";
 import type { Express } from "express";
 import { db } from "./db";
-import { users, aiProviders, documentAnalyses, creditTransactions, supportTickets, ticketMessages, aiProviderConfigs, creditPackages, platformStats, documentTemplates, legalClauses, templatePrompts, templateAnalysisRules, batchJobs, batchDocuments, queueJobs } from "@shared/schema";
+import { users, aiProviders, systemAiProviders, documentAnalyses, creditTransactions, supportTickets, ticketMessages, aiProviderConfigs, creditPackages, platformStats, documentTemplates, legalClauses, templatePrompts, templateAnalysisRules, batchJobs, batchDocuments, queueJobs } from "@shared/schema";
 import { eq, desc, and, count, sum, gte, sql, isNotNull, isNull, lte } from "drizzle-orm";
 
 export interface IStorage {
@@ -29,11 +30,6 @@ export interface IStorage {
     analysisGrowth: Array<{date: string, count: number}>;
     supportTicketsStats: {open: number, pending: number, resolved: number, closed: number};
   }>;
-  getAiUsageAnalytics(): Promise<{
-    providerUsage: Array<{provider: string, model: string, count: number, totalCredits: number}>;
-    analysisTypes: Array<{type: string, count: number}>;
-    errorRates: Array<{provider: string, model: string, successRate: number}>;
-  }>;
 
   // AI Provider management
   getAiProviders(userId: string): Promise<AiProvider[]>;
@@ -41,6 +37,40 @@ export interface IStorage {
   createAiProvider(userId: string, provider: InsertAiProvider): Promise<AiProvider>;
   updateAiProvider(id: string, provider: Partial<InsertAiProvider>): Promise<AiProvider>;
   deleteAiProvider(id: string): Promise<void>;
+
+  // System AI Provider management (Admin only)
+  getSystemAiProviders(): Promise<SystemAiProvider[]>;
+  getSystemAiProvider(provider: string): Promise<SystemAiProvider | undefined>;
+  createSystemAiProvider(provider: InsertSystemAiProvider): Promise<SystemAiProvider>;
+  updateSystemAiProvider(id: string, provider: Partial<InsertSystemAiProvider>): Promise<SystemAiProvider>;
+  deleteSystemAiProvider(id: string): Promise<void>;
+  getSystemApiKeyByProvider(provider: string): Promise<string | undefined>;
+  
+  // SECURITY: Get system providers with masked API keys for admin interface
+  getSystemAiProvidersForAdmin(): Promise<Array<Omit<SystemAiProvider, 'apiKey'> & { maskedApiKey: string }>>;
+
+  // AI Usage Analytics
+  getAiUsageAnalytics(): Promise<{
+    providerUsage: Array<{provider: string, model: string, count: number, totalCredits: number}>;
+    analysisTypes: Array<{type: string, count: number}>;
+    errorRates: Array<{provider: string, model: string, successRate: number}>;
+  }>;
+
+  // Credit Management
+  getCreditPackages(): Promise<CreditPackage[]>;
+  getCreditPackage(packageId: string): Promise<CreditPackage | undefined>;
+  createCreditPackage(pkg: InsertCreditPackage): Promise<CreditPackage>;
+  updateCreditPackage(id: string, pkg: Partial<InsertCreditPackage>): Promise<CreditPackage>;
+  deleteCreditPackage(id: string): Promise<void>;
+
+  // SECURITY: Migration functions for upgrading legacy encrypted keys
+  migrateSystemApiKeys(): Promise<{
+    total: number;
+    migrated: number;
+    alreadySecure: number;
+    errors: Array<{id: string, error: string}>;
+  }>;
+  performOneTimeMigration(): Promise<void>;
 
   // Document Analysis
   getDocumentAnalyses(userId: string, limit?: number): Promise<DocumentAnalysis[]>;
@@ -58,29 +88,6 @@ export interface IStorage {
   getCreditTransactionByStripeId(stripePaymentIntentId: string): Promise<CreditTransaction | undefined>;
   createCreditTransaction(userId: string, type: string, amount: number, description: string, stripePaymentIntentId?: string): Promise<CreditTransaction>;
   
-  // ATOMIC: Process payment transaction with credit update in single DB transaction
-  processPaymentTransaction(userId: string, transactionData: {
-    type: string;
-    amount: number;
-    description: string;
-    stripePaymentIntentId: string;
-    newCreditBalance: number;
-  }): Promise<{ user: User; transaction: CreditTransaction }>;
-
-  // ATOMIC: Process batch creation with upfront credit deduction in single DB transaction
-  processBatchCreationTransaction(
-    userId: string, 
-    batchMeta: InsertBatchJob,
-    files: Express.Multer.File[], 
-    creditsPerDoc: number
-  ): Promise<{ 
-    batchJob: BatchJob; 
-    batchDocuments: BatchDocument[]; 
-    queueJob: QueueJob; 
-    user: User;
-    transaction: CreditTransaction;
-  }>;
-
   // Support Tickets
   getSupportTickets(userId: string): Promise<SupportTicket[]>;
   getAllSupportTickets(): Promise<SupportTicket[]>;
@@ -93,114 +100,10 @@ export interface IStorage {
   getTicketMessages(ticketId: string): Promise<TicketMessage[]>;
   createTicketMessage(ticketMessage: InsertTicketMessage): Promise<TicketMessage>;
 
-  // AI Provider Configs (Global)
-  getAiProviderConfigs(): Promise<AiProviderConfig[]>;
-  getAiProviderConfig(providerId: string): Promise<AiProviderConfig | undefined>;
-  createAiProviderConfig(config: InsertAiProviderConfig): Promise<AiProviderConfig>;
-  updateAiProviderConfig(id: string, config: Partial<InsertAiProviderConfig>): Promise<AiProviderConfig>;
-  deleteAiProviderConfig(id: string): Promise<void>;
-
-  // Credit Packages
-  getCreditPackages(): Promise<CreditPackage[]>;
-  getCreditPackage(packageId: string): Promise<CreditPackage | undefined>;
-  createCreditPackage(pkg: InsertCreditPackage): Promise<CreditPackage>;
-  updateCreditPackage(id: string, pkg: Partial<InsertCreditPackage>): Promise<CreditPackage>;
-  deleteCreditPackage(id: string): Promise<void>;
-
   // Platform Stats
   getPlatformStats(): Promise<PlatformStats | undefined>;
   updatePlatformStats(stats: InsertPlatformStats): Promise<PlatformStats>;
   computeAndUpdatePlatformStats(): Promise<PlatformStats>;
-
-  // Document Templates
-  getDocumentTemplates(): Promise<DocumentTemplate[]>;
-  getDocumentTemplate(templateId: string): Promise<DocumentTemplate | undefined>;
-  getDocumentTemplateById(id: string): Promise<DocumentTemplate | undefined>;
-  getDocumentTemplatesByCategory(category: string): Promise<DocumentTemplate[]>;
-  createDocumentTemplate(template: InsertDocumentTemplate): Promise<DocumentTemplate>;
-  updateDocumentTemplate(id: string, template: Partial<InsertDocumentTemplate>): Promise<DocumentTemplate>;
-  deleteDocumentTemplate(id: string): Promise<void>;
-
-  // Legal Clauses
-  getLegalClauses(): Promise<LegalClause[]>;
-  getLegalClause(clauseId: string): Promise<LegalClause | undefined>;
-  getLegalClauseById(id: string): Promise<LegalClause | undefined>;
-  getLegalClausesByCategory(category: string): Promise<LegalClause[]>;
-  getLegalClausesByTemplate(templateId: string): Promise<LegalClause[]>;
-  createLegalClause(clause: InsertLegalClause): Promise<LegalClause>;
-  updateLegalClause(id: string, clause: Partial<InsertLegalClause>): Promise<LegalClause>;
-  deleteLegalClause(id: string): Promise<void>;
-
-  // Template Prompts
-  getTemplatePrompts(templateId: string): Promise<TemplatePrompt[]>;
-  getTemplatePrompt(id: string): Promise<TemplatePrompt | undefined>;
-  getTemplatePromptsByProvider(templateId: string, aiProvider: string): Promise<TemplatePrompt[]>;
-  createTemplatePrompt(prompt: InsertTemplatePrompt): Promise<TemplatePrompt>;
-  updateTemplatePrompt(id: string, prompt: Partial<InsertTemplatePrompt>): Promise<TemplatePrompt>;
-  deleteTemplatePrompt(id: string): Promise<void>;
-
-  // Template Analysis Rules
-  getTemplateAnalysisRules(templateId: string): Promise<TemplateAnalysisRule[]>;
-  getTemplateAnalysisRule(id: string): Promise<TemplateAnalysisRule | undefined>;
-  getTemplateAnalysisRulesByType(templateId: string, ruleType: string): Promise<TemplateAnalysisRule[]>;
-  createTemplateAnalysisRule(rule: InsertTemplateAnalysisRule): Promise<TemplateAnalysisRule>;
-  updateTemplateAnalysisRule(id: string, rule: Partial<InsertTemplateAnalysisRule>): Promise<TemplateAnalysisRule>;
-  deleteTemplateAnalysisRule(id: string): Promise<void>;
-
-  // Enhanced Analysis Methods
-  getTemplateWithPrompts(templateId: string, aiProvider?: string): Promise<{
-    template: DocumentTemplate;
-    prompts: TemplatePrompt[];
-    analysisRules: TemplateAnalysisRule[];
-    requiredClauses: LegalClause[];
-    optionalClauses: LegalClause[];
-  } | undefined>;
-
-  // Batch Jobs Management
-  getBatchJobs(userId: string, limit?: number): Promise<BatchJob[]>;
-  getBatchJob(id: string, userId: string): Promise<BatchJob | undefined>;
-  getBatchJobById(id: string): Promise<BatchJob | undefined>;
-  createBatchJob(userId: string, batchJob: InsertBatchJob): Promise<BatchJob>;
-  updateBatchJob(id: string, updates: Partial<BatchJob>): Promise<BatchJob>;
-  updateBatchJobStatus(id: string, status: string, errorMessage?: string): Promise<BatchJob>;
-  deleteBatchJob(id: string): Promise<void>;
-
-  // Batch Documents Management
-  getBatchDocuments(batchJobId: string): Promise<BatchDocument[]>;
-  getBatchDocument(id: string): Promise<BatchDocument | undefined>;
-  createBatchDocument(batchDocument: InsertBatchDocument): Promise<BatchDocument>;
-  updateBatchDocument(id: string, updates: Partial<BatchDocument>): Promise<BatchDocument>;
-  updateBatchDocumentStatus(id: string, status: string, errorMessage?: string): Promise<BatchDocument>;
-  linkBatchDocumentToAnalysis(batchDocumentId: string, analysisId: string): Promise<BatchDocument>;
-  deleteBatchDocument(id: string): Promise<void>;
-
-  // Queue Jobs Management
-  getQueueJobs(status?: string, limit?: number): Promise<QueueJob[]>;
-  getQueueJob(id: string): Promise<QueueJob | undefined>;
-  createQueueJob(queueJob: InsertQueueJob): Promise<QueueJob>;
-  updateQueueJob(id: string, updates: Partial<QueueJob>): Promise<QueueJob>;
-  updateQueueJobStatus(id: string, status: string, errorMessage?: string): Promise<QueueJob>;
-  getNextQueueJob(): Promise<QueueJob | undefined>;
-  retryFailedQueueJob(id: string): Promise<QueueJob>;
-  deleteQueueJob(id: string): Promise<void>;
-
-  // Batch Processing Analytics
-  getBatchJobStatistics(userId?: string): Promise<{
-    totalBatches: number;
-    completedBatches: number;
-    failedBatches: number;
-    averageProcessingTime: number;
-    totalDocumentsProcessed: number;
-  }>;
-  
-  // Admin Batch Management
-  getAllBatchJobs(page?: number, limit?: number): Promise<{jobs: BatchJob[], total: number}>;
-  getBatchJobsWithDetails(userId?: string): Promise<Array<BatchJob & {
-    documents: BatchDocument[];
-    totalDocuments: number;
-    completedDocuments: number;
-    failedDocuments: number;
-  }>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -224,17 +127,14 @@ export class DatabaseStorage implements IStorage {
     const [user] = await db
       .insert(users)
       .values({
-        id: crypto.randomUUID(), // Generate UUID for regular user creation
+        id: crypto.randomUUID(),
         ...insertUser
       })
       .returning();
     return user;
   }
 
-
-  // Ensure user exists with Supabase mapping (idempotent and safe)
   async ensureUserBySupabase(supabaseId: string, email: string, supabaseUserData: any): Promise<User> {
-    // First try to find user by Supabase ID mapping
     const [userBySupabaseId] = await db
       .select()
       .from(users)
@@ -242,68 +142,39 @@ export class DatabaseStorage implements IStorage {
       .limit(1);
     
     if (userBySupabaseId) {
-      return userBySupabaseId; // Already mapped
+      return userBySupabaseId;
     }
 
-    // Try to find existing user by email
-    const existingUser = await this.getUserByEmail(email);
-    if (existingUser) {
-      // Map existing user to Supabase ID (safe - no PK changes, no FK rewrites)
-      const [mappedUser] = await db
-        .update(users)
-        .set({ 
-          supabaseId: supabaseId,
-          firstName: supabaseUserData.first_name || existingUser.firstName,
-          lastName: supabaseUserData.last_name || existingUser.lastName,
-          updatedAt: new Date()
-        })
-        .where(eq(users.id, existingUser.id))
-        .returning();
-      
-      return mappedUser;
-    }
-
-    // User doesn't exist, create new one with unique username
-    const baseUsername = supabaseUserData.username || email.split('@')[0];
-    let uniqueUsername = baseUsername;
-    let attemptCount = 0;
+    const [userByEmail] = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, email))
+      .limit(1);
     
-    // Ensure username is unique for new user creation
-    while (attemptCount < 10) {
-      try {
-        const existingByUsername = await db
-          .select({ id: users.id })
-          .from(users)
-          .where(eq(users.username, uniqueUsername))
-          .limit(1);
-        
-        if (existingByUsername.length === 0) {
-          break; // Username is available
-        }
-        
-        // Generate new username with suffix
-        attemptCount++;
-        uniqueUsername = `${baseUsername}_${attemptCount}`;
-        
-      } catch (err) {
-        // If check fails, use timestamp suffix as fallback
-        uniqueUsername = `${baseUsername}_${Date.now()}`;
-        break;
+    if (userByEmail) {
+      if (userByEmail.supabaseId !== supabaseId) {
+        const [updatedUser] = await db
+          .update(users)
+          .set({ supabaseId })
+          .where(eq(users.id, userByEmail.id))
+          .returning();
+        return updatedUser;
       }
+      return userByEmail;
     }
-    
-    // Create new user with local UUID as PK and Supabase ID as mapping
+
     const [newUser] = await db
       .insert(users)
       .values({
-        email: email,
-        username: uniqueUsername,
-        password: '', // Not needed for Supabase users
-        firstName: supabaseUserData.first_name || '',
-        lastName: supabaseUserData.last_name || '',
-        credits: 20, // Default credits
-        role: (supabaseUserData.role || 'user') as "user" | "admin" | "support",
-        supabaseId: supabaseId, // Map to Supabase ID
+        id: crypto.randomUUID(),
+        email,
+        username: email.split('@')[0],
+        firstName: supabaseUserData.user_metadata?.first_name || email.split('@')[0],
+        lastName: supabaseUserData.user_metadata?.last_name || '',
+        password: 'supabase-auth',
+        supabaseId,
+        role: 'user',
+        credits: 5
       })
       .returning();
     
@@ -313,7 +184,7 @@ export class DatabaseStorage implements IStorage {
   async updateUserCredits(id: string, credits: number): Promise<User> {
     const [user] = await db
       .update(users)
-      .set({ credits, updatedAt: new Date() })
+      .set({ credits, updatedAt: sql`CURRENT_TIMESTAMP` })
       .where(eq(users.id, id))
       .returning();
     if (!user) throw new Error("User not found");
@@ -321,32 +192,44 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deductUserCredits(userId: string, amount: number, description: string): Promise<void> {
-    // Get current user credits
-    const user = await this.getUser(userId);
-    if (!user) {
-      throw new Error(`User not found: ${userId}`);
-    }
+    await db.transaction(async (tx) => {
+      const [currentUser] = await tx
+        .select()
+        .from(users)
+        .where(eq(users.id, userId));
+      
+      if (!currentUser) {
+        throw new Error(`User not found: ${userId}`);
+      }
 
-    if (user.credits < amount) {
-      throw new Error(`Insufficient credits: ${user.credits} available, ${amount} required`);
-    }
+      if (currentUser.credits < amount) {
+        throw new Error(`Insufficient credits: ${currentUser.credits} available, ${amount} required`);
+      }
 
-    const newCredits = user.credits - amount;
+      const newCredits = currentUser.credits - amount;
+      await tx
+        .update(users)
+        .set({ 
+          credits: newCredits,
+          updatedAt: sql`CURRENT_TIMESTAMP`
+        })
+        .where(eq(users.id, userId));
 
-    // Update user credits and create transaction atomically
-    await this.processPaymentTransaction(userId, {
-      type: "usage",
-      amount: -amount,
-      description,
-      stripePaymentIntentId: "", // Empty string for usage transactions
-      newCreditBalance: newCredits
+      await tx
+        .insert(creditTransactions)
+        .values({
+          userId,
+          type: 'usage',
+          amount: -amount,
+          description,
+        });
     });
   }
 
   async updateUserRole(id: string, role: string): Promise<User> {
     const [user] = await db
       .update(users)
-      .set({ role: role as "user" | "admin" | "support", updatedAt: new Date() })
+      .set({ role: role as "user" | "admin" | "support", updatedAt: sql`CURRENT_TIMESTAMP` })
       .where(eq(users.id, id))
       .returning();
     if (!user) throw new Error("User not found");
@@ -356,7 +239,7 @@ export class DatabaseStorage implements IStorage {
   async updateStripeCustomerId(id: string, customerId: string): Promise<User> {
     const [user] = await db
       .update(users)
-      .set({ stripeCustomerId: customerId, updatedAt: new Date() })
+      .set({ stripeCustomerId: customerId, updatedAt: sql`CURRENT_TIMESTAMP` })
       .where(eq(users.id, id))
       .returning();
     if (!user) throw new Error("User not found");
@@ -366,7 +249,7 @@ export class DatabaseStorage implements IStorage {
   async updateUserStripeMode(id: string, stripeMode: 'test' | 'live'): Promise<User> {
     const [user] = await db
       .update(users)
-      .set({ stripeMode, updatedAt: new Date() })
+      .set({ stripeMode, updatedAt: sql`CURRENT_TIMESTAMP` })
       .where(eq(users.id, id))
       .returning();
     if (!user) throw new Error("User not found");
@@ -378,7 +261,8 @@ export class DatabaseStorage implements IStorage {
     return await db
       .select()
       .from(aiProviders)
-      .where(eq(aiProviders.userId, userId));
+      .where(eq(aiProviders.userId, userId))
+      .orderBy(aiProviders.createdAt);
   }
 
   async getAiProvider(userId: string, provider: string): Promise<AiProvider | undefined> {
@@ -414,6 +298,149 @@ export class DatabaseStorage implements IStorage {
     await db.delete(aiProviders).where(eq(aiProviders.id, id));
   }
 
+  // System AI Provider management (Admin only) - WITH ENCRYPTION
+  async getSystemAiProviders(): Promise<SystemAiProvider[]> {
+    return await db
+      .select()
+      .from(systemAiProviders)
+      .orderBy(systemAiProviders.createdAt);
+  }
+
+  // SECURITY: Get system providers with masked API keys for admin interface
+  async getSystemAiProvidersForAdmin(): Promise<Array<Omit<SystemAiProvider, 'apiKey'> & { maskedApiKey: string }>> {
+    const providers = await db
+      .select()
+      .from(systemAiProviders)
+      .orderBy(systemAiProviders.createdAt);
+
+    return providers.map(provider => {
+      const { apiKey, ...providerWithoutKey } = provider;
+      let maskedKey = '****';
+      
+      // SECURITY: Decrypt only to mask - never return full key
+      if (apiKey) {
+        try {
+          const decryptedKey = decryptApiKey(apiKey);
+          maskedKey = decryptedKey.length >= 4 ? `****${decryptedKey.slice(-4)}` : '****';
+        } catch (error) {
+          console.error('Failed to decrypt key for masking:', error);
+          maskedKey = '****';
+        }
+      }
+
+      return {
+        ...providerWithoutKey,
+        maskedApiKey: maskedKey
+      };
+    });
+  }
+
+  async getSystemAiProvider(provider: string): Promise<SystemAiProvider | undefined> {
+    const [result] = await db
+      .select()
+      .from(systemAiProviders)
+      .where(eq(systemAiProviders.provider, provider));
+    return result || undefined;
+  }
+
+  async createSystemAiProvider(providerData: InsertSystemAiProvider): Promise<SystemAiProvider> {
+    // SECURITY: Encrypt API key before storing
+    const encryptedData = {
+      ...providerData,
+      apiKey: encryptApiKey(providerData.apiKey)
+    };
+    
+    const [provider] = await db
+      .insert(systemAiProviders)
+      .values(encryptedData)
+      .returning();
+    return provider;
+  }
+
+  async updateSystemAiProvider(id: string, providerData: Partial<InsertSystemAiProvider>): Promise<SystemAiProvider> {
+    // SECURITY: Encrypt API key if provided
+    const updateData: any = { ...providerData, updatedAt: new Date() };
+    if (providerData.apiKey) {
+      updateData.apiKey = encryptApiKey(providerData.apiKey);
+    }
+    
+    const [provider] = await db
+      .update(systemAiProviders)
+      .set(updateData)
+      .where(eq(systemAiProviders.id, id))
+      .returning();
+    if (!provider) throw new Error("System AI Provider not found");
+    return provider;
+  }
+
+  async deleteSystemAiProvider(id: string): Promise<void> {
+    await db.delete(systemAiProviders).where(eq(systemAiProviders.id, id));
+  }
+
+  async getSystemApiKeyByProvider(provider: string): Promise<string | undefined> {
+    const [result] = await db
+      .select({ apiKey: systemAiProviders.apiKey })
+      .from(systemAiProviders)
+      .where(and(
+        eq(systemAiProviders.provider, provider),
+        eq(systemAiProviders.isActive, true)
+      ));
+    
+    // SECURITY: Decrypt API key for immediate use only
+    if (result?.apiKey) {
+      try {
+        return decryptApiKey(result.apiKey);
+      } catch (error) {
+        console.error(`Failed to decrypt API key for provider ${provider}:`, error);
+        return undefined;
+      }
+    }
+    
+    return undefined;
+  }
+
+  // Admin-specific user management
+  async getAllUsers(page: number = 1, limit: number = 20): Promise<{users: User[], total: number}> {
+    const offset = (page - 1) * limit;
+    
+    const [usersResult, totalResult] = await Promise.all([
+      db.select().from(users).orderBy(desc(users.createdAt)).limit(limit).offset(offset),
+      db.select({ count: count() }).from(users)
+    ]);
+    
+    return {
+      users: usersResult,
+      total: totalResult[0].count
+    };
+  }
+
+  async getPlatformAnalytics(): Promise<{
+    totalUsers: number;
+    totalAnalyses: number;
+    totalCreditsUsed: number;
+    totalCreditsPurchased: number;
+    totalRevenue: number;
+    userGrowth: Array<{date: string, count: number}>;
+    analysisGrowth: Array<{date: string, count: number}>;
+    supportTicketsStats: {open: number, pending: number, resolved: number, closed: number};
+  }> {
+    const [userCount, analysisCount] = await Promise.all([
+      db.select({ count: count() }).from(users),
+      db.select({ count: count() }).from(documentAnalyses)
+    ]);
+
+    return {
+      totalUsers: userCount[0].count,
+      totalAnalyses: analysisCount[0].count,
+      totalCreditsUsed: 0,
+      totalCreditsPurchased: 0,
+      totalRevenue: 0,
+      userGrowth: [],
+      analysisGrowth: [],
+      supportTicketsStats: { open: 0, pending: 0, resolved: 0, closed: 0 }
+    };
+  }
+
   // Document Analysis
   async getDocumentAnalyses(userId: string, limit?: number): Promise<DocumentAnalysis[]> {
     const query = db
@@ -430,6 +457,17 @@ export class DatabaseStorage implements IStorage {
     }
     
     return await query;
+  }
+
+  async getDeletedAnalyses(userId: string): Promise<DocumentAnalysis[]> {
+    return await db
+      .select()
+      .from(documentAnalyses)
+      .where(and(
+        eq(documentAnalyses.userId, userId),
+        isNotNull(documentAnalyses.deletedAt)
+      ))
+      .orderBy(desc(documentAnalyses.deletedAt));
   }
 
   async getDocumentAnalysis(id: string, userId: string): Promise<DocumentAnalysis | undefined> {
@@ -462,17 +500,6 @@ export class DatabaseStorage implements IStorage {
     return analysis;
   }
 
-  async getDeletedAnalyses(userId: string): Promise<DocumentAnalysis[]> {
-    return await db
-      .select()
-      .from(documentAnalyses)
-      .where(and(
-        eq(documentAnalyses.userId, userId),
-        isNotNull(documentAnalyses.deletedAt)
-      ))
-      .orderBy(desc(documentAnalyses.deletedAt));
-  }
-
   async softDeleteAnalysis(id: string, userId: string, deletedBy: string): Promise<DocumentAnalysis> {
     const [analysis] = await db
       .update(documentAnalyses)
@@ -486,7 +513,7 @@ export class DatabaseStorage implements IStorage {
         isNull(documentAnalyses.deletedAt)
       ))
       .returning();
-    if (!analysis) throw new Error("Análise não encontrada ou já foi excluída");
+    if (!analysis) throw new Error("Document analysis not found or already deleted");
     return analysis;
   }
 
@@ -503,7 +530,7 @@ export class DatabaseStorage implements IStorage {
         isNotNull(documentAnalyses.deletedAt)
       ))
       .returning();
-    if (!analysis) throw new Error("Análise não encontrada na lixeira ou já foi restaurada");
+    if (!analysis) throw new Error("Document analysis not found or not deleted");
     return analysis;
   }
 
@@ -512,18 +539,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async cleanupExpiredAnalyses(): Promise<number> {
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    
-    const deletedAnalyses = await db
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const result = await db
       .delete(documentAnalyses)
       .where(and(
         isNotNull(documentAnalyses.deletedAt),
-        lte(documentAnalyses.deletedAt, sevenDaysAgo)
-      ))
-      .returning({ id: documentAnalyses.id });
-      
-    return deletedAnalyses.length;
+        lte(documentAnalyses.deletedAt, thirtyDaysAgo)
+      ));
+
+    return result.rowCount || 0;
   }
 
   // Credit Transactions
@@ -551,158 +577,10 @@ export class DatabaseStorage implements IStorage {
         type,
         amount,
         description,
-        stripePaymentIntentId: stripePaymentIntentId || null,
+        stripePaymentIntentId
       })
       .returning();
     return transaction;
-  }
-
-  // ATOMIC: Process payment transaction with credit update in single DB transaction
-  async processPaymentTransaction(userId: string, transactionData: {
-    type: string;
-    amount: number;
-    description: string;
-    stripePaymentIntentId?: string;
-    newCreditBalance: number;
-  }): Promise<{ user: User; transaction: CreditTransaction }> {
-    // Use database transaction to ensure atomicity and prevent race conditions
-    return await db.transaction(async (tx) => {
-      // First, update user credits
-      const [updatedUser] = await tx
-        .update(users)
-        .set({ 
-          credits: transactionData.newCreditBalance,
-          updatedAt: sql`CURRENT_TIMESTAMP`
-        })
-        .where(eq(users.id, userId))
-        .returning();
-      
-      if (!updatedUser) {
-        throw new Error(`User not found: ${userId}`);
-      }
-      
-      // Then, create the credit transaction with unique constraint protection
-      const [transaction] = await tx
-        .insert(creditTransactions)
-        .values({
-          userId,
-          type: transactionData.type,
-          amount: transactionData.amount,
-          description: transactionData.description,
-          stripePaymentIntentId: transactionData.stripePaymentIntentId || null,
-        })
-        .returning();
-      
-      return { user: updatedUser, transaction };
-    });
-  }
-
-  // ATOMIC: Process batch creation with upfront credit deduction in single DB transaction
-  async processBatchCreationTransaction(
-    userId: string, 
-    batchMeta: InsertBatchJob,
-    files: Express.Multer.File[], 
-    creditsPerDoc: number
-  ): Promise<{ 
-    batchJob: BatchJob; 
-    batchDocuments: BatchDocument[]; 
-    queueJob: QueueJob; 
-    user: User;
-    transaction: CreditTransaction;
-  }> {
-    const totalCreditsNeeded = files.length * creditsPerDoc;
-    
-    // Use database transaction to ensure atomicity and prevent race conditions
-    return await db.transaction(async (tx) => {
-      // First, get current user and assert sufficient credits
-      const [currentUser] = await tx
-        .select()
-        .from(users)
-        .where(eq(users.id, userId));
-      
-      if (!currentUser) {
-        throw new Error(`User not found: ${userId}`);
-      }
-
-      if (currentUser.credits < totalCreditsNeeded) {
-        throw new Error(`Insufficient credits: ${currentUser.credits} available, ${totalCreditsNeeded} required`);
-      }
-
-      // Deduct credits upfront
-      const newCreditBalance = currentUser.credits - totalCreditsNeeded;
-      const [updatedUser] = await tx
-        .update(users)
-        .set({ 
-          credits: newCreditBalance,
-          updatedAt: sql`CURRENT_TIMESTAMP`
-        })
-        .where(eq(users.id, userId))
-        .returning();
-
-      // Create credit transaction record
-      const [transaction] = await tx
-        .insert(creditTransactions)
-        .values({
-          userId,
-          type: 'deduction',
-          amount: -totalCreditsNeeded, // Negative for deduction
-          description: `Batch processing: ${files.length} documents (${creditsPerDoc} credits each)`,
-        })
-        .returning();
-
-      // Create batch job
-      const [batchJob] = await tx
-        .insert(batchJobs)
-        .values({
-          ...batchMeta,
-          userId
-        })
-        .returning();
-
-      // Create batch documents with temp file paths
-      const batchDocumentInserts = files.map(file => ({
-        batchJobId: batchJob.id,
-        originalFileName: file.originalname,
-        fileSize: file.size,
-        fileMimeType: file.mimetype,
-        status: 'pending' as const,
-        metadata: {
-          filePath: file.path, // Store temp file path for processing
-          tempFile: true,
-          uploadedAt: new Date().toISOString()
-        } as BatchDocumentMetadata & { filePath: string; tempFile: boolean; uploadedAt: string }
-      }));
-
-      const createdBatchDocuments = await tx
-        .insert(batchDocuments)
-        .values(batchDocumentInserts)
-        .returning();
-
-      // Create queue job for processing
-      const [queueJob] = await tx
-        .insert(queueJobs)
-        .values({
-          jobType: 'batch_processing',
-          status: 'pending',
-          jobData: {
-            batchJobId: batchJob.id,
-            userId,
-            aiProvider: batchMeta.aiProvider,
-            aiModel: batchMeta.aiModel,
-            analysisType: batchMeta.analysisType,
-            templateId: batchMeta.templateId
-          }
-        })
-        .returning();
-
-      return { 
-        batchJob, 
-        batchDocuments: createdBatchDocuments, 
-        queueJob,
-        user: updatedUser,
-        transaction
-      };
-    });
   }
 
   // Support Tickets
@@ -776,843 +654,239 @@ export class DatabaseStorage implements IStorage {
     return message;
   }
 
-  // Admin-specific user management
-  async getAllUsers(page: number = 1, limit: number = 20): Promise<{users: User[], total: number}> {
-    const offset = (page - 1) * limit;
-    
-    const [usersResult, totalResult] = await Promise.all([
-      db.select().from(users).orderBy(desc(users.createdAt)).limit(limit).offset(offset),
-      db.select({ count: count() }).from(users)
-    ]);
-    
-    return {
-      users: usersResult,
-      total: totalResult[0].count
-    };
+  // Platform Stats methods
+  async getPlatformStats(): Promise<PlatformStats | undefined> {
+    const [stats] = await db.select().from(platformStats).limit(1);
+    return stats || undefined;
   }
 
-  async getPlatformAnalytics(): Promise<{
-    totalUsers: number;
-    totalAnalyses: number;
-    totalCreditsUsed: number;
-    totalCreditsPurchased: number;
-    totalRevenue: number;
-    userGrowth: Array<{date: string, count: number}>;
-    analysisGrowth: Array<{date: string, count: number}>;
-    supportTicketsStats: {open: number, pending: number, resolved: number, closed: number};
-  }> {
-    // Get basic counts
-    const [userCount, analysisCount] = await Promise.all([
-      db.select({ count: count() }).from(users),
-      db.select({ count: count() }).from(documentAnalyses)
-    ]);
-
-    // Get credit statistics
-    const creditStats = await db.select({
-      totalUsed: sum(creditTransactions.amount),
-      type: creditTransactions.type
-    }).from(creditTransactions).groupBy(creditTransactions.type);
-
-    let totalCreditsUsed = 0;
-    let totalCreditsPurchased = 0;
-    let totalRevenue = 0;
-
-    creditStats.forEach(stat => {
-      if (stat.type === 'usage') {
-        totalCreditsUsed = Math.abs(Number(stat.totalUsed) || 0);
-      } else if (stat.type === 'purchase') {
-        totalCreditsPurchased = Number(stat.totalUsed) || 0;
-        // Assuming each credit costs R$0.10 (adjust as needed)
-        totalRevenue = totalCreditsPurchased * 0.10;
-      }
-    });
-
-    // Get user growth over last 30 days
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-    const userGrowth = await db.select({
-      date: sql<string>`DATE(${users.createdAt})`,
-      count: count()
-    }).from(users)
-      .where(gte(users.createdAt, thirtyDaysAgo))
-      .groupBy(sql`DATE(${users.createdAt})`)
-      .orderBy(sql`DATE(${users.createdAt})`);
-
-    // Get analysis growth over last 30 days
-    const analysisGrowth = await db.select({
-      date: sql<string>`DATE(${documentAnalyses.createdAt})`,
-      count: count()
-    }).from(documentAnalyses)
-      .where(gte(documentAnalyses.createdAt, thirtyDaysAgo))
-      .groupBy(sql`DATE(${documentAnalyses.createdAt})`)
-      .orderBy(sql`DATE(${documentAnalyses.createdAt})`);
-
-    // Get support ticket stats
-    const ticketStats = await db.select({
-      status: supportTickets.status,
-      count: count()
-    }).from(supportTickets).groupBy(supportTickets.status);
-
-    const supportTicketsStats = {
-      open: 0,
-      pending: 0,
-      resolved: 0,
-      closed: 0
-    };
-
-    ticketStats.forEach(stat => {
-      if (stat.status in supportTicketsStats) {
-        supportTicketsStats[stat.status as keyof typeof supportTicketsStats] = Number(stat.count);
-      }
-    });
-
-    return {
-      totalUsers: userCount[0].count,
-      totalAnalyses: analysisCount[0].count,
-      totalCreditsUsed,
-      totalCreditsPurchased,
-      totalRevenue,
-      userGrowth: userGrowth.map(g => ({ date: g.date, count: Number(g.count) })),
-      analysisGrowth: analysisGrowth.map(g => ({ date: g.date, count: Number(g.count) })),
-      supportTicketsStats
-    };
+  async updatePlatformStats(statsData: InsertPlatformStats): Promise<PlatformStats> {
+    const [stats] = await db
+      .insert(platformStats)
+      .values(statsData)
+      .onConflictDoUpdate({
+        target: [platformStats.id],
+        set: statsData
+      })
+      .returning();
+    return stats;
   }
 
+  async computeAndUpdatePlatformStats(): Promise<PlatformStats> {
+    const analytics = await this.getPlatformAnalytics();
+    const statsData: InsertPlatformStats = {
+      totalUsers: analytics.totalUsers,
+      totalAnalyses: analytics.totalAnalyses,
+      totalCreditsUsed: analytics.totalCreditsUsed,
+      totalCreditsPurchased: analytics.totalCreditsPurchased,
+      totalRevenue: analytics.totalRevenue,
+      lastUpdated: new Date()
+    };
+    return await this.updatePlatformStats(statsData);
+  }
+
+  // AI Usage Analytics
   async getAiUsageAnalytics(): Promise<{
     providerUsage: Array<{provider: string, model: string, count: number, totalCredits: number}>;
     analysisTypes: Array<{type: string, count: number}>;
     errorRates: Array<{provider: string, model: string, successRate: number}>;
   }> {
-    // Get provider usage statistics
-    const providerUsage = await db.select({
-      provider: documentAnalyses.aiProvider,
-      model: documentAnalyses.aiModel,
-      count: count(),
-      totalCredits: sum(documentAnalyses.creditsUsed)
-    }).from(documentAnalyses)
-      .groupBy(documentAnalyses.aiProvider, documentAnalyses.aiModel)
-      .orderBy(desc(count()));
-
-    // Get analysis types statistics
-    const analysisTypes = await db.select({
-      type: documentAnalyses.analysisType,
-      count: count()
-    }).from(documentAnalyses)
-      .groupBy(documentAnalyses.analysisType)
-      .orderBy(desc(count()));
-
-    // Get error rates (success rates)
-    const errorRates = await db.select({
-      provider: documentAnalyses.aiProvider,
-      model: documentAnalyses.aiModel,
-      total: count(),
-      successful: sum(sql<number>`CASE WHEN ${documentAnalyses.status} = 'completed' THEN 1 ELSE 0 END`)
-    }).from(documentAnalyses)
-      .groupBy(documentAnalyses.aiProvider, documentAnalyses.aiModel);
-
     return {
-      providerUsage: providerUsage.map(p => ({
-        provider: p.provider,
-        model: p.model,
-        count: Number(p.count),
-        totalCredits: Number(p.totalCredits) || 0
-      })),
-      analysisTypes: analysisTypes.map(a => ({
-        type: a.type,
-        count: Number(a.count)
-      })),
-      errorRates: errorRates.map(e => ({
-        provider: e.provider,
-        model: e.model,
-        successRate: Number(e.successful) / Number(e.total) * 100
-      }))
+      providerUsage: [],
+      analysisTypes: [],
+      errorRates: []
     };
-  }
-
-  // AI Provider Configs (Global)
-  async getAiProviderConfigs(): Promise<AiProviderConfig[]> {
-    return await db
-      .select()
-      .from(aiProviderConfigs)
-      .where(eq(aiProviderConfigs.isActive, true))
-      .orderBy(aiProviderConfigs.sortOrder, aiProviderConfigs.createdAt);
-  }
-
-  async getAiProviderConfig(providerId: string): Promise<AiProviderConfig | undefined> {
-    const [config] = await db
-      .select()
-      .from(aiProviderConfigs)
-      .where(eq(aiProviderConfigs.providerId, providerId));
-    return config || undefined;
-  }
-
-  async createAiProviderConfig(config: InsertAiProviderConfig): Promise<AiProviderConfig> {
-    const [result] = await db
-      .insert(aiProviderConfigs)
-      .values(config)
-      .returning();
-    return result;
-  }
-
-  async updateAiProviderConfig(id: string, config: Partial<InsertAiProviderConfig>): Promise<AiProviderConfig> {
-    const [result] = await db
-      .update(aiProviderConfigs)
-      .set({ ...config, updatedAt: new Date() })
-      .where(eq(aiProviderConfigs.id, id))
-      .returning();
-    if (!result) throw new Error("AI Provider Config not found");
-    return result;
-  }
-
-  async deleteAiProviderConfig(id: string): Promise<void> {
-    await db.delete(aiProviderConfigs).where(eq(aiProviderConfigs.id, id));
   }
 
   // Credit Packages
   async getCreditPackages(): Promise<CreditPackage[]> {
-    return await db
-      .select()
-      .from(creditPackages)
-      .where(eq(creditPackages.isActive, true))
-      .orderBy(creditPackages.sortOrder, creditPackages.createdAt);
+    return await db.select().from(creditPackages).orderBy(creditPackages.createdAt);
   }
 
   async getCreditPackage(packageId: string): Promise<CreditPackage | undefined> {
-    const [pkg] = await db
-      .select()
-      .from(creditPackages)
-      .where(eq(creditPackages.packageId, packageId));
+    const [pkg] = await db.select().from(creditPackages).where(eq(creditPackages.id, packageId));
     return pkg || undefined;
   }
 
-  async createCreditPackage(pkg: InsertCreditPackage): Promise<CreditPackage> {
-    const [result] = await db
-      .insert(creditPackages)
-      .values(pkg)
-      .returning();
-    return result;
+  async createCreditPackage(pkgData: InsertCreditPackage): Promise<CreditPackage> {
+    const [pkg] = await db.insert(creditPackages).values(pkgData).returning();
+    return pkg;
   }
 
-  async updateCreditPackage(id: string, pkg: Partial<InsertCreditPackage>): Promise<CreditPackage> {
-    const [result] = await db
-      .update(creditPackages)
-      .set({ ...pkg, updatedAt: new Date() })
-      .where(eq(creditPackages.id, id))
-      .returning();
-    if (!result) throw new Error("Credit Package not found");
-    return result;
+  async updateCreditPackage(id: string, pkgData: Partial<InsertCreditPackage>): Promise<CreditPackage> {
+    const [pkg] = await db.update(creditPackages).set(pkgData).where(eq(creditPackages.id, id)).returning();
+    if (!pkg) throw new Error("Credit package not found");
+    return pkg;
   }
 
   async deleteCreditPackage(id: string): Promise<void> {
     await db.delete(creditPackages).where(eq(creditPackages.id, id));
   }
 
-  // Platform Stats
-  async getPlatformStats(): Promise<PlatformStats | undefined> {
-    const [stats] = await db
-      .select()
-      .from(platformStats)
-      .orderBy(desc(platformStats.lastUpdated))
-      .limit(1);
-    return stats || undefined;
-  }
-
-  async updatePlatformStats(stats: InsertPlatformStats): Promise<PlatformStats> {
-    // First, try to get existing stats
-    const existingStats = await this.getPlatformStats();
-    
-    if (existingStats) {
-      // Update existing record
-      const [result] = await db
-        .update(platformStats)
-        .set({ ...stats, lastUpdated: new Date() })
-        .where(eq(platformStats.id, existingStats.id))
-        .returning();
-      return result;
-    } else {
-      // Create new record
-      const [result] = await db
-        .insert(platformStats)
-        .values({ ...stats, lastUpdated: new Date() })
-        .returning();
-      return result;
-    }
-  }
-
-  async computeAndUpdatePlatformStats(): Promise<PlatformStats> {
-    // Compute real statistics
-    const [userCount, analysisCount] = await Promise.all([
-      db.select({ count: count() }).from(users),
-      db.select({ count: count() }).from(documentAnalyses)
-    ]);
-
-    // Compute average accuracy (assuming 98% as default since we don't track accuracy yet)
-    const averageAccuracy = 98.0;
-
-    const stats: InsertPlatformStats = {
-      totalDocuments: analysisCount[0].count,
-      totalUsers: userCount[0].count, 
-      totalAnalyses: analysisCount[0].count,
-      averageAccuracy: averageAccuracy.toString()
-    };
-
-    return await this.updatePlatformStats(stats);
-  }
-
-  // Document Templates
-  async getDocumentTemplates(): Promise<DocumentTemplate[]> {
-    return await db
-      .select()
-      .from(documentTemplates)
-      .where(eq(documentTemplates.isActive, true))
-      .orderBy(documentTemplates.sortOrder, documentTemplates.createdAt);
-  }
-
-  async getDocumentTemplate(templateId: string): Promise<DocumentTemplate | undefined> {
-    const [template] = await db
-      .select()
-      .from(documentTemplates)
-      .where(eq(documentTemplates.templateId, templateId));
-    return template || undefined;
-  }
-
-  async getDocumentTemplateById(id: string): Promise<DocumentTemplate | undefined> {
-    const [template] = await db
-      .select()
-      .from(documentTemplates)
-      .where(eq(documentTemplates.id, id));
-    return template || undefined;
-  }
-
-  async getDocumentTemplatesByCategory(category: string): Promise<DocumentTemplate[]> {
-    return await db
-      .select()
-      .from(documentTemplates)
-      .where(and(eq(documentTemplates.category, category), eq(documentTemplates.isActive, true)))
-      .orderBy(documentTemplates.sortOrder, documentTemplates.createdAt);
-  }
-
-  async createDocumentTemplate(template: InsertDocumentTemplate): Promise<DocumentTemplate> {
-    const [result] = await db
-      .insert(documentTemplates)
-      .values(template)
-      .returning();
-    return result;
-  }
-
-  async updateDocumentTemplate(id: string, template: Partial<InsertDocumentTemplate>): Promise<DocumentTemplate> {
-    const [result] = await db
-      .update(documentTemplates)
-      .set({ ...template, updatedAt: new Date() })
-      .where(eq(documentTemplates.id, id))
-      .returning();
-    if (!result) throw new Error("Document Template not found");
-    return result;
-  }
-
-  async deleteDocumentTemplate(id: string): Promise<void> {
-    await db.delete(documentTemplates).where(eq(documentTemplates.id, id));
-  }
-
-  // Legal Clauses
-  async getLegalClauses(): Promise<LegalClause[]> {
-    return await db
-      .select()
-      .from(legalClauses)
-      .where(eq(legalClauses.isActive, true))
-      .orderBy(legalClauses.category, legalClauses.createdAt);
-  }
-
-  async getLegalClause(clauseId: string): Promise<LegalClause | undefined> {
-    const [clause] = await db
-      .select()
-      .from(legalClauses)
-      .where(eq(legalClauses.clauseId, clauseId));
-    return clause || undefined;
-  }
-
-  async getLegalClauseById(id: string): Promise<LegalClause | undefined> {
-    const [clause] = await db
-      .select()
-      .from(legalClauses)
-      .where(eq(legalClauses.id, id));
-    return clause || undefined;
-  }
-
-  async getLegalClausesByCategory(category: string): Promise<LegalClause[]> {
-    return await db
-      .select()
-      .from(legalClauses)
-      .where(and(eq(legalClauses.category, category), eq(legalClauses.isActive, true)))
-      .orderBy(legalClauses.createdAt);
-  }
-
-  async getLegalClausesByTemplate(templateId: string): Promise<LegalClause[]> {
-    // Find clauses that are applicable to this template
-    return await db
-      .select()
-      .from(legalClauses)
-      .where(
-        and(
-          eq(legalClauses.isActive, true),
-          sql`${legalClauses.applicableTemplates} ? ${templateId}`
-        )
-      )
-      .orderBy(legalClauses.category, legalClauses.createdAt);
-  }
-
-  async createLegalClause(clause: InsertLegalClause): Promise<LegalClause> {
-    const [result] = await db
-      .insert(legalClauses)
-      .values(clause)
-      .returning();
-    return result;
-  }
-
-  async updateLegalClause(id: string, clause: Partial<InsertLegalClause>): Promise<LegalClause> {
-    const [result] = await db
-      .update(legalClauses)
-      .set({ ...clause, updatedAt: new Date() })
-      .where(eq(legalClauses.id, id))
-      .returning();
-    if (!result) throw new Error("Legal Clause not found");
-    return result;
-  }
-
-  async deleteLegalClause(id: string): Promise<void> {
-    await db.delete(legalClauses).where(eq(legalClauses.id, id));
-  }
-
-  // Template Prompts
-  async getTemplatePrompts(templateId: string): Promise<TemplatePrompt[]> {
-    return await db
-      .select()
-      .from(templatePrompts)
-      .where(and(eq(templatePrompts.templateId, templateId), eq(templatePrompts.isActive, true)))
-      .orderBy(templatePrompts.priority, templatePrompts.createdAt);
-  }
-
-  async getTemplatePrompt(id: string): Promise<TemplatePrompt | undefined> {
-    const [prompt] = await db
-      .select()
-      .from(templatePrompts)
-      .where(eq(templatePrompts.id, id));
-    return prompt || undefined;
-  }
-
-  async getTemplatePromptsByProvider(templateId: string, aiProvider: string): Promise<TemplatePrompt[]> {
-    return await db
-      .select()
-      .from(templatePrompts)
-      .where(
-        and(
-          eq(templatePrompts.templateId, templateId),
-          eq(templatePrompts.isActive, true),
-          sql`${templatePrompts.aiProvider} = ${aiProvider} OR ${templatePrompts.aiProvider} = 'all'`
-        )
-      )
-      .orderBy(templatePrompts.priority, templatePrompts.createdAt);
-  }
-
-  async createTemplatePrompt(prompt: InsertTemplatePrompt): Promise<TemplatePrompt> {
-    const [result] = await db
-      .insert(templatePrompts)
-      .values(prompt)
-      .returning();
-    return result;
-  }
-
-  async updateTemplatePrompt(id: string, prompt: Partial<InsertTemplatePrompt>): Promise<TemplatePrompt> {
-    const [result] = await db
-      .update(templatePrompts)
-      .set({ ...prompt, updatedAt: new Date() })
-      .where(eq(templatePrompts.id, id))
-      .returning();
-    if (!result) throw new Error("Template Prompt not found");
-    return result;
-  }
-
-  async deleteTemplatePrompt(id: string): Promise<void> {
-    await db.delete(templatePrompts).where(eq(templatePrompts.id, id));
-  }
-
-  // Template Analysis Rules
-  async getTemplateAnalysisRules(templateId: string): Promise<TemplateAnalysisRule[]> {
-    return await db
-      .select()
-      .from(templateAnalysisRules)
-      .where(and(eq(templateAnalysisRules.templateId, templateId), eq(templateAnalysisRules.isActive, true)))
-      .orderBy(templateAnalysisRules.createdAt);
-  }
-
-  async getTemplateAnalysisRule(id: string): Promise<TemplateAnalysisRule | undefined> {
-    const [rule] = await db
-      .select()
-      .from(templateAnalysisRules)
-      .where(eq(templateAnalysisRules.id, id));
-    return rule || undefined;
-  }
-
-  async getTemplateAnalysisRulesByType(templateId: string, ruleType: string): Promise<TemplateAnalysisRule[]> {
-    return await db
-      .select()
-      .from(templateAnalysisRules)
-      .where(
-        and(
-          eq(templateAnalysisRules.templateId, templateId),
-          eq(templateAnalysisRules.ruleType, ruleType),
-          eq(templateAnalysisRules.isActive, true)
-        )
-      )
-      .orderBy(templateAnalysisRules.createdAt);
-  }
-
-  async createTemplateAnalysisRule(rule: InsertTemplateAnalysisRule): Promise<TemplateAnalysisRule> {
-    const [result] = await db
-      .insert(templateAnalysisRules)
-      .values(rule)
-      .returning();
-    return result;
-  }
-
-  async updateTemplateAnalysisRule(id: string, rule: Partial<InsertTemplateAnalysisRule>): Promise<TemplateAnalysisRule> {
-    const [result] = await db
-      .update(templateAnalysisRules)
-      .set({ ...rule, updatedAt: new Date() })
-      .where(eq(templateAnalysisRules.id, id))
-      .returning();
-    if (!result) throw new Error("Template Analysis Rule not found");
-    return result;
-  }
-
-  async deleteTemplateAnalysisRule(id: string): Promise<void> {
-    await db.delete(templateAnalysisRules).where(eq(templateAnalysisRules.id, id));
-  }
-
-  // Enhanced Analysis Methods
-  async getTemplateWithPrompts(templateId: string, aiProvider?: string): Promise<{
-    template: DocumentTemplate;
-    prompts: TemplatePrompt[];
-    analysisRules: TemplateAnalysisRule[];
-    requiredClauses: LegalClause[];
-    optionalClauses: LegalClause[];
-  } | undefined> {
-    const template = await this.getDocumentTemplate(templateId);
-    if (!template) return undefined;
-
-    const [prompts, analysisRules] = await Promise.all([
-      aiProvider 
-        ? this.getTemplatePromptsByProvider(template.id, aiProvider)
-        : this.getTemplatePrompts(template.id),
-      this.getTemplateAnalysisRules(template.id)
-    ]);
-
-    // Get required and optional clauses based on template configuration
-    const requiredClauseIds = Array.isArray(template.requiredClauses) ? template.requiredClauses : [];
-    const optionalClauseIds = Array.isArray(template.optionalClauses) ? template.optionalClauses : [];
-
-    const [requiredClauses, optionalClauses] = await Promise.all([
-      Promise.all(requiredClauseIds.map(async (clauseId: string) => {
-        const clause = await this.getLegalClause(clauseId);
-        return clause;
-      })).then(clauses => clauses.filter(clause => clause !== undefined) as LegalClause[]),
-      Promise.all(optionalClauseIds.map(async (clauseId: string) => {
-        const clause = await this.getLegalClause(clauseId);
-        return clause;
-      })).then(clauses => clauses.filter(clause => clause !== undefined) as LegalClause[])
-    ]);
-
-    return {
-      template,
-      prompts,
-      analysisRules,
-      requiredClauses,
-      optionalClauses
-    };
-  }
-
-  // Batch Jobs Management
-  async getBatchJobs(userId: string, limit?: number): Promise<BatchJob[]> {
-    const query = db.select().from(batchJobs).where(eq(batchJobs.userId, userId)).orderBy(desc(batchJobs.createdAt));
-    if (limit) {
-      query.limit(limit);
-    }
-    return await query;
-  }
-
-  async getBatchJob(id: string, userId: string): Promise<BatchJob | undefined> {
-    const [batchJob] = await db.select().from(batchJobs).where(and(eq(batchJobs.id, id), eq(batchJobs.userId, userId)));
-    return batchJob || undefined;
-  }
-
-  async getBatchJobById(id: string): Promise<BatchJob | undefined> {
-    const [batchJob] = await db.select().from(batchJobs).where(eq(batchJobs.id, id));
-    return batchJob || undefined;
-  }
-
-  async createBatchJob(userId: string, batchJob: InsertBatchJob): Promise<BatchJob> {
-    const [result] = await db
-      .insert(batchJobs)
-      .values({ ...batchJob, userId })
-      .returning();
-    return result;
-  }
-
-  async updateBatchJob(id: string, updates: Partial<BatchJob>): Promise<BatchJob> {
-    const [result] = await db
-      .update(batchJobs)
-      .set({ ...updates, updatedAt: new Date() })
-      .where(eq(batchJobs.id, id))
-      .returning();
-    if (!result) throw new Error("Batch job not found");
-    return result;
-  }
-
-  async updateBatchJobStatus(id: string, status: string, errorMessage?: string): Promise<BatchJob> {
-    const updates: any = { status, updatedAt: new Date() };
-    if (errorMessage) updates.errorMessage = errorMessage;
-    if (status === 'processing') updates.processingStartedAt = new Date();
-    if (status === 'completed' || status === 'failed') updates.processingCompletedAt = new Date();
-
-    const [result] = await db
-      .update(batchJobs)
-      .set(updates)
-      .where(eq(batchJobs.id, id))
-      .returning();
-    if (!result) throw new Error("Batch job not found");
-    return result;
-  }
-
-  async deleteBatchJob(id: string): Promise<void> {
-    await db.delete(batchJobs).where(eq(batchJobs.id, id));
-  }
-
-  // Batch Documents Management
-  async getBatchDocuments(batchJobId: string): Promise<BatchDocument[]> {
-    return await db.select().from(batchDocuments).where(eq(batchDocuments.batchJobId, batchJobId)).orderBy(batchDocuments.sortOrder);
-  }
-
-  async getBatchDocument(id: string): Promise<BatchDocument | undefined> {
-    const [batchDocument] = await db.select().from(batchDocuments).where(eq(batchDocuments.id, id));
-    return batchDocument || undefined;
-  }
-
-  async createBatchDocument(batchDocument: InsertBatchDocument): Promise<BatchDocument> {
-    const [result] = await db
-      .insert(batchDocuments)
-      .values(batchDocument)
-      .returning();
-    return result;
-  }
-
-  async updateBatchDocument(id: string, updates: Partial<BatchDocument>): Promise<BatchDocument> {
-    const [result] = await db
-      .update(batchDocuments)
-      .set({ ...updates, updatedAt: new Date() })
-      .where(eq(batchDocuments.id, id))
-      .returning();
-    if (!result) throw new Error("Batch document not found");
-    return result;
-  }
-
-  async updateBatchDocumentStatus(id: string, status: string, errorMessage?: string): Promise<BatchDocument> {
-    const updates: any = { status, updatedAt: new Date() };
-    if (errorMessage) updates.errorMessage = errorMessage;
-    if (status === 'processing') updates.processingStartedAt = new Date();
-    if (status === 'completed' || status === 'failed') updates.processingCompletedAt = new Date();
-
-    const [result] = await db
-      .update(batchDocuments)
-      .set(updates)
-      .where(eq(batchDocuments.id, id))
-      .returning();
-    if (!result) throw new Error("Batch document not found");
-    return result;
-  }
-
-  async linkBatchDocumentToAnalysis(batchDocumentId: string, analysisId: string): Promise<BatchDocument> {
-    const [result] = await db
-      .update(batchDocuments)
-      .set({ documentAnalysisId: analysisId, updatedAt: new Date() })
-      .where(eq(batchDocuments.id, batchDocumentId))
-      .returning();
-    if (!result) throw new Error("Batch document not found");
-    return result;
-  }
-
-  async deleteBatchDocument(id: string): Promise<void> {
-    await db.delete(batchDocuments).where(eq(batchDocuments.id, id));
-  }
-
-  // Queue Jobs Management
-  async getQueueJobs(status?: string, limit?: number): Promise<QueueJob[]> {
-    const baseQuery = db.select().from(queueJobs);
-    
-    if (status && limit) {
-      return await baseQuery
-        .where(eq(queueJobs.status, status))
-        .orderBy(desc(queueJobs.priority), queueJobs.scheduledFor)
-        .limit(limit);
-    } else if (status) {
-      return await baseQuery
-        .where(eq(queueJobs.status, status))
-        .orderBy(desc(queueJobs.priority), queueJobs.scheduledFor);
-    } else if (limit) {
-      return await baseQuery
-        .orderBy(desc(queueJobs.priority), queueJobs.scheduledFor)
-        .limit(limit);
-    } else {
-      return await baseQuery
-        .orderBy(desc(queueJobs.priority), queueJobs.scheduledFor);
-    }
-  }
-
-  async getQueueJob(id: string): Promise<QueueJob | undefined> {
-    const [queueJob] = await db.select().from(queueJobs).where(eq(queueJobs.id, id));
-    return queueJob || undefined;
-  }
-
-  async createQueueJob(queueJob: InsertQueueJob): Promise<QueueJob> {
-    const [result] = await db
-      .insert(queueJobs)
-      .values(queueJob)
-      .returning();
-    return result;
-  }
-
-  async updateQueueJob(id: string, updates: Partial<QueueJob>): Promise<QueueJob> {
-    const [result] = await db
-      .update(queueJobs)
-      .set({ ...updates, updatedAt: new Date() })
-      .where(eq(queueJobs.id, id))
-      .returning();
-    if (!result) throw new Error("Queue job not found");
-    return result;
-  }
-
-  async updateQueueJobStatus(id: string, status: string, errorMessage?: string): Promise<QueueJob> {
-    const updates: any = { status, updatedAt: new Date() };
-    if (errorMessage) updates.errorMessage = errorMessage;
-    if (status === 'processing') updates.processingStartedAt = new Date();
-    if (status === 'completed' || status === 'failed') updates.processingCompletedAt = new Date();
-
-    const [result] = await db
-      .update(queueJobs)
-      .set(updates)
-      .where(eq(queueJobs.id, id))
-      .returning();
-    if (!result) throw new Error("Queue job not found");
-    return result;
-  }
-
-  async getNextQueueJob(): Promise<QueueJob | undefined> {
-    const [queueJob] = await db
-      .select()
-      .from(queueJobs)
-      .where(and(
-        eq(queueJobs.status, 'pending'),
-        gte(queueJobs.scheduledFor, new Date())
-      ))
-      .orderBy(desc(queueJobs.priority), queueJobs.scheduledFor)
-      .limit(1);
-    return queueJob || undefined;
-  }
-
-  async retryFailedQueueJob(id: string): Promise<QueueJob> {
-    const [result] = await db
-      .update(queueJobs)
-      .set({ 
-        status: 'pending', 
-        attempts: sql`${queueJobs.attempts} + 1`,
-        errorMessage: null,
-        scheduledFor: new Date(),
-        updatedAt: new Date()
-      })
-      .where(eq(queueJobs.id, id))
-      .returning();
-    if (!result) throw new Error("Queue job not found");
-    return result;
-  }
-
-  async deleteQueueJob(id: string): Promise<void> {
-    await db.delete(queueJobs).where(eq(queueJobs.id, id));
-  }
-
-  // Batch Processing Analytics
-  async getBatchJobStatistics(userId?: string): Promise<{
-    totalBatches: number;
-    completedBatches: number;
-    failedBatches: number;
-    averageProcessingTime: number;
-    totalDocumentsProcessed: number;
+  // SECURITY: Migration functions for upgrading legacy encrypted keys
+  
+  /**
+   * Migrates all system AI provider keys from legacy format to secure GCM format
+   * @returns Migration results with counts and errors
+   */
+  async migrateSystemApiKeys(): Promise<{
+    total: number;
+    migrated: number;
+    alreadySecure: number;
+    errors: Array<{id: string, error: string}>;
   }> {
-    const baseQuery = db.select({
-      total: count(),
-      completed: sum(sql`CASE WHEN ${batchJobs.status} = 'completed' THEN 1 ELSE 0 END`).mapWith(Number),
-      failed: sum(sql`CASE WHEN ${batchJobs.status} = 'failed' THEN 1 ELSE 0 END`).mapWith(Number),
-      totalDocs: sum(batchJobs.processedDocuments).mapWith(Number),
-      avgTime: sql`AVG(EXTRACT(epoch FROM (${batchJobs.processingCompletedAt} - ${batchJobs.processingStartedAt})))`.mapWith(Number)
-    }).from(batchJobs);
-
-    const [stats] = userId 
-      ? await baseQuery.where(eq(batchJobs.userId, userId))
-      : await baseQuery;
+    console.log('🔄 Starting migration of system AI provider keys...');
     
-    return {
-      totalBatches: stats?.total || 0,
-      completedBatches: stats?.completed || 0,
-      failedBatches: stats?.failed || 0,
-      averageProcessingTime: stats?.avgTime || 0,
-      totalDocumentsProcessed: stats?.totalDocs || 0
-    };
-  }
-
-  // Admin Batch Management
-  async getAllBatchJobs(page = 1, limit = 20): Promise<{jobs: BatchJob[], total: number}> {
-    const offset = (page - 1) * limit;
-    
-    const [jobs, totalResult] = await Promise.all([
-      db.select().from(batchJobs).orderBy(desc(batchJobs.createdAt)).limit(limit).offset(offset),
-      db.select({ count: count() }).from(batchJobs)
-    ]);
-
-    return {
-      jobs,
-      total: totalResult[0]?.count || 0
-    };
-  }
-
-  async getBatchJobsWithDetails(userId?: string): Promise<Array<BatchJob & {
-    documents: BatchDocument[];
-    totalDocuments: number;
-    completedDocuments: number;
-    failedDocuments: number;
-  }>> {
-    const baseQuery = db.select().from(batchJobs).orderBy(desc(batchJobs.createdAt));
-    
-    const jobs = userId 
-      ? await baseQuery.where(eq(batchJobs.userId, userId))
-      : await baseQuery;
-    
-    const jobsWithDetails = await Promise.all(
-      jobs.map(async (job) => {
-        const documents = await this.getBatchDocuments(job.id);
-        const totalDocuments = documents.length;
-        const completedDocuments = documents.filter(doc => doc.status === 'completed').length;
-        const failedDocuments = documents.filter(doc => doc.status === 'failed').length;
-
+    try {
+      const providers = await db.select().from(systemAiProviders);
+      const results = {
+        total: providers.length,
+        migrated: 0,
+        alreadySecure: 0,
+        errors: [] as Array<{id: string, error: string}>
+      };
+      
+      for (const provider of providers) {
+        try {
+          if (!provider.apiKey) {
+            console.log(`⚠️  Provider ${provider.provider} has no API key, skipping`);
+            continue;
+          }
+          
+          // Check if key is in legacy format
+          if (isLegacyFormat(provider.apiKey)) {
+            console.log(`🔄 Migrating provider ${provider.provider} from legacy format`);
+            
+            // Migrate the key
+            const migratedKey = migrateApiKey(provider.apiKey);
+            
+            // Update in database
+            await db
+              .update(systemAiProviders)
+              .set({ 
+                apiKey: migratedKey,
+                updatedAt: new Date()
+              })
+              .where(eq(systemAiProviders.id, provider.id));
+            
+            results.migrated++;
+            console.log(`✅ Successfully migrated provider ${provider.provider}`);
+          } else {
+            results.alreadySecure++;
+            console.log(`✅ Provider ${provider.provider} already uses secure format`);
+          }
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+          results.errors.push({id: provider.id, error: errorMsg});
+          console.error(`❌ Failed to migrate provider ${provider.provider}:`, errorMsg);
+        }
+      }
+      
+      console.log(`🏁 Migration completed:`);
+      console.log(`   Total providers: ${results.total}`);
+      console.log(`   Migrated: ${results.migrated}`);
+      console.log(`   Already secure: ${results.alreadySecure}`);
+      console.log(`   Errors: ${results.errors.length}`);
+      
+      return results;
+    } catch (error) {
+      // DEFENSIVE: Handle case where table doesn't exist yet
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      if (errorMsg.includes('relation') && errorMsg.includes('does not exist')) {
+        console.log(`✅ Table system_ai_providers doesn't exist yet - skipping migration (this is normal for new installations)`);
         return {
-          ...job,
-          documents,
-          totalDocuments,
-          completedDocuments,
-          failedDocuments
+          total: 0,
+          migrated: 0,
+          alreadySecure: 0,
+          errors: []
         };
-      })
-    );
-
-    return jobsWithDetails;
+      }
+      
+      // Re-throw other errors
+      console.error('❌ Failed to access system_ai_providers table:', errorMsg);
+      throw error;
+    }
+  }
+  
+  /**
+   * One-time migration function to upgrade all encrypted data
+   * Should be called once during application startup after encryption validation
+   */
+  async performOneTimeMigration(): Promise<void> {
+    try {
+      console.log('🔄 Starting one-time security migration...');
+      
+      // Check if migration was already performed
+      const migrationKey = 'encryption_migration_v2_gcm';
+      const existingMigration = await this.checkMigrationStatus(migrationKey);
+      
+      if (existingMigration) {
+        console.log('✅ Migration already completed, skipping');
+        return;
+      }
+      
+      // Perform migration
+      const systemResults = await this.migrateSystemApiKeys();
+      
+      // Check if any errors occurred
+      if (systemResults.errors.length > 0) {
+        console.warn(`⚠️  Migration completed with ${systemResults.errors.length} errors`);
+        // Log errors but don't fail completely
+        systemResults.errors.forEach(error => {
+          console.error(`   Error migrating ${error.id}: ${error.error}`);
+        });
+      }
+      
+      // Mark migration as completed
+      await this.markMigrationCompleted(migrationKey);
+      
+      console.log('✅ One-time security migration completed successfully');
+    } catch (error) {
+      console.error('❌ Critical error during security migration:', error);
+      throw new Error(`Security migration failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+  
+  /**
+   * Check if a specific migration was already performed
+   * Uses a simple approach with platformStats or creates a migration tracking mechanism
+   */
+  private async checkMigrationStatus(migrationKey: string): Promise<boolean> {
+    try {
+      // Simple check: look for a marker in platformStats or use a file-based approach
+      // For now, we'll use a simple file-based approach
+      const fs = await import('fs');
+      const path = await import('path');
+      const migrationFile = path.join('/tmp', `${migrationKey}.completed`);
+      
+      return fs.existsSync(migrationFile);
+    } catch (error) {
+      console.warn('Migration status check failed, assuming not migrated:', error);
+      return false;
+    }
+  }
+  
+  /**
+   * Mark a migration as completed
+   */
+  private async markMigrationCompleted(migrationKey: string): Promise<void> {
+    try {
+      const fs = await import('fs');
+      const path = await import('path');
+      const migrationFile = path.join('/tmp', `${migrationKey}.completed`);
+      
+      const migrationData = {
+        migrationKey,
+        completedAt: new Date().toISOString(),
+        version: 'v2_gcm'
+      };
+      
+      await fs.promises.writeFile(migrationFile, JSON.stringify(migrationData, null, 2));
+      console.log(`✅ Migration ${migrationKey} marked as completed`);
+    } catch (error) {
+      console.warn('Failed to mark migration as completed:', error);
+      // Don't throw here as this is not critical
+    }
   }
 }
 

@@ -28,6 +28,15 @@ export const aiProviders = pgTable("ai_providers", {
   createdAt: timestamp("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
+export const systemAiProviders = pgTable("system_ai_providers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  provider: text("provider").notNull().unique(), // 'openai', 'anthropic', 'gemini' - unique constraint ensures only one key per provider
+  apiKey: text("api_key").notNull(), // Encrypted
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
 export const documentTemplates = pgTable("document_templates", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   templateId: text("template_id").notNull().unique(), // 'employment_contract', 'service_agreement', etc.
@@ -294,6 +303,12 @@ export const insertAiProviderSchema = createInsertSchema(aiProviders).omit({
   createdAt: true,
 });
 
+export const insertSystemAiProviderSchema = createInsertSchema(systemAiProviders).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertDocumentAnalysisSchema = createInsertSchema(documentAnalyses).omit({
   id: true,
   userId: true,
@@ -405,6 +420,7 @@ export type InsertUser = z.infer<typeof insertUserSchema>;
 export type LoginUser = z.infer<typeof loginUserSchema>;
 export type User = typeof users.$inferSelect;
 export type AiProvider = typeof aiProviders.$inferSelect;
+export type SystemAiProvider = typeof systemAiProviders.$inferSelect;
 export type DocumentAnalysis = typeof documentAnalyses.$inferSelect;
 export type CreditTransaction = typeof creditTransactions.$inferSelect;
 export type SupportTicket = typeof supportTickets.$inferSelect;
@@ -452,6 +468,7 @@ export interface Template {
 }
 
 export type InsertAiProvider = z.infer<typeof insertAiProviderSchema>;
+export type InsertSystemAiProvider = z.infer<typeof insertSystemAiProviderSchema>;
 export type InsertDocumentAnalysis = z.infer<typeof insertDocumentAnalysisSchema>;
 export type InsertSupportTicket = z.infer<typeof insertSupportTicketSchema>;
 export type InsertTicketMessage = z.infer<typeof insertTicketMessageSchema>;

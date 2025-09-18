@@ -118,6 +118,34 @@ interface FinancialDetails {
   activePackages: number;
 }
 
+interface SystemApiKey {
+  id: string;
+  provider: string;
+  maskedApiKey: string; // SECURITY: Never expose full API keys to frontend
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface SystemApiKeysResponse {
+  providers: SystemApiKey[];
+  status: Array<{
+    provider: string;
+    configured: boolean;
+    isActive: boolean;
+    id: string | null;
+    maskedApiKey: string; // SECURITY: Only masked keys in frontend
+    createdAt: string | null;
+    updatedAt: string | null;
+  }>;
+}
+
+interface ApiTestResult {
+  success: boolean;
+  message: string;
+  provider: string;
+}
+
 interface CreditTrends {
   creditTrends: Array<{
     date: string;
@@ -208,6 +236,17 @@ export default function Admin() {
       enabled: !loading && (isAdmin || isSupport),
     });
 
+  // Fetch system API keys
+  const { data: systemApiKeys, isLoading: systemKeysLoading } =
+    useQuery<SystemApiKeysResponse>({
+      queryKey: ["/api/admin/system-api-keys"],
+      queryFn: async () => {
+        const response = await apiRequest("GET", "/api/admin/system-api-keys");
+        return response.json();
+      },
+      enabled: !loading && isAdmin, // Only admins can access system keys
+    });
+
   // Update user mutation
   const updateUserMutation = useMutation({
     mutationFn: ({
@@ -226,6 +265,94 @@ export default function Admin() {
       toast({
         title: "Error",
         description: error.message || "Failed to update user",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // System API Keys management
+  const [editingProvider, setEditingProvider] = useState<string | null>(null);
+  const [testingProvider, setTestingProvider] = useState<string | null>(null);
+
+  // Create or update system API key mutation
+  const saveSystemApiKeyMutation = useMutation({
+    mutationFn: ({ provider, apiKey, isActive }: { provider: string; apiKey: string; isActive: boolean }) => {
+      const existingProvider = systemApiKeys?.providers.find(p => p.provider === provider);
+      
+      if (existingProvider) {
+        // Update existing key
+        return apiRequest("PUT", `/api/admin/system-api-keys/${existingProvider.id}`, {
+          apiKey,
+          isActive
+        });
+      } else {
+        // Create new key
+        return apiRequest("POST", "/api/admin/system-api-keys", {
+          provider,
+          apiKey,
+          isActive
+        });
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/system-api-keys"] });
+      toast({ title: "Sucesso", description: "Chave de API salva com sucesso" });
+      setEditingProvider(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro",
+        description: error.message || "Falha ao salvar chave de API",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Delete system API key mutation
+  const deleteSystemApiKeyMutation = useMutation({
+    mutationFn: (providerId: string) => apiRequest("DELETE", `/api/admin/system-api-keys/${providerId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/system-api-keys"] });
+      toast({ title: "Sucesso", description: "Chave de API removida com sucesso" });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro",
+        description: error.message || "Falha ao remover chave de API",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Test API key connectivity mutation
+  const testApiKeyMutation = useMutation({
+    mutationFn: async (providerId: string) => {
+      setTestingProvider(providerId);
+      const response = await apiRequest("POST", `/api/admin/system-api-keys/${providerId}/test`);
+      // SECURITY FIX: Parse response.json() correctly
+      return response.json();
+    },
+    onSuccess: (result: ApiTestResult, providerId: string) => {
+      setTestingProvider(null);
+      
+      if (result.success) {
+        toast({ 
+          title: "Teste bem-sucedido", 
+          description: result.message,
+        });
+      } else {
+        toast({
+          title: "Falha no teste",
+          description: result.message,
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (error: any) => {
+      setTestingProvider(null);
+      toast({
+        title: "Erro no teste",
+        description: error.message || "Falha ao testar conectividade",
         variant: "destructive",
       });
     },
@@ -281,10 +408,14 @@ export default function Admin() {
         </div>
 
         <Tabs defaultValue="users" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="users" data-testid="tab-users">
               <Users className="mr-2 h-4 w-4" />
               Usuários
+            </TabsTrigger>
+            <TabsTrigger value="system-keys" data-testid="tab-system-keys">
+              <Zap className="mr-2 h-4 w-4" />
+              Chaves do Sistema
             </TabsTrigger>
             <TabsTrigger value="ai-monitoring" data-testid="tab-ai-monitoring">
               <Activity className="mr-2 h-4 w-4" />
@@ -473,6 +604,202 @@ export default function Admin() {
                 </CardContent>
               </Card>
             )}
+          </TabsContent>
+
+          {/* System API Keys Tab */}
+          <TabsContent value="system-keys" data-testid="content-system-keys">
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Chaves de API do Sistema</CardTitle>
+                  <CardDescription>
+                    Configure as chaves de API dos provedores de IA que serão usadas como fallback quando o usuário não tiver sua própria chave
+                  </CardDescription>
+                </CardHeader>
+              </Card>
+
+              <div className="grid gap-4">
+                {systemKeysLoading ? (
+                  <div className="space-y-4">
+                    {[...Array(3)].map((_, i) => (
+                      <Card key={i}>
+                        <CardContent className="p-6">
+                          <Skeleton className="h-20 w-full" />
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  ['openai', 'anthropic', 'gemini'].map((providerType) => {
+                    const providerStatus = systemApiKeys?.status.find(s => s.provider === providerType);
+                    const providerData = systemApiKeys?.providers.find(p => p.provider === providerType);
+                    const isConfigured = providerStatus?.configured || false;
+                    const isActive = providerStatus?.isActive || false;
+                    const isEditing = editingProvider === providerType;
+                    const isTesting = testingProvider === providerData?.id;
+                    
+                    return (
+                      <Card key={providerType}>
+                        <CardHeader>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                                {providerType === 'openai' && <Zap className="h-4 w-4 text-primary" />}
+                                {providerType === 'anthropic' && <Activity className="h-4 w-4 text-primary" />}
+                                {providerType === 'gemini' && <TrendingUp className="h-4 w-4 text-primary" />}
+                              </div>
+                              <div>
+                                <CardTitle className="text-lg capitalize">
+                                  {providerType === 'openai' ? 'OpenAI' : 
+                                   providerType === 'anthropic' ? 'Anthropic' : 'Google Gemini'}
+                                </CardTitle>
+                                <CardDescription>
+                                  Status: <Badge 
+                                    variant={isConfigured && isActive ? "default" : isConfigured ? "secondary" : "outline"} 
+                                    data-testid={`status-${providerType}`}
+                                  >
+                                    {isConfigured && isActive ? 'Ativo' : 
+                                     isConfigured ? 'Configurado (Inativo)' : 'Não configurado'}
+                                  </Badge>
+                                </CardDescription>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {isConfigured && (
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  disabled={!isActive || isTesting}
+                                  onClick={() => providerData && testApiKeyMutation.mutate(providerData.id)}
+                                  data-testid={`button-test-${providerType}`}
+                                >
+                                  {isTesting ? (
+                                    <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                                  ) : (
+                                    <CheckCircle className="h-4 w-4 mr-2" />
+                                  )}
+                                  {isTesting ? 'Testando...' : 'Testar'}
+                                </Button>
+                              )}
+                              <Button 
+                                size="sm"
+                                variant={isEditing ? "secondary" : "default"}
+                                onClick={() => setEditingProvider(isEditing ? null : providerType)}
+                                data-testid={`button-configure-${providerType}`}
+                              >
+                                {isEditing ? 'Cancelar' : (isConfigured ? 'Editar' : 'Configurar')}
+                              </Button>
+                              {isConfigured && (
+                                <Button 
+                                  variant="destructive"
+                                  size="sm"
+                                  onClick={() => providerData && deleteSystemApiKeyMutation.mutate(providerData.id)}
+                                  data-testid={`button-delete-${providerType}`}
+                                >
+                                  Remover
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        </CardHeader>
+                        {isEditing && (
+                          <CardContent>
+                            <div className="space-y-4">
+                              <div className="grid gap-2">
+                                <Label htmlFor={`apikey-${providerType}`}>Chave de API</Label>
+                                <div className="flex gap-2">
+                                  <Input
+                                    id={`apikey-${providerType}`}
+                                    type="password"
+                                    placeholder={`Digite a chave de API do ${providerType === 'openai' ? 'OpenAI' : 
+                                               providerType === 'anthropic' ? 'Anthropic' : 'Google Gemini'}`}
+                                    data-testid={`input-apikey-${providerType}`}
+                                  />
+                                  <Button 
+                                    variant="default"
+                                    disabled={saveSystemApiKeyMutation.isPending}
+                                    onClick={(e) => {
+                                      const input = document.getElementById(`apikey-${providerType}`) as HTMLInputElement;
+                                      const checkbox = document.getElementById(`active-${providerType}`) as HTMLInputElement;
+                                      const apiKey = input?.value?.trim();
+                                      const isActive = checkbox?.checked || false;
+                                      
+                                      if (apiKey) {
+                                        saveSystemApiKeyMutation.mutate({
+                                          provider: providerType,
+                                          apiKey,
+                                          isActive
+                                        });
+                                      }
+                                    }}
+                                    data-testid={`button-save-${providerType}`}
+                                  >
+                                    {saveSystemApiKeyMutation.isPending ? 'Salvando...' : 'Salvar'}
+                                  </Button>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <input 
+                                  type="checkbox" 
+                                  id={`active-${providerType}`}
+                                  className="rounded"
+                                  defaultChecked={isActive}
+                                  data-testid={`checkbox-active-${providerType}`}
+                                />
+                                <Label htmlFor={`active-${providerType}`}>
+                                  Ativar este provedor
+                                </Label>
+                              </div>
+                            </div>
+                          </CardContent>
+                        )}
+                        {!isEditing && isConfigured && (
+                          <CardContent>
+                            <div className="text-sm text-muted-foreground space-y-1">
+                              <p>
+                                <strong>Última atualização:</strong> {
+                                  providerData?.updatedAt ? 
+                                  format(new Date(providerData.updatedAt), "dd/MM/yyyy 'às' HH:mm") : 
+                                  'Nunca'
+                                }
+                              </p>
+                              <p>
+                                <strong>Criado em:</strong> {
+                                  providerData?.createdAt ? 
+                                  format(new Date(providerData.createdAt), "dd/MM/yyyy 'às' HH:mm") : 
+                                  'N/A'
+                                }
+                              </p>
+                            </div>
+                          </CardContent>
+                        )}
+                      </Card>
+                    );
+                  })
+                )}
+              </div>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Instruções</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="text-sm text-muted-foreground space-y-2">
+                    <p><strong>OpenAI:</strong> Obtenha sua chave em <a href="https://platform.openai.com/api-keys" target="_blank" className="text-primary hover:underline">platform.openai.com</a></p>
+                    <p><strong>Anthropic:</strong> Obtenha sua chave em <a href="https://console.anthropic.com/" target="_blank" className="text-primary hover:underline">console.anthropic.com</a></p>
+                    <p><strong>Google Gemini:</strong> Obtenha sua chave em <a href="https://aistudio.google.com/app/apikey" target="_blank" className="text-primary hover:underline">aistudio.google.com</a></p>
+                  </div>
+                  <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
+                    <div className="flex gap-2">
+                      <AlertTriangle className="h-4 w-4 text-yellow-600 mt-0.5 flex-shrink-0" />
+                      <div className="text-sm text-yellow-800 dark:text-yellow-200">
+                        <strong>Importante:</strong> Estas chaves serão usadas como fallback quando usuários não tiverem suas próprias chaves configuradas. Mantenha-as seguras e monitore o uso.
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
           {/* AI Monitoring Tab */}

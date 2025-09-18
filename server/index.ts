@@ -1,8 +1,14 @@
+import dotenv from "dotenv";
+
+// SECURITY: Load environment variables first, before any other imports
+dotenv.config();
+
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import bcrypt from "bcrypt";
 import { storage } from "./storage";
+import { validateEncryptionStartup } from "./lib/encryption";
 import fs from "fs";
 import path from "path";
 
@@ -153,8 +159,19 @@ async function createInitialAdminUser() {
 }
 
 (async () => {
+  // SECURITY: Validate encryption system at startup
+  validateEncryptionStartup();
+  
   // SECURITY FIX: Create upload directories before routes registration
   await createUploadDirectories();
+  
+  // SECURITY: Perform one-time migration after encryption validation
+  try {
+    await storage.performOneTimeMigration();
+  } catch (error) {
+    log(`❌ CRITICAL: Security migration failed: ${error}`);
+    process.exit(1);
+  }
   
   const server = await registerRoutes(app);
   

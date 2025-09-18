@@ -6,7 +6,7 @@ import { storage } from "./storage";
 import { aiService } from "./services/ai";
 import { batchProcessor } from "./services/batchProcessor";
 import { requireSupabaseAuth, requireSupabaseAdmin, type AuthenticatedRequest } from "./middleware/supabase-auth";
-import { insertDocumentAnalysisSchema, insertSupportTicketSchema, insertTicketMessageSchema, adminTicketMessageSchema, adminUserUpdateSchema, insertAiProviderConfigSchema, insertCreditPackageSchema, insertDocumentTemplateSchema, insertLegalClauseSchema, insertTemplatePromptSchema, insertTemplateAnalysisRuleSchema, insertBatchJobSchema, insertBatchDocumentSchema, insertQueueJobSchema, users, creditTransactions } from "@shared/schema";
+import { insertDocumentAnalysisSchema, insertSupportTicketSchema, insertTicketMessageSchema, adminTicketMessageSchema, adminUserUpdateSchema, insertAiProviderConfigSchema, insertCreditPackageSchema, insertDocumentTemplateSchema, insertLegalClauseSchema, insertTemplatePromptSchema, insertTemplateAnalysisRuleSchema, insertBatchJobSchema, insertBatchDocumentSchema, insertQueueJobSchema, insertSystemAiProviderSchema, users, creditTransactions } from "@shared/schema";
 import { db } from "./db";
 import { sql, eq, desc, count, sum, gte, and } from "drizzle-orm";
 import multer from "multer";
@@ -1986,6 +1986,144 @@ export async function registerRoutes(app: Express): Promise<Server> {
         documents: documentsWithResults,
         summary
       });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // System AI Provider management endpoints (Admin only)
+  app.get("/api/admin/system-api-keys", requireSupabaseAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      // SECURITY: Use the new method that returns masked API keys only
+      const maskedProviders = await storage.getSystemAiProvidersForAdmin();
+      
+      // Add status information for each provider type
+      const providerStatus = ['openai', 'anthropic', 'gemini'].map(providerType => {
+        const provider = maskedProviders.find(p => p.provider === providerType);
+        return {
+          provider: providerType,
+          configured: !!provider,
+          isActive: provider?.isActive || false,
+          id: provider?.id || null,
+          maskedApiKey: provider?.maskedApiKey || '****',
+          createdAt: provider?.createdAt || null,
+          updatedAt: provider?.updatedAt || null
+        };
+      });
+      
+      // SECURITY: Return providers with masked keys, never full API keys
+      res.json({
+        providers: maskedProviders,
+        status: providerStatus
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/admin/system-api-keys", requireSupabaseAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const validatedData = insertSystemAiProviderSchema.parse(req.body);
+      
+      // Check if provider already exists
+      const existingProvider = await storage.getSystemAiProvider(validatedData.provider);
+      if (existingProvider) {
+        return res.status(400).json({ message: `Chave para ${validatedData.provider} já existe. Use PUT para atualizar.` });
+      }
+      
+      const systemProvider = await storage.createSystemAiProvider(validatedData);
+      res.status(201).json(systemProvider);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.put("/api/admin/system-api-keys/:id", requireSupabaseAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { id } = req.params;
+      const validatedData = insertSystemAiProviderSchema.partial().parse(req.body);
+      
+      const updatedProvider = await storage.updateSystemAiProvider(id, validatedData);
+      res.json(updatedProvider);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/admin/system-api-keys/:id", requireSupabaseAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteSystemAiProvider(id);
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/admin/system-api-keys/:id/test", requireSupabaseAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Get the system provider by ID
+      const providers = await storage.getSystemAiProviders();
+      const provider = providers.find(p => p.id === id);
+      
+      if (!provider || !provider.isActive) {
+        return res.status(404).json({ message: "Provedor não encontrado ou inativo" });
+      }
+      
+      // Test the API key connectivity
+      let testResult = { success: false, message: "", provider: provider.provider };
+      
+      try {
+        switch (provider.provider) {
+          case 'openai':
+            // Test OpenAI API key by making a simple request
+            const openaiTest = await fetch('https://api.openai.com/v1/models', {
+              headers: {
+                'Authorization': `Bearer ${provider.apiKey}`,
+                'Content-Type': 'application/json'
+              }
+            });
+            testResult.success = openaiTest.ok;
+            testResult.message = openaiTest.ok ? "Conexão com OpenAI estabelecida com sucesso" : `Erro OpenAI: ${openaiTest.statusText}`;
+            break;
+            
+          case 'anthropic':
+            // Test Anthropic API key
+            const anthropicTest = await fetch('https://api.anthropic.com/v1/messages', {
+              method: 'POST',
+              headers: {
+                'x-api-key': provider.apiKey,
+                'Content-Type': 'application/json',
+                'anthropic-version': '2023-06-01'
+              },
+              body: JSON.stringify({
+                model: "claude-3-haiku-20240307",
+                max_tokens: 1,
+                messages: [{ role: "user", content: "test" }]
+              })
+            });
+            testResult.success = anthropicTest.ok;
+            testResult.message = anthropicTest.ok ? "Conexão com Anthropic estabelecida com sucesso" : `Erro Anthropic: ${anthropicTest.statusText}`;
+            break;
+            
+          case 'gemini':
+            // Test Gemini API key
+            const geminiTest = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${provider.apiKey}`);
+            testResult.success = geminiTest.ok;
+            testResult.message = geminiTest.ok ? "Conexão com Gemini estabelecida com sucesso" : `Erro Gemini: ${geminiTest.statusText}`;
+            break;
+            
+          default:
+            testResult.message = "Provedor não suportado para teste";
+        }
+      } catch (networkError: any) {
+        testResult.success = false;
+        testResult.message = `Erro de conectividade: ${networkError.message}`;
+      }
+      
+      res.json(testResult);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
