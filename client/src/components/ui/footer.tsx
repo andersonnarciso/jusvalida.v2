@@ -1,5 +1,4 @@
 import { Separator } from '@/components/ui/separator';
-import { Button } from '@/components/ui/button';
 import { 
   Gavel, 
   Mail, 
@@ -8,11 +7,10 @@ import {
   Shield, 
   Cookie, 
   FileText,
-  ExternalLink,
-  Facebook,
-  Twitter,
   Linkedin,
-  Instagram
+  Twitter,
+  Instagram,
+  Facebook
 } from 'lucide-react';
 import { Link } from 'wouter';
 import { useCookiePreferences } from '@/hooks/use-cookie-preferences';
@@ -65,33 +63,33 @@ export function Footer() {
           {/* Quick Links */}
           <div className="space-y-4">
             <h3 className="font-semibold text-foreground">Plataforma</h3>
-            <div className="space-y-2">
-              <Link href="/dashboard">
-                <Button variant="link" className="p-0 h-auto text-muted-foreground hover:text-primary text-sm justify-start">
+            <ul className="space-y-3">
+              <li>
+                <Link href="/dashboard" className="text-muted-foreground hover:text-primary text-sm transition-colors block">
                   Dashboard
-                </Button>
-              </Link>
-              <Link href="/analyses">
-                <Button variant="link" className="p-0 h-auto text-muted-foreground hover:text-primary text-sm justify-start">
+                </Link>
+              </li>
+              <li>
+                <Link href="/analyses" className="text-muted-foreground hover:text-primary text-sm transition-colors block">
                   Minhas Análises
-                </Button>
-              </Link>
-              <Link href="/batch">
-                <Button variant="link" className="p-0 h-auto text-muted-foreground hover:text-primary text-sm justify-start">
+                </Link>
+              </li>
+              <li>
+                <Link href="/batch" className="text-muted-foreground hover:text-primary text-sm transition-colors block">
                   Análise em Lote
-                </Button>
-              </Link>
-              <Link href="/billing">
-                <Button variant="link" className="p-0 h-auto text-muted-foreground hover:text-primary text-sm justify-start">
+                </Link>
+              </li>
+              <li>
+                <Link href="/billing" className="text-muted-foreground hover:text-primary text-sm transition-colors block">
                   Planos e Créditos
-                </Button>
-              </Link>
-              <Link href="/support">
-                <Button variant="link" className="p-0 h-auto text-muted-foreground hover:text-primary text-sm justify-start">
+                </Link>
+              </li>
+              <li>
+                <Link href="/support" className="text-muted-foreground hover:text-primary text-sm transition-colors block">
                   Suporte
-                </Button>
-              </Link>
-            </div>
+                </Link>
+              </li>
+            </ul>
           </div>
           
           {/* Legal Pages */}
@@ -100,53 +98,53 @@ export function Footer() {
               <Shield size={16} />
               <span>Legal & Privacidade</span>
             </h3>
-            <div className="space-y-2">
-              <Link href="/privacy-policy">
-                <Button variant="link" className="p-0 h-auto text-muted-foreground hover:text-primary text-sm justify-start">
+            <ul className="space-y-3">
+              <li>
+                <Link href="/privacy-policy" className="text-muted-foreground hover:text-primary text-sm transition-colors flex items-center">
                   <FileText size={14} className="mr-2" />
                   Política de Privacidade
-                </Button>
-              </Link>
-              <Link href="/cookie-policy">
-                <Button variant="link" className="p-0 h-auto text-muted-foreground hover:text-primary text-sm justify-start">
+                </Link>
+              </li>
+              <li>
+                <Link href="/cookie-policy" className="text-muted-foreground hover:text-primary text-sm transition-colors flex items-center">
                   <Cookie size={14} className="mr-2" />
                   Política de Cookies
-                </Button>
-              </Link>
-              
-              <Button 
-                variant="link" 
-                className="p-0 h-auto text-muted-foreground hover:text-primary text-sm justify-start"
-                onClick={openCookieSettings}
-                data-testid="button-manage-cookies"
-              >
-                <Cookie size={14} className="mr-2" />
-                Gerenciar Cookies
-              </Button>
-              <Link href="/terms-of-service">
-                <Button variant="link" className="p-0 h-auto text-muted-foreground hover:text-primary text-sm justify-start">
+                </Link>
+              </li>
+              <li>
+                <button 
+                  className="text-muted-foreground hover:text-primary text-sm transition-colors flex items-center"
+                  onClick={openCookieSettings}
+                  data-testid="button-manage-cookies"
+                >
+                  <Cookie size={14} className="mr-2" />
+                  Gerenciar Cookies
+                </button>
+              </li>
+              <li>
+                <Link href="/terms-of-service" className="text-muted-foreground hover:text-primary text-sm transition-colors flex items-center">
                   <Gavel size={14} className="mr-2" />
                   Termos de Uso
-                </Button>
-              </Link>
-              
-              <Separator className="my-3" />
-              
-              <div className="space-y-2">
-                <h4 className="font-medium text-sm text-foreground">Encarregado de Dados (DPO)</h4>
-                <div className="space-y-1 text-xs text-muted-foreground">
-                  <div className="flex items-center space-x-2">
-                    <Mail size={12} />
-                    <a href="mailto:dpo@jusvalida.com.br" className="hover:text-primary transition-colors">
-                      dpo@jusvalida.com.br
-                    </a>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Phone size={12} />
-                    <a href="tel:+5511300000001" className="hover:text-primary transition-colors">
-                      +55 (11) 3000-0001
-                    </a>
-                  </div>
+                </Link>
+              </li>
+            </ul>
+            
+            <Separator className="my-4" />
+            
+            <div className="space-y-2">
+              <h4 className="font-medium text-sm text-foreground">Encarregado de Dados (DPO)</h4>
+              <div className="space-y-1 text-xs text-muted-foreground">
+                <div className="flex items-center space-x-2">
+                  <Mail size={12} />
+                  <a href="mailto:dpo@jusvalida.com.br" className="hover:text-primary transition-colors">
+                    dpo@jusvalida.com.br
+                  </a>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Phone size={12} />
+                  <a href="tel:+5511300000001" className="hover:text-primary transition-colors">
+                    +55 (11) 3000-0001
+                  </a>
                 </div>
               </div>
             </div>
@@ -174,24 +172,32 @@ export function Footer() {
               {/* Social Media */}
               <div>
                 <h4 className="font-medium text-sm text-foreground mb-3">Siga-nos</h4>
-                <div className="flex flex-col space-y-2">
-                  <Button variant="link" className="p-0 h-auto text-muted-foreground hover:text-primary text-sm justify-start">
-                    <Linkedin size={14} className="mr-2" />
-                    LinkedIn
-                  </Button>
-                  <Button variant="link" className="p-0 h-auto text-muted-foreground hover:text-primary text-sm justify-start">
-                    <Twitter size={14} className="mr-2" />
-                    Twitter
-                  </Button>
-                  <Button variant="link" className="p-0 h-auto text-muted-foreground hover:text-primary text-sm justify-start">
-                    <Instagram size={14} className="mr-2" />
-                    Instagram
-                  </Button>
-                  <Button variant="link" className="p-0 h-auto text-muted-foreground hover:text-primary text-sm justify-start">
-                    <Facebook size={14} className="mr-2" />
-                    Facebook
-                  </Button>
-                </div>
+                <ul className="space-y-3">
+                  <li>
+                    <a href="#" className="text-muted-foreground hover:text-primary text-sm transition-colors flex items-center">
+                      <Linkedin size={14} className="mr-2" />
+                      LinkedIn
+                    </a>
+                  </li>
+                  <li>
+                    <a href="#" className="text-muted-foreground hover:text-primary text-sm transition-colors flex items-center">
+                      <Twitter size={14} className="mr-2" />
+                      Twitter
+                    </a>
+                  </li>
+                  <li>
+                    <a href="#" className="text-muted-foreground hover:text-primary text-sm transition-colors flex items-center">
+                      <Instagram size={14} className="mr-2" />
+                      Instagram
+                    </a>
+                  </li>
+                  <li>
+                    <a href="#" className="text-muted-foreground hover:text-primary text-sm transition-colors flex items-center">
+                      <Facebook size={14} className="mr-2" />
+                      Facebook
+                    </a>
+                  </li>
+                </ul>
               </div>
             </div>
           </div>
