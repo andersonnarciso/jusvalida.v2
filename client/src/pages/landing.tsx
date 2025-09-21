@@ -332,10 +332,6 @@ export default function Landing() {
                   Começar Agora
                 </Button>
               </Link>
-              <Button variant="outline" size="lg" className="px-8 py-4 text-lg" data-testid="button-demo">
-                <Play className="mr-2" size={20} />
-                Ver Demo
-              </Button>
             </div>
             
             {/* Stats */}
@@ -392,7 +388,7 @@ export default function Landing() {
                 icon: Bot,
                 title: "IA Multimodal",
                 description: "Integração com OpenAI, Google Gemini, Anthropic Claude e outros provedores de IA.",
-                features: ["Múltiplos provedores", "APIs personalizadas", "Comparação de custos"]
+                features: ["Múltiplos provedores, insira sua API Key", "APIs personalizadas", "Comparação de custos"]
               },
               {
                 icon: Upload,
@@ -410,11 +406,11 @@ export default function Landing() {
                 icon: CreditCard,
                 title: "Sistema de Créditos",
                 description: "Pague apenas pelo que usar com nosso sistema flexível de créditos.",
-                features: ["Integração Stripe", "Planos flexíveis", "Histórico detalhado"]
+                features: ["Pagamento via Carão de Crédito", "Planos flexíveis", "Histórico detalhado"]
               },
               {
                 icon: Headphones,
-                title: "Suporte 24/7",
+                title: "Suporte Humanizado",
                 description: "Sistema completo de tickets para suporte técnico e jurídico.",
                 features: ["Chat em tempo real", "Base de conhecimento", "Suporte especializado"]
               },
@@ -471,10 +467,10 @@ export default function Landing() {
                 
                 <ul className="space-y-4 mb-8">
                   {[
-                    "2 validações por dia",
+                    "2 validações por mês",
                     "Documentos até 5 páginas",
-                    "IA gratuita",
-                    "Suporte por email"
+                    "IA gratuita (menos eficiente)",
+                    "Suporte em até 72 horas"
                   ].map((feature, index) => (
                     <li key={index} className="flex items-center" data-testid={`text-plan-free-feature-${index}`}>
                       <Check className="text-primary mr-3" size={16} />
@@ -503,7 +499,7 @@ export default function Landing() {
                 <div className="text-center mb-8">
                   <h3 className="text-2xl font-bold mb-4" data-testid="text-plan-pro-title">Profissional</h3>
                   <div className="text-4xl font-bold mb-2" data-testid="text-plan-pro-price">R$ 97</div>
-                  <div className="opacity-90">100 créditos</div>
+                  <div className="opacity-90">75 créditos</div>
                 </div>
                 
                 <ul className="space-y-4 mb-8">
@@ -511,7 +507,7 @@ export default function Landing() {
                     "100 validações",
                     "Documentos ilimitados",
                     "Todas as IAs premium",
-                    "API keys próprias",
+                    "API Keys  (Insira suas API Keys)",
                     "Suporte prioritário"
                   ].map((feature, index) => (
                     <li key={index} className="flex items-center" data-testid={`text-plan-pro-feature-${index}`}>
@@ -535,7 +531,7 @@ export default function Landing() {
                 <div className="text-center mb-8">
                   <h3 className="text-2xl font-bold mb-4" data-testid="text-plan-enterprise-title">Empresarial</h3>
                   <div className="text-4xl font-bold text-primary mb-2" data-testid="text-plan-enterprise-price">R$ 297</div>
-                  <div className="text-muted-foreground">500 créditos</div>
+                  <div className="text-muted-foreground">150 créditos</div>
                 </div>
                 
                 <ul className="space-y-4 mb-8">
@@ -543,7 +539,7 @@ export default function Landing() {
                     "500 validações",
                     "Múltiplos usuários",
                     "Relatórios avançados",
-                    "Integração API",
+                    "Integração API (Em breve)",
                     "Suporte dedicado"
                   ].map((feature, index) => (
                     <li key={index} className="flex items-center" data-testid={`text-plan-enterprise-feature-${index}`}>
