@@ -1,4 +1,6 @@
-import dotenv from "dotenv";
+   import dotenv from 'dotenv';
+   dotenv.config();
+
 
 // SECURITY: Load environment variables first, before any other imports
 dotenv.config();
