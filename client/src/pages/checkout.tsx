@@ -120,6 +120,7 @@ export default function Checkout() {
   });
   
   const [selectedPackage, setSelectedPackage] = useState<CreditPackage | null>(null);
+  const hasPackages = creditPackages.length > 0;
   const [clientSecret, setClientSecret] = useState("");
   const [showPayment, setShowPayment] = useState(false);
   
@@ -285,8 +286,24 @@ export default function Checkout() {
                   </Card>
                 ))}
               </div>
+              ) : (
+                <Card className="mb-8">
+                  <CardContent className="py-12 text-center space-y-4">
+                    <CreditCard className="mx-auto h-10 w-10 text-muted-foreground" />
+                    <div className="space-y-2">
+                      <h2 className="text-2xl font-semibold">Nenhum pacote dispon�vel</h2>
+                      <p className="text-muted-foreground max-w-md mx-auto">
+                        Nenhum pacote de cr�ditos est� configurado no momento. Entre em contato com o suporte ou volte mais tarde.
+                      </p>
+                    </div>
+                    <Button variant="outline" onClick={() => setLocation('/support')} data-testid="button-contact-support">
+                      Falar com Suporte
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
 
-              {/* Selected Package Summary */}
+              {/* Selected Package Summary */
               <Card className="mb-8">
                 <CardHeader>
                   <CardTitle className="flex items-center" data-testid="text-selected-package-title">
@@ -298,7 +315,7 @@ export default function Checkout() {
                   <div className="flex items-center justify-between py-4 border-b">
                     <div>
                       <div className="font-medium" data-testid="text-selected-package-name">
-                        {selectedPackage.name}
+                        {selectedPackage?.name}
                       </div>
                       <div className="text-sm text-muted-foreground">
                         {selectedPackage.credits} créditos • {selectedPackage.description}
@@ -306,7 +323,7 @@ export default function Checkout() {
                     </div>
                     <div className="text-right">
                       <div className="text-2xl font-bold text-primary" data-testid="text-selected-package-price">
-                        R$ {parseFloat(selectedPackage.price)}
+                        {selectedPackage ? R$  : 'R$ 0,00'}
                       </div>
                     </div>
                   </div>
@@ -318,12 +335,12 @@ export default function Checkout() {
                     </div>
                     <div className="flex items-center justify-between text-sm mb-2">
                       <span>Créditos adicionais:</span>
-                      <span data-testid="text-additional-credits">+{selectedPackage.credits}</span>
+                      <span data-testid="text-additional-credits">+{selectedPackage?.credits || 0}</span>
                     </div>
                     <div className="flex items-center justify-between font-medium">
                       <span>Total após compra:</span>
                       <span className="text-primary" data-testid="text-total-credits">
-                        {(userProfile?.userProfile?.credits || 0) + selectedPackage.credits} créditos
+                        {(userProfile?.userProfile?.credits || 0) + (selectedPackage?.credits || 0)} créditos
                       </span>
                     </div>
                   </div>
@@ -351,7 +368,7 @@ export default function Checkout() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {clientSecret && (
+                {clientSecret && selectedPackage && (
                   <Elements stripe={stripePromise} options={{ clientSecret }}>
                     <CheckoutForm 
                       selectedPackage={selectedPackage}
@@ -385,3 +402,5 @@ export default function Checkout() {
     </div>
   );
 }
+
+
