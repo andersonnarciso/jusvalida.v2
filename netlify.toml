@@ -1,0 +1,17 @@
+[build]
+  command = "npm run build"
+  publish = "dist/public"
+  functions = "dist"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[functions]
+  directory = "dist"
+
+[dev]
+  command = "npm run dev"
+  port = 5173
+  targetPort = 5173

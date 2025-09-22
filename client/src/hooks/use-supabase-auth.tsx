@@ -26,6 +26,10 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
       setSession(session);
       setUser(session?.user || null);
       setLoading(false);
+      
+      // Adicionar log para debug
+      console.log('SupabaseAuthProvider - initial session:', session);
+      console.log('SupabaseAuthProvider - user:', session?.user || null);
     };
 
     getInitialSession();
@@ -36,6 +40,10 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
         setSession(session);
         setUser(session?.user || null);
         setLoading(false);
+        
+        // Adicionar log para debug
+        console.log('SupabaseAuthProvider - auth state change:', event, session);
+        console.log('SupabaseAuthProvider - user:', session?.user || null);
       }
     );
 

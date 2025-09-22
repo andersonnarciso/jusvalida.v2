@@ -74,6 +74,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       if (!supabaseUser) return null;
       const response = await apiRequest('GET', '/api/auth/me');
       const data = await response.json();
+      
+      // Adicionar log para debug
+      console.log('UserProvider - backend user data:', data);
+      
       return data.user as BackendUser;
     },
     enabled: !!supabaseUser && !supabaseLoading,
