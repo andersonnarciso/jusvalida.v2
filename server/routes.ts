@@ -60,7 +60,7 @@ async function getStripeClient(operationMode: 'test' | 'live' = 'test'): Promise
   const decryptedKey = await decryptApiKey(secretKey);
   
   return new Stripe(decryptedKey, {
-    apiVersion: "2024-10-28", // Versão válida
+    apiVersion: "2024-08-16", // Versão válida
   });
 }
 
@@ -2487,7 +2487,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Criar instância Stripe com a chave fornecida
       const stripe = new Stripe(secretKey, {
-        apiVersion: "2024-10-28",
+        apiVersion: "2024-08-16",
       });
 
       // Testar conectividade com chamada lightweight
@@ -2553,7 +2553,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Create Stripe instance with the decrypted key
       const stripe = new Stripe(decryptedKey, {
-        apiVersion: "2024-10-28",
+        apiVersion: "2024-08-16",
       });
 
       // Test the connection by retrieving account information

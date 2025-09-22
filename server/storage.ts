@@ -1030,11 +1030,19 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateSmtpConfig(id: string, configData: Partial<InsertSmtpConfig>): Promise<SmtpConfig> {
-    // Encrypt password if provided
-    const updatedData = configData.password 
-      ? { ...configData, password: await encryptApiKey(configData.password) }
-      : configData;
-    
+    const updatedData: Partial<InsertSmtpConfig> = { ...configData };
+
+    if (configData.password === null) {
+      updatedData.password = null;
+    } else if (configData.password !== undefined) {
+      const trimmed = configData.password.trim();
+      if (trimmed) {
+        updatedData.password = await encryptApiKey(trimmed);
+      } else {
+        delete updatedData.password;
+      }
+    }
+
     const [config] = await db.update(smtpConfig)
       .set(updatedData)
       .where(eq(smtpConfig.id, id))
@@ -1065,18 +1073,41 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateStripeConfig(id: string, configData: Partial<InsertStripeConfig>): Promise<StripeConfig> {
-    // Encrypt sensitive keys if provided
-    const updatedData = { ...configData };
-    if (configData.testSecretKey) {
-      updatedData.testSecretKey = await encryptApiKey(configData.testSecretKey);
+    const updatedData: Partial<InsertStripeConfig> = { ...configData };
+
+    if (configData.testSecretKey === null) {
+      updatedData.testSecretKey = null;
+    } else if (configData.testSecretKey !== undefined) {
+      const trimmed = configData.testSecretKey.trim();
+      if (trimmed) {
+        updatedData.testSecretKey = await encryptApiKey(trimmed);
+      } else {
+        delete updatedData.testSecretKey;
+      }
     }
-    if (configData.liveSecretKey) {
-      updatedData.liveSecretKey = await encryptApiKey(configData.liveSecretKey);
+
+    if (configData.liveSecretKey === null) {
+      updatedData.liveSecretKey = null;
+    } else if (configData.liveSecretKey !== undefined) {
+      const trimmed = configData.liveSecretKey.trim();
+      if (trimmed) {
+        updatedData.liveSecretKey = await encryptApiKey(trimmed);
+      } else {
+        delete updatedData.liveSecretKey;
+      }
     }
-    if (configData.webhookSecret) {
-      updatedData.webhookSecret = await encryptApiKey(configData.webhookSecret);
+
+    if (configData.webhookSecret === null) {
+      updatedData.webhookSecret = null;
+    } else if (configData.webhookSecret !== undefined) {
+      const trimmed = configData.webhookSecret.trim();
+      if (trimmed) {
+        updatedData.webhookSecret = await encryptApiKey(trimmed);
+      } else {
+        delete updatedData.webhookSecret;
+      }
     }
-    
+
     const [config] = await db.update(stripeConfig)
       .set(updatedData)
       .where(eq(stripeConfig.id, id))
@@ -1451,3 +1482,5 @@ export class DatabaseStorage implements IStorage {
 }
 
 export const storage = new DatabaseStorage();
+
+

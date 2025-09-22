@@ -10,16 +10,16 @@ import { FileText, AlertTriangle, Clock, CheckCircle, Eye, Coins } from 'lucide-
 import { Link, useLocation } from 'wouter';
 
 interface AnalysisResult {
-  summary: string;
-  criticalFlaws: string[];
-  warnings: string[];
-  improvements: string[];
+  summary?: string;
+  criticalFlaws?: string[];
+  warnings?: string[];
+  improvements?: string[];
   legalCompliance: {
     score: number;
     issues: string[];
   };
-  recommendations: string[];
-  riskLevel: 'low' | 'medium' | 'high' | 'critical';
+  recommendations?: string[];
+  riskLevel?: 'low' | 'medium' | 'high' | 'critical';
 }
 
 interface DocumentAnalysis {
@@ -29,7 +29,7 @@ interface DocumentAnalysis {
   aiProvider: string;
   aiModel: string;
   analysisType: string;
-  result: AnalysisResult;
+  result?: AnalysisResult | null;
   creditsUsed: number;
   status: string;
   createdAt: string;
@@ -142,10 +142,10 @@ export default function Analyses() {
                       </div>
                     </div>
                     <Badge 
-                      className={getRiskBadgeColor(analysis.result.riskLevel)} 
+                      className={getRiskBadgeColor(analysis.result?.riskLevel ?? 'low')} 
                       data-testid={`badge-risk-${analysis.id}`}
                     >
-                      {analysis.result.riskLevel}
+                      {analysis.result?.riskLevel ?? 'low'}
                     </Badge>
                   </div>
                 </CardHeader>
@@ -154,7 +154,7 @@ export default function Analyses() {
                     <div>
                       <p className="text-sm text-muted-foreground mb-1">Resumo</p>
                       <p className="text-sm line-clamp-2" data-testid={`text-summary-${analysis.id}`}>
-                        {analysis.result.summary}
+                        {analysis.result?.summary ?? 'Resumo indisponivel no momento.'}
                       </p>
                     </div>
                     
@@ -169,10 +169,10 @@ export default function Analyses() {
                       </div>
                     </div>
 
-                    {analysis.result.criticalFlaws.length > 0 && (
+                    {(analysis.result?.criticalFlaws?.length ?? 0) > 0 && (
                       <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400">
                         <AlertTriangle size={14} />
-                        <span>{analysis.result.criticalFlaws.length} falha(s) crítica(s)</span>
+                        <span>{analysis.result?.criticalFlaws?.length ?? 0} falha(s) crítica(s)</span>
                       </div>
                     )}
 
@@ -181,7 +181,7 @@ export default function Analyses() {
                         <div className="flex items-center gap-1">
                           <CheckCircle className="h-4 w-4 text-green-600" />
                           <span className="text-xs text-muted-foreground">
-                            Score: {analysis.result.legalCompliance.score}%
+                            Score: {analysis.result?.legalCompliance?.score != null ? analysis.result.legalCompliance.score + "%" : "N/D"}
                           </span>
                         </div>
                       </div>
@@ -207,3 +207,7 @@ export default function Analyses() {
     </div>
   );
 }
+
+
+
+

@@ -113,10 +113,9 @@ export default function Checkout() {
     queryKey: ['/api/credit-packages'],
   });
 
-  // Load user profile data including credits
   const { data: userProfile } = useQuery<{userProfile: {credits: number}}>({
     queryKey: ['/api/user/profile'],
-    enabled: !!user // Only run when user is authenticated
+    enabled: !!user
   });
   
   const [selectedPackage, setSelectedPackage] = useState<CreditPackage | null>(null);
@@ -124,7 +123,6 @@ export default function Checkout() {
   const [clientSecret, setClientSecret] = useState("");
   const [showPayment, setShowPayment] = useState(false);
   
-  // Set default selected package to the popular one when data loads
   useEffect(() => {
     if (creditPackages.length > 0 && !selectedPackage) {
       const popularPackage = creditPackages.find(pkg => pkg.isPopular) || creditPackages[0];
@@ -226,74 +224,131 @@ export default function Checkout() {
 
           {!showPayment ? (
             <>
-              {/* Package Selection */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                {creditPackages.map((pkg) => (
-                  <Card 
-                    key={pkg.packageId} 
-                    className={`cursor-pointer transition-all relative ${
-                      selectedPackage.packageId === pkg.packageId 
-                        ? 'border-2 border-primary shadow-lg' 
-                        : 'border border-border hover:shadow-md'
-                    } ${pkg.isPopular ? 'transform scale-105' : ''}`}
-                    onClick={() => handlePackageSelect(pkg)}
-                    data-testid={`card-package-${pkg.packageId}`}
-                  >
-                    {pkg.isPopular && (
-                      <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                        <Badge className="bg-primary text-primary-foreground">
-                          Mais Popular
-                        </Badge>
-                      </div>
-                    )}
-                    
-                    <CardHeader>
-                      <div className="flex items-center justify-between mb-2">
-                        <CardTitle className="text-xl" data-testid={`text-package-name-${pkg.packageId}`}>
-                          {pkg.name}
+              {hasPackages ? (
+                <>
+                  {/* Package Selection */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    {creditPackages.map((pkg) => (
+                      <Card 
+                        key={pkg.packageId} 
+                        className={`cursor-pointer transition-all relative ${
+                          selectedPackage.packageId === pkg.packageId 
+                            ? 'border-2 border-primary shadow-lg' 
+                            : 'border border-border hover:shadow-md'
+                        } ${pkg.isPopular ? 'transform scale-105' : ''}`}
+                        onClick={() => handlePackageSelect(pkg)}
+                        data-testid={`card-package-${pkg.packageId}`}
+                      >
+                        {pkg.isPopular && (
+                          <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                            <Badge className="bg-primary text-primary-foreground">
+                              Mais Popular
+                            </Badge>
+                          </div>
+                        )}
+                        
+                        <CardHeader>
+                          <div className="flex items-center justify-between mb-2">
+                            <CardTitle className="text-xl" data-testid={`text-package-name-${pkg.packageId}`}>
+                              {pkg.name}
+                            </CardTitle>
+                            {pkg.packageId === 'credits_50' && <Zap className="text-blue-500" size={24} />}
+                            {pkg.packageId === 'credits_100' && <Crown className="text-yellow-500" size={24} />}
+                            {pkg.packageId === 'credits_500' && <Building className="text-purple-500" size={24} />}
+                          </div>
+                          <div className="text-3xl font-bold text-primary" data-testid={`text-package-price-${pkg.packageId}`}>
+                            R$ {parseFloat(pkg.price)}
+                          </div>
+                          <CardDescription data-testid={`text-package-description-${pkg.packageId}`}>
+                            {pkg.description}
+                          </CardDescription>
+                        </CardHeader>
+                        
+                        <CardContent>
+                          <div className="mb-4">
+                            <div className="text-2xl font-bold mb-1" data-testid={`text-package-credits-${pkg.packageId}`}>
+                              {pkg.credits} créditos
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              R$ {(parseFloat(pkg.price) / pkg.credits).toFixed(2)} por crédito
+                            </div>
+                          </div>
+                          
+                          <ul className="space-y-2">
+                            {(pkg.features as string[]).map((feature, index) => (
+                              <li key={index} className="flex items-center text-sm" data-testid={`text-feature-${pkg.packageId}-${index}`}>
+                                <Check className="text-green-600 mr-2" size={16} />
+                                {feature}
+                              </li>
+                            ))}
+                          </ul>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+
+                  {/* Selected Package Summary */}
+                  {selectedPackage && (
+                    <Card className="mb-8">
+                      <CardHeader>
+                        <CardTitle className="flex items-center" data-testid="text-selected-package-title">
+                          <CreditCard className="mr-2" size={20} />
+                          Resumo do Pedido
                         </CardTitle>
-                        {pkg.packageId === 'credits_50' && <Zap className="text-blue-500" size={24} />}
-                        {pkg.packageId === 'credits_100' && <Crown className="text-yellow-500" size={24} />}
-                        {pkg.packageId === 'credits_500' && <Building className="text-purple-500" size={24} />}
-                      </div>
-                      <div className="text-3xl font-bold text-primary" data-testid={`text-package-price-${pkg.packageId}`}>
-                        R$ {parseFloat(pkg.price)}
-                      </div>
-                      <CardDescription data-testid={`text-package-description-${pkg.packageId}`}>
-                        {pkg.description}
-                      </CardDescription>
-                    </CardHeader>
-                    
-                    <CardContent>
-                      <div className="mb-4">
-                        <div className="text-2xl font-bold mb-1" data-testid={`text-package-credits-${pkg.packageId}`}>
-                          {pkg.credits} créditos
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex items-center justify-between py-4 border-b">
+                          <div>
+                            <div className="font-medium" data-testid="text-selected-package-name">
+                              {selectedPackage.name}
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              {selectedPackage.credits} créditos • {selectedPackage.description}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-2xl font-bold text-primary" data-testid="text-selected-package-price">
+                              {`R$ ${parseFloat(selectedPackage.price)}`}
+                            </div>
+                          </div>
                         </div>
-                        <div className="text-sm text-muted-foreground">
-                          R$ {(parseFloat(pkg.price) / pkg.credits).toFixed(2)} por crédito
+                        
+                        <div className="py-4">
+                          <div className="flex items-center justify-between text-sm mb-2">
+                            <span>Créditos atuais:</span>
+                            <span data-testid="text-current-credits">{userProfile?.userProfile?.credits || 0}</span>
+                          </div>
+                          <div className="flex items-center justify-between text-sm mb-2">
+                            <span>Créditos adicionais:</span>
+                            <span data-testid="text-additional-credits">+{selectedPackage.credits || 0}</span>
+                          </div>
+                          <div className="flex items-center justify-between font-medium">
+                            <span>Total após compra:</span>
+                            <span className="text-primary" data-testid="text-total-credits">
+                              {(userProfile?.userProfile?.credits || 0) + (selectedPackage.credits || 0)} créditos
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                      
-                      <ul className="space-y-2">
-                        {(pkg.features as string[]).map((feature, index) => (
-                          <li key={index} className="flex items-center text-sm" data-testid={`text-feature-${pkg.packageId}-${index}`}>
-                            <Check className="text-green-600 mr-2" size={16} />
-                            {feature}
-                          </li>
-                        ))}
-                      </ul>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+                        
+                        <Button 
+                          className="w-full" 
+                          onClick={handleProceedToPayment}
+                          data-testid="button-proceed-payment"
+                        >
+                          Prosseguir para Pagamento
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  )}
+                </>
               ) : (
                 <Card className="mb-8">
                   <CardContent className="py-12 text-center space-y-4">
                     <CreditCard className="mx-auto h-10 w-10 text-muted-foreground" />
                     <div className="space-y-2">
-                      <h2 className="text-2xl font-semibold">Nenhum pacote dispon�vel</h2>
+                      <h2 className="text-2xl font-semibold">Nenhum pacote disponível</h2>
                       <p className="text-muted-foreground max-w-md mx-auto">
-                        Nenhum pacote de cr�ditos est� configurado no momento. Entre em contato com o suporte ou volte mais tarde.
+                        Nenhum pacote de créditos está configurado no momento. Entre em contato com o suporte ou volte mais tarde.
                       </p>
                     </div>
                     <Button variant="outline" onClick={() => setLocation('/support')} data-testid="button-contact-support">
@@ -302,58 +357,6 @@ export default function Checkout() {
                   </CardContent>
                 </Card>
               )}
-
-              {/* Selected Package Summary */
-              <Card className="mb-8">
-                <CardHeader>
-                  <CardTitle className="flex items-center" data-testid="text-selected-package-title">
-                    <CreditCard className="mr-2" size={20} />
-                    Resumo do Pedido
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between py-4 border-b">
-                    <div>
-                      <div className="font-medium" data-testid="text-selected-package-name">
-                        {selectedPackage?.name}
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        {selectedPackage.credits} créditos • {selectedPackage.description}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-2xl font-bold text-primary" data-testid="text-selected-package-price">
-                        {selectedPackage ? R$  : 'R$ 0,00'}
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="py-4">
-                    <div className="flex items-center justify-between text-sm mb-2">
-                      <span>Créditos atuais:</span>
-                      <span data-testid="text-current-credits">{userProfile?.userProfile?.credits || 0}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm mb-2">
-                      <span>Créditos adicionais:</span>
-                      <span data-testid="text-additional-credits">+{selectedPackage?.credits || 0}</span>
-                    </div>
-                    <div className="flex items-center justify-between font-medium">
-                      <span>Total após compra:</span>
-                      <span className="text-primary" data-testid="text-total-credits">
-                        {(userProfile?.userProfile?.credits || 0) + (selectedPackage?.credits || 0)} créditos
-                      </span>
-                    </div>
-                  </div>
-                  
-                  <Button 
-                    className="w-full" 
-                    onClick={handleProceedToPayment}
-                    data-testid="button-proceed-payment"
-                  >
-                    Prosseguir para Pagamento
-                  </Button>
-                </CardContent>
-              </Card>
             </>
           ) : (
             /* Payment Form */
@@ -402,5 +405,3 @@ export default function Checkout() {
     </div>
   );
 }
-
-

@@ -241,7 +241,7 @@ function SiteConfigForm({
   return (
     <div className="grid gap-6 md:grid-cols-2">
       <div className="space-y-4">
-        <h3 className="text-lg font-medium">Informações da Empresa</h3>
+        <h3 className="text-lg font-medium">Informacoes da Empresa</h3>
         
         <div className="space-y-2">
           <Label htmlFor="siteName">Nome do Site</Label>
@@ -279,13 +279,13 @@ function SiteConfigForm({
       </div>
 
       <div className="space-y-4">
-        <h3 className="text-lg font-medium">Endereço da Empresa</h3>
+        <h3 className="text-lg font-medium">Endereco da Empresa</h3>
         
         <div className="space-y-2">
-          <Label htmlFor="companyAddress">Endereço Completo</Label>
+          <Label htmlFor="companyAddress">Endereco Completo</Label>
           <Textarea
             id="companyAddress"
-            placeholder="Rua dos Advogados, 123 - Centro, São Paulo - SP"
+            placeholder="Rua dos Advogados, 123 - Centro, Sao Paulo - SP"
             defaultValue={getConfigValue("company", "companyAddress")}
             onBlur={(e) => updateConfig("company", "companyAddress", e.target.value)}
             data-testid="textarea-company-address"
@@ -293,10 +293,10 @@ function SiteConfigForm({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="footerText">Texto do Rodapé</Label>
+          <Label htmlFor="footerText">Texto do Rodape</Label>
           <Textarea
             id="footerText"
-            placeholder="© 2024 JusValida. Todos os direitos reservados."
+            placeholder=" 2024 JusValida. Todos os direitos reservados."
             defaultValue={getConfigValue("footer", "footerText")}
             onBlur={(e) => updateConfig("footer", "footerText", e.target.value)}
             data-testid="textarea-footer-text"
@@ -346,10 +346,38 @@ function SmtpConfigForm({
     },
   });
 
+  useEffect(() => {
+    form.reset({
+      host: config?.host || "",
+      port: config?.port || 587,
+      secure: config?.secure || false,
+      username: config?.username || "",
+      password: "",
+      fromEmail: config?.fromEmail || "",
+      fromName: config?.fromName || "",
+      isActive: config?.isActive ?? true,
+    });
+  }, [config, form]);
+
+  const hasStoredPassword = config?.password === "********";
+
   const [testEmail, setTestEmail] = useState("");
 
   const onSubmit = (data: InsertSmtpConfig) => {
-    onSave(data);
+    const payload: Partial<InsertSmtpConfig> = { ...data };
+
+    if (payload.password !== undefined) {
+      const trimmed = payload.password.trim();
+      if (trimmed) {
+        payload.password = trimmed;
+      } else if (hasStoredPassword) {
+        delete payload.password;
+      } else {
+        payload.password = trimmed;
+      }
+    }
+
+    onSave(payload as InsertSmtpConfig);
   };
 
   return (
@@ -399,7 +427,7 @@ function SmtpConfigForm({
             name="username"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Usuário</FormLabel>
+                <FormLabel>Usuario</FormLabel>
                 <FormControl>
                   <Input
                     placeholder="seu-email@gmail.com"
@@ -421,11 +449,16 @@ function SmtpConfigForm({
                 <FormControl>
                   <Input
                     type="password"
-                    placeholder="sua-senha-de-app"
+                    placeholder={hasStoredPassword ? "Deixe em branco para manter a senha atual" : "sua-senha-de-app"}
                     data-testid="input-smtp-password"
                     {...field}
                   />
                 </FormControl>
+                <FormDescription>
+                  {hasStoredPassword
+                    ? "Ja existe uma senha configurada. Deixe o campo vazio para manter a atual."
+                    : "Informe a senha ou token gerado pelo provedor SMTP."}
+                </FormDescription>
                 <FormMessage />
               </FormItem>
             )}
@@ -474,7 +507,7 @@ function SmtpConfigForm({
             render={({ field }) => (
               <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                 <div className="space-y-0.5">
-                  <FormLabel className="text-base">Conexão Segura (SSL/TLS)</FormLabel>
+                  <FormLabel className="text-base">Conexao Segura (SSL/TLS)</FormLabel>
                   <FormDescription>
                     Use true para porta 465, false para outras portas
                   </FormDescription>
@@ -496,9 +529,9 @@ function SmtpConfigForm({
             render={({ field }) => (
               <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                 <div className="space-y-0.5">
-                  <FormLabel className="text-base">Configuração Ativa</FormLabel>
+                  <FormLabel className="text-base">Configuracao Ativa</FormLabel>
                   <FormDescription>
-                    Habilitar ou desabilitar esta configuração SMTP
+                    Habilitar ou desabilitar esta configuracao SMTP
                   </FormDescription>
                 </div>
                 <FormControl>
@@ -518,7 +551,7 @@ function SmtpConfigForm({
               disabled={isSaving}
               data-testid="button-save-smtp"
             >
-              {isSaving ? "Salvando..." : "Salvar Configuração"}
+              {isSaving ? "Salvando..." : "Salvar Configuracao"}
             </Button>
           </div>
         </form>
@@ -526,7 +559,7 @@ function SmtpConfigForm({
 
       {/* Test SMTP Configuration */}
       <div className="border-t pt-6">
-        <h3 className="text-lg font-medium mb-4">Testar Configuração</h3>
+        <h3 className="text-lg font-medium mb-4">Testar Configuracao</h3>
         <div className="flex gap-4 items-end">
           <div className="flex-1">
             <Label htmlFor="testEmail">E-mail para Teste</Label>
@@ -594,7 +627,7 @@ function StripeConfigForm({
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-medium">Configurações do Stripe</h3>
+          <h3 className="text-lg font-medium">Configuracoes do Stripe</h3>
           <p className="text-sm text-muted-foreground">
             Configure as chaves API do Stripe para processar pagamentos
           </p>
@@ -603,7 +636,7 @@ function StripeConfigForm({
           variant={selectedMode === 'live' ? 'destructive' : 'secondary'}
           data-testid="badge-stripe-mode"
         >
-          Modo: {selectedMode === 'live' ? 'Produção' : 'Teste'}
+          Modo: {selectedMode === 'live' ? 'Producao' : 'Teste'}
         </Badge>
       </div>
 
@@ -637,7 +670,7 @@ function StripeConfigForm({
               name="liveSecretKey"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Chave Secreta (Produção)</FormLabel>
+                  <FormLabel>Chave Secreta (Producao)</FormLabel>
                   <FormControl>
                     <Input
                       type="password"
@@ -647,7 +680,7 @@ function StripeConfigForm({
                     />
                   </FormControl>
                   <FormDescription>
-                    Chave secreta do Stripe para ambiente de produção
+                    Chave secreta do Stripe para ambiente de producao
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -659,7 +692,7 @@ function StripeConfigForm({
               name="publicKey"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Chave Pública</FormLabel>
+                  <FormLabel>Chave Publica</FormLabel>
                   <FormControl>
                     <Input
                       placeholder="pk_test_... ou pk_live_..."
@@ -668,7 +701,7 @@ function StripeConfigForm({
                     />
                   </FormControl>
                   <FormDescription>
-                    Chave pública do Stripe (visível no frontend)
+                    Chave publica do Stripe (visivel no frontend)
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -704,7 +737,7 @@ function StripeConfigForm({
               name="operationMode"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Modo de Operação</FormLabel>
+                  <FormLabel>Modo de Operacao</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger data-testid="select-stripe-mode">
@@ -713,11 +746,11 @@ function StripeConfigForm({
                     </FormControl>
                     <SelectContent>
                       <SelectItem value="test">Teste</SelectItem>
-                      <SelectItem value="live">Produção</SelectItem>
+                      <SelectItem value="live">Producao</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormDescription>
-                    Modo de operação do Stripe (teste ou produção)
+                    Modo de operacao do Stripe (teste ou producao)
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -732,7 +765,7 @@ function StripeConfigForm({
                   <div className="space-y-0.5">
                     <FormLabel className="text-base">Ativar Stripe</FormLabel>
                     <FormDescription>
-                      Habilitar ou desabilitar integração com Stripe
+                      Habilitar ou desabilitar integracao com Stripe
                     </FormDescription>
                   </div>
                   <FormControl>
@@ -753,7 +786,7 @@ function StripeConfigForm({
               disabled={isSaving}
               data-testid="button-save-stripe"
             >
-              {isSaving ? "Salvando..." : "Salvar Configuração"}
+              {isSaving ? "Salvando..." : "Salvar Configuracao"}
             </Button>
           </div>
         </form>
@@ -761,11 +794,11 @@ function StripeConfigForm({
 
       {/* Test Stripe Configuration */}
       <div className="border-t pt-6">
-        <h3 className="text-lg font-medium mb-4">Testar Configuração</h3>
+        <h3 className="text-lg font-medium mb-4">Testar Configuracao</h3>
         <div className="flex gap-4 items-center">
           <div className="flex-1">
             <p className="text-sm text-muted-foreground mb-2">
-              Teste a conexão com o Stripe no modo selecionado: <strong>{selectedMode}</strong>
+              Teste a conexao com o Stripe no modo selecionado: <strong>{selectedMode}</strong>
             </p>
           </div>
           <Button
@@ -774,7 +807,7 @@ function StripeConfigForm({
             data-testid="button-test-stripe"
           >
             <TestTube className="mr-2 h-4 w-4" />
-            {isTesting ? "Testando..." : "Testar Conexão"}
+            {isTesting ? "Testando..." : "Testar Conexao"}
           </Button>
         </div>
       </div>
@@ -808,7 +841,7 @@ function NotificationsList({
     <div className="space-y-4">
       {notifications.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">
-          Nenhuma notificação encontrada
+          Nenhuma notificacao encontrada
         </div>
       ) : (
         notifications.map((notification) => (
@@ -836,7 +869,7 @@ function NotificationsList({
                   {notification.message}
                 </p>
                 <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                  <span>Público: {notification.targetAudience}</span>
+                  <span>Publico: {notification.targetAudience}</span>
                   {notification.expiresAt && (
                     <span>Expira: {format(new Date(notification.expiresAt), "dd/MM/yyyy HH:mm")}</span>
                   )}
@@ -910,10 +943,10 @@ function NotificationForm({
             name="title"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Título</FormLabel>
+                <FormLabel>Titulo</FormLabel>
                 <FormControl>
                   <Input
-                    placeholder="Título da notificação"
+                    placeholder="Titulo da notificacao"
                     data-testid="input-notification-title"
                     {...field}
                   />
@@ -936,11 +969,11 @@ function NotificationForm({
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="info">Informação</SelectItem>
+                    <SelectItem value="info">Informacao</SelectItem>
                     <SelectItem value="success">Sucesso</SelectItem>
                     <SelectItem value="warning">Aviso</SelectItem>
                     <SelectItem value="error">Erro</SelectItem>
-                    <SelectItem value="announcement">Anúncio</SelectItem>
+                    <SelectItem value="announcement">Anuncio</SelectItem>
                   </SelectContent>
                 </Select>
                 <FormMessage />
@@ -957,7 +990,7 @@ function NotificationForm({
               <FormLabel>Mensagem</FormLabel>
               <FormControl>
                 <Textarea
-                  placeholder="Conteúdo da notificação"
+                  placeholder="Conteudo da notificacao"
                   data-testid="textarea-notification-message"
                   {...field}
                 />
@@ -973,17 +1006,17 @@ function NotificationForm({
             name="targetAudience"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Público Alvo</FormLabel>
+                <FormLabel>Publico Alvo</FormLabel>
                 <Select onValueChange={field.onChange} defaultValue={field.value}>
                   <FormControl>
                     <SelectTrigger data-testid="select-notification-audience">
-                      <SelectValue placeholder="Selecione o público" />
+                      <SelectValue placeholder="Selecione o publico" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="all">Todos os usuários</SelectItem>
-                    <SelectItem value="premium">Usuários premium</SelectItem>
-                    <SelectItem value="trial">Usuários em período de teste</SelectItem>
+                    <SelectItem value="all">Todos os usuarios</SelectItem>
+                    <SelectItem value="premium">Usuarios premium</SelectItem>
+                    <SelectItem value="trial">Usuarios em periodo de teste</SelectItem>
                     <SelectItem value="admins">Apenas administradores</SelectItem>
                   </SelectContent>
                 </Select>
@@ -1010,7 +1043,7 @@ function NotificationForm({
                   />
                 </FormControl>
                 <FormDescription>
-                  Números maiores indicam maior prioridade (0-10)
+                  Numeros maiores indicam maior prioridade (0-10)
                 </FormDescription>
                 <FormMessage />
               </FormItem>
@@ -1023,7 +1056,7 @@ function NotificationForm({
           name="expiresAt"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Data de Expiração (opcional)</FormLabel>
+              <FormLabel>Data de Expiracao (opcional)</FormLabel>
               <FormControl>
                 <Input
                   type="datetime-local"
@@ -1047,7 +1080,7 @@ function NotificationForm({
                 <div className="space-y-0.5">
                   <FormLabel className="text-base">Ativa</FormLabel>
                   <FormDescription className="text-sm">
-                    Notificação está ativa
+                    Notificacao esta ativa
                   </FormDescription>
                 </div>
                 <FormControl>
@@ -1108,7 +1141,7 @@ function NotificationForm({
 
         <div className="flex gap-4 pt-4">
           <Button type="submit" disabled={isLoading} data-testid="button-save-notification">
-            {isLoading ? "Salvando..." : "Salvar Notificação"}
+            {isLoading ? "Salvando..." : "Salvar Notificacao"}
           </Button>
           <Button type="button" variant="outline" onClick={onCancel} data-testid="button-cancel-notification">
             Cancelar
@@ -1350,12 +1383,12 @@ export default function Admin() {
     mutationFn: (data: InsertSiteConfig) => apiRequest("POST", "/api/admin/site-config", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/site-config"] });
-      toast({ title: "Sucesso", description: "Configuração salva com sucesso" });
+      toast({ title: "Sucesso", description: "Configuracao salva com sucesso" });
     },
     onError: (error: any) => {
       toast({
         title: "Erro",
-        description: error.message || "Falha ao salvar configuração",
+        description: error.message || "Falha ao salvar configuracao",
         variant: "destructive",
       });
     },
@@ -1366,12 +1399,12 @@ export default function Admin() {
       apiRequest("PUT", `/api/admin/site-config/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/site-config"] });
-      toast({ title: "Sucesso", description: "Configuração atualizada com sucesso" });
+      toast({ title: "Sucesso", description: "Configuracao atualizada com sucesso" });
     },
     onError: (error: any) => {
       toast({
         title: "Erro",
-        description: error.message || "Falha ao atualizar configuração",
+        description: error.message || "Falha ao atualizar configuracao",
         variant: "destructive",
       });
     },
@@ -1380,26 +1413,38 @@ export default function Admin() {
   // SMTP configuration mutations
   const saveSmtpConfigMutation = useMutation({
     mutationFn: (data: InsertSmtpConfig) => {
-      if (smtpConfig?.id) {
-        return apiRequest("PUT", `/api/admin/smtp-config/${smtpConfig.id}`, data);
-      } else {
-        return apiRequest("POST", "/api/admin/smtp-config", data);
+      const payload: Record<string, unknown> = { ...data };
+
+      if (typeof payload.password === "string") {
+        const trimmed = payload.password.trim();
+        if (trimmed && trimmed !== "********") {
+          payload.password = trimmed;
+        } else if (smtpConfig?.password === "********") {
+          delete payload.password;
+        } else {
+          payload.password = trimmed;
+        }
       }
+
+      if (smtpConfig?.id) {
+        return apiRequest("PUT", `/api/admin/smtp-config/${smtpConfig.id}`, payload);
+      }
+
+      return apiRequest("POST", "/api/admin/smtp-config", payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/smtp-config"] });
-      toast({ title: "Sucesso", description: "Configuração SMTP salva com sucesso" });
+      toast({ title: "Sucesso", description: "Configuracao SMTP salva com sucesso" });
     },
     onError: (error: any) => {
       toast({
         title: "Erro",
-        description: error.message || "Falha ao salvar configuração SMTP",
+        description: error.message || "Falha ao salvar configuracao SMTP",
         variant: "destructive",
       });
     },
   });
 
-  // SMTP test mutation
   const testSmtpMutation = useMutation({
     mutationFn: (testEmail: string) => 
       apiRequest("POST", "/api/admin/smtp-test", { testEmail }),
@@ -1437,12 +1482,12 @@ export default function Admin() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/stripe-config"] });
-      toast({ title: "Sucesso", description: "Configuração do Stripe salva com sucesso" });
+      toast({ title: "Sucesso", description: "Configuracao do Stripe salva com sucesso" });
     },
     onError: (error: any) => {
       toast({
         title: "Erro",
-        description: error.message || "Falha ao salvar configuração do Stripe",
+        description: error.message || "Falha ao salvar configuracao do Stripe",
         variant: "destructive",
       });
     },
@@ -1455,13 +1500,13 @@ export default function Admin() {
     onSuccess: (response: any) => {
       toast({ 
         title: "Sucesso", 
-        description: response.message || "Configuração do Stripe testada com sucesso" 
+        description: response.message || "Configuracao do Stripe testada com sucesso" 
       });
     },
     onError: (error: any) => {
       toast({
         title: "Erro",
-        description: error.message || "Falha ao testar configuração do Stripe",
+        description: error.message || "Falha ao testar configuracao do Stripe",
         variant: "destructive",
       });
     },
@@ -1473,12 +1518,12 @@ export default function Admin() {
       apiRequest("POST", "/api/admin/notifications", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/notifications"] });
-      toast({ title: "Sucesso", description: "Notificação criada com sucesso" });
+      toast({ title: "Sucesso", description: "Notificacao criada com sucesso" });
     },
     onError: (error: any) => {
       toast({
         title: "Erro",
-        description: error.message || "Falha ao criar notificação",
+        description: error.message || "Falha ao criar notificacao",
         variant: "destructive",
       });
     },
@@ -1489,12 +1534,12 @@ export default function Admin() {
       apiRequest("PUT", `/api/admin/notifications/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/notifications"] });
-      toast({ title: "Sucesso", description: "Notificação atualizada com sucesso" });
+      toast({ title: "Sucesso", description: "Notificacao atualizada com sucesso" });
     },
     onError: (error: any) => {
       toast({
         title: "Erro",
-        description: error.message || "Falha ao atualizar notificação",
+        description: error.message || "Falha ao atualizar notificacao",
         variant: "destructive",
       });
     },
@@ -1504,12 +1549,12 @@ export default function Admin() {
     mutationFn: (id: string) => apiRequest("DELETE", `/api/admin/notifications/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/notifications"] });
-      toast({ title: "Sucesso", description: "Notificação excluída com sucesso" });
+      toast({ title: "Sucesso", description: "Notificacao excluida com sucesso" });
     },
     onError: (error: any) => {
       toast({
         title: "Erro",
-        description: error.message || "Falha ao excluir notificação",
+        description: error.message || "Falha ao excluir notificacao",
         variant: "destructive",
       });
     },
@@ -1563,7 +1608,7 @@ export default function Admin() {
             Painel Administrativo
           </h1>
           <p className="text-muted-foreground">
-            Gerencie usuários, monitore o uso de IA e visualize análises da
+            Gerencie usuarios, monitore o uso de IA e visualize analises da
             plataforma
           </p>
         </div>
@@ -1572,7 +1617,7 @@ export default function Admin() {
           <TabsList className="grid w-full grid-cols-9">
             <TabsTrigger value="users" data-testid="tab-users">
               <Users className="mr-2 h-4 w-4" />
-              Usuários
+              Usuarios
             </TabsTrigger>
             <TabsTrigger value="system-keys" data-testid="tab-system-keys">
               <Zap className="mr-2 h-4 w-4" />
@@ -1584,27 +1629,27 @@ export default function Admin() {
             </TabsTrigger>
             <TabsTrigger value="analytics" data-testid="tab-analytics">
               <TrendingUp className="mr-2 h-4 w-4" />
-              Análises da Plataforma
+              Analises da Plataforma
             </TabsTrigger>
             <TabsTrigger value="financial" data-testid="tab-financial">
               <DollarSign className="mr-2 h-4 w-4" />
-              Análise Financeira
+              Analise Financeira
             </TabsTrigger>
             <TabsTrigger value="site-settings" data-testid="tab-site-settings">
               <Settings className="mr-2 h-4 w-4" />
-              Configurações do Site
+              Configuracoes do Site
             </TabsTrigger>
             <TabsTrigger value="smtp-settings" data-testid="tab-smtp-settings">
               <Mail className="mr-2 h-4 w-4" />
-              Configurações SMTP
+              Configuracoes SMTP
             </TabsTrigger>
             <TabsTrigger value="stripe-settings" data-testid="tab-stripe-settings">
               <CreditCard className="mr-2 h-4 w-4" />
-              Configurações Stripe
+              Configuracoes Stripe
             </TabsTrigger>
             <TabsTrigger value="notifications" data-testid="tab-notifications">
               <Bell className="mr-2 h-4 w-4" />
-              Notificações
+              Notificacoes
             </TabsTrigger>
           </TabsList>
 
@@ -1612,9 +1657,9 @@ export default function Admin() {
           <TabsContent value="users" data-testid="content-users">
             <Card>
               <CardHeader>
-                <CardTitle>Gerenciamento de Usuários</CardTitle>
+                <CardTitle>Gerenciamento de Usuarios</CardTitle>
                 <CardDescription>
-                  Visualize e gerencie todos os usuários da plataforma
+                  Visualize e gerencie todos os usuarios da plataforma
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -1632,9 +1677,9 @@ export default function Admin() {
                           <TableHead>Nome</TableHead>
                           <TableHead>Email</TableHead>
                           <TableHead>Role</TableHead>
-                          <TableHead>Créditos</TableHead>
+                          <TableHead>Creditos</TableHead>
                           <TableHead>Cadastrado em</TableHead>
-                          <TableHead>Ações</TableHead>
+                          <TableHead>Acoes</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -1686,7 +1731,7 @@ export default function Admin() {
                     <div className="flex justify-between items-center mt-4">
                       <p className="text-sm text-muted-foreground">
                         Mostrando {usersData?.users.length || 0} de{" "}
-                        {usersData?.total || 0} usuários
+                        {usersData?.total || 0} usuarios
                       </p>
                       <div className="space-x-2">
                         <Button
@@ -1705,7 +1750,7 @@ export default function Admin() {
                           disabled={!usersData || usersData.users.length < 10}
                           data-testid="button-users-next"
                         >
-                          Próxima
+                          Proxima
                         </Button>
                       </div>
                     </div>
@@ -1718,7 +1763,7 @@ export default function Admin() {
             {selectedUser && (
               <Card className="mt-6">
                 <CardHeader>
-                  <CardTitle>Editar Usuário</CardTitle>
+                  <CardTitle>Editar Usuario</CardTitle>
                   <CardDescription>
                     Editando: {selectedUser.firstName} {selectedUser.lastName}
                   </CardDescription>
@@ -1745,13 +1790,13 @@ export default function Admin() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="credits">Créditos</Label>
+                      <Label htmlFor="credits">Creditos</Label>
                       <div className="flex gap-2">
                         <Input
                           id="credits"
                           type="number"
                           defaultValue={selectedUser.credits}
-                          placeholder="Número de créditos"
+                          placeholder="Numero de creditos"
                           data-testid="input-user-credits"
                         />
                         <Button
@@ -1790,7 +1835,7 @@ export default function Admin() {
                 <CardHeader>
                   <CardTitle>Chaves de API do Sistema</CardTitle>
                   <CardDescription>
-                    Configure as chaves de API dos provedores de IA que serão usadas como fallback quando o usuário não tiver sua própria chave
+                    Configure as chaves de API dos provedores de IA que serao usadas como fallback quando o usuario nao tiver sua propria chave
                   </CardDescription>
                 </CardHeader>
               </Card>
@@ -1836,7 +1881,7 @@ export default function Admin() {
                                     data-testid={`status-${providerType}`}
                                   >
                                     {isConfigured && isActive ? 'Ativo' : 
-                                     isConfigured ? 'Configurado (Inativo)' : 'Não configurado'}
+                                     isConfigured ? 'Configurado (Inativo)' : 'Nao configurado'}
                                   </Badge>
                                 </CardDescription>
                               </div>
@@ -1934,16 +1979,16 @@ export default function Admin() {
                           <CardContent>
                             <div className="text-sm text-muted-foreground space-y-1">
                               <p>
-                                <strong>Última atualização:</strong> {
+                                <strong>ltima atualizacao:</strong> {
                                   providerData?.updatedAt ? 
-                                  format(new Date(providerData.updatedAt), "dd/MM/yyyy 'às' HH:mm") : 
+                                  format(new Date(providerData.updatedAt), "dd/MM/yyyy 'as' HH:mm") : 
                                   'Nunca'
                                 }
                               </p>
                               <p>
                                 <strong>Criado em:</strong> {
                                   providerData?.createdAt ? 
-                                  format(new Date(providerData.createdAt), "dd/MM/yyyy 'às' HH:mm") : 
+                                  format(new Date(providerData.createdAt), "dd/MM/yyyy 'as' HH:mm") : 
                                   'N/A'
                                 }
                               </p>
@@ -1958,7 +2003,7 @@ export default function Admin() {
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Instruções</CardTitle>
+                  <CardTitle>Instrucoes</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="text-sm text-muted-foreground space-y-2">
@@ -1970,7 +2015,7 @@ export default function Admin() {
                     <div className="flex gap-2">
                       <AlertTriangle className="h-4 w-4 text-yellow-600 mt-0.5 flex-shrink-0" />
                       <div className="text-sm text-yellow-800 dark:text-yellow-200">
-                        <strong>Importante:</strong> Estas chaves serão usadas como fallback quando usuários não tiverem suas próprias chaves configuradas. Mantenha-as seguras e monitore o uso.
+                        <strong>Importante:</strong> Estas chaves serao usadas como fallback quando usuarios nao tiverem suas proprias chaves configuradas. Mantenha-as seguras e monitore o uso.
                       </div>
                     </div>
                   </div>
@@ -1989,7 +2034,7 @@ export default function Admin() {
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">
-                      Total de Análises
+                      Total de Analises
                     </CardTitle>
                     <FileText className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
@@ -2010,7 +2055,7 @@ export default function Admin() {
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">
-                      Créditos Utilizados
+                      Creditos Utilizados
                     </CardTitle>
                     <Zap className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
@@ -2054,7 +2099,7 @@ export default function Admin() {
                 <CardHeader>
                   <CardTitle>Uso por Provedor de IA</CardTitle>
                   <CardDescription>
-                    Estatísticas de uso dos provedores de IA
+                    Estatisticas de uso dos provedores de IA
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -2067,7 +2112,7 @@ export default function Admin() {
                           <TableHead>Provedor</TableHead>
                           <TableHead>Modelo</TableHead>
                           <TableHead>Usos</TableHead>
-                          <TableHead>Créditos</TableHead>
+                          <TableHead>Creditos</TableHead>
                           <TableHead>Taxa de Sucesso</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -2146,7 +2191,7 @@ export default function Admin() {
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">
-                      Total de Usuários
+                      Total de Usuarios
                     </CardTitle>
                     <Users className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
@@ -2167,7 +2212,7 @@ export default function Admin() {
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">
-                      Análises Realizadas
+                      Analises Realizadas
                     </CardTitle>
                     <FileText className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
@@ -2188,7 +2233,7 @@ export default function Admin() {
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">
-                      Créditos Comprados
+                      Creditos Comprados
                     </CardTitle>
                     <Zap className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
@@ -2237,7 +2282,7 @@ export default function Admin() {
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">
-                      Usuários Ativos
+                      Usuarios Ativos
                     </CardTitle>
                     <Users className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
@@ -2258,7 +2303,7 @@ export default function Admin() {
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">
-                      Média de Créditos
+                      Media de Creditos
                     </CardTitle>
                     <Zap className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
@@ -2302,7 +2347,7 @@ export default function Admin() {
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">
-                      Transações Recentes
+                      Transacoes Recentes
                     </CardTitle>
                     <Activity className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
@@ -2327,9 +2372,9 @@ export default function Admin() {
           <TabsContent value="site-settings" data-testid="content-site-settings">
             <Card>
               <CardHeader>
-                <CardTitle>Configurações do Site</CardTitle>
+                <CardTitle>Configuracoes do Site</CardTitle>
                 <CardDescription>
-                  Configure as informações do rodapé e contato do site
+                  Configure as informacoes do rodape e contato do site
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -2355,9 +2400,9 @@ export default function Admin() {
           <TabsContent value="smtp-settings" data-testid="content-smtp-settings">
             <Card>
               <CardHeader>
-                <CardTitle>Configurações SMTP</CardTitle>
+                <CardTitle>Configuracoes SMTP</CardTitle>
                 <CardDescription>
-                  Configure as configurações de e-mail para envio de notificações
+                  Configure as configuracoes de e-mail para envio de notificacoes
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -2384,7 +2429,7 @@ export default function Admin() {
           <TabsContent value="stripe-settings" data-testid="content-stripe-settings">
             <Card>
               <CardHeader>
-                <CardTitle>Configurações do Stripe</CardTitle>
+                <CardTitle>Configuracoes do Stripe</CardTitle>
                 <CardDescription>
                   Configure as chaves API do Stripe para processar pagamentos
                 </CardDescription>
@@ -2415,9 +2460,9 @@ export default function Admin() {
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
                   <div>
-                    <CardTitle>Notificações do Sistema</CardTitle>
+                    <CardTitle>Notificacoes do Sistema</CardTitle>
                     <CardDescription>
-                      Gerencie notificações para usuários da plataforma
+                      Gerencie notificacoes para usuarios da plataforma
                     </CardDescription>
                   </div>
                   <Button
@@ -2428,7 +2473,7 @@ export default function Admin() {
                     data-testid="button-create-notification"
                   >
                     <Plus className="mr-2 h-4 w-4" />
-                    Nova Notificação
+                    Nova Notificacao
                   </Button>
                 </CardHeader>
                 <CardContent>
@@ -2456,12 +2501,12 @@ export default function Admin() {
                 <Card>
                   <CardHeader>
                     <CardTitle>
-                      {selectedNotification ? 'Editar' : 'Criar'} Notificação
+                      {selectedNotification ? 'Editar' : 'Criar'} Notificacao
                     </CardTitle>
                     <CardDescription>
                       {selectedNotification 
-                        ? 'Edite os detalhes da notificação'
-                        : 'Crie uma nova notificação para os usuários'
+                        ? 'Edite os detalhes da notificacao'
+                        : 'Crie uma nova notificacao para os usuarios'
                       }
                     </CardDescription>
                   </CardHeader>
@@ -2499,3 +2544,6 @@ export default function Admin() {
     </div>
   );
 }
+
+
+
