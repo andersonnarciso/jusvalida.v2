@@ -35,6 +35,7 @@ import NotFound from "@/pages/not-found";
 // Componente para renderizar o cabeçalho correto com base na rota e autenticação
 function Header() {
   const [location] = useLocation();
+  const [, setLocation] = useLocation();
   const { isAuthenticated, loading } = useUser();
   
   // Rotas públicas que devem usar o cabeçalho de landing
@@ -44,7 +45,7 @@ function Header() {
   const isPublicRoute = publicRoutes.includes(location);
   
   if (isPublicRoute) {
-    return <LandingHeader />;
+    return <LandingHeader onLoginSuccess={() => setLocation('/dashboard')} onRegisterSuccess={() => setLocation('/dashboard')} />;
   }
   
   // Se não autenticado e não em rota pública, não mostrar cabeçalho
