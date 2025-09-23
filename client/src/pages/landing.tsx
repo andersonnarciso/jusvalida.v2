@@ -292,6 +292,7 @@ export default function Landing() {
           </div>
         </div>
       </nav>
+    </div>
 
       {/* Hero Section */}
       <section className="relative py-20 overflow-hidden">
