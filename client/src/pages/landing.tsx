@@ -50,8 +50,11 @@ export default function Landing() {
       if (error) {
         throw error;
       }
-      // Redirecionar após login bem-sucedido
-      setLocation('/dashboard');
+      // Aguardar um pequeno tempo para garantir que o estado de autenticação seja atualizado
+      // e então redirecionar
+      setTimeout(() => {
+        setLocation('/dashboard');
+      }, 500);
     } catch (error: any) {
       toast({
         title: "Erro no Login",
