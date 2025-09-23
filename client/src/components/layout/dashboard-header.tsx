@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { Link, useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -8,6 +9,11 @@ import { Gavel, Coins, ChevronDown, User, CreditCard, Headphones, LogOut, Settin
 export function DashboardHeader() {
   const { user, supabaseUser, signOut, isAdmin, isSupport } = useUser();
   const [, setLocation] = useLocation();
+
+  // Adicionar log para verificar se o componente está sendo montado
+  useEffect(() => {
+    console.log('DashboardHeader mounted');
+  }, []);
 
   const handleLogout = async () => {
     await signOut();

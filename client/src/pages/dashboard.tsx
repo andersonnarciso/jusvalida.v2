@@ -28,8 +28,7 @@ interface AnalysisResult {
     score: number;
     issues: string[];
   };
-  recommendations: string[];
-  riskLevel: 'low' | 'medium' | 'high' | 'critical';
+  riskLevel?: 'low' | 'medium' | 'high' | 'critical';
 }
 
 interface DocumentAnalysis {
@@ -51,6 +50,11 @@ export default function Dashboard() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
+
+  // Adicionar log para verificar se o componente está sendo montado
+  useEffect(() => {
+    console.log('Dashboard mounted');
+  }, []);
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [textContent, setTextContent] = useState('');
