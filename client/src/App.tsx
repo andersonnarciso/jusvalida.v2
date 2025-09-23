@@ -35,7 +35,7 @@ import NotFound from "@/pages/not-found";
 // Componente para renderizar o cabeçalho correto com base na rota e autenticação
 function Header() {
   const [location] = useLocation();
-  const { isAuthenticated } = useUser();
+  const { isAuthenticated, loading } = useUser();
   
   // Rotas públicas que devem usar o cabeçalho de landing
   const publicRoutes = ['/', '/login', '/register', '/forgot-password', '/reset-password', '/privacy-policy', '/cookie-policy', '/terms-of-service', '/contact'];
@@ -47,12 +47,23 @@ function Header() {
     return <LandingHeader />;
   }
   
+  // Se não autenticado e não em rota pública, não mostrar cabeçalho
+  if (!isAuthenticated && !loading) {
+    return null;
+  }
+  
   // Para todas as outras rotas, mostrar o cabeçalho protegido se autenticado
+  // ou se ainda estiver carregando (para evitar flicker durante o login)
+  if (loading) {
+    // Pode retornar um placeholder ou continuar mostrando o cabeçalho anterior
+    // Por enquanto, vamos mostrar o ProtectedHeader enquanto carrega
+    return <ProtectedHeader />;
+  }
+  
   if (isAuthenticated) {
     return <ProtectedHeader />;
   }
   
-  // Se não autenticado e não em rota pública, não mostrar cabeçalho
   return null;
 }
 
