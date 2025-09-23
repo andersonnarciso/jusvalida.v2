@@ -144,10 +144,8 @@ export default function ForgotPassword() {
               </Button>
               
               <div className="mt-4 text-center text-sm text-muted-foreground">
-                <Link href="/login">
-                  <a className="text-primary hover:underline" data-testid="link-back-to-login">
-                    Voltar para login
-                  </a>
+                <Link href="/login" className="text-primary hover:underline" data-testid="link-back-to-login">
+                  Voltar para login
                 </Link>
               </div>
             </form>

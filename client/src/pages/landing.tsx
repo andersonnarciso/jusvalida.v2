@@ -97,7 +97,7 @@ export default function Landing() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      {/* Navigation Header */}
+      {/* Header with Login/Register buttons */}
       <nav className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-16 items-center justify-between px-4 mx-auto">
           <div className="flex items-center space-x-4">
@@ -174,7 +174,7 @@ export default function Landing() {
                       />
                       <Label htmlFor="remember" className="text-sm">Lembrar-me</Label>
                     </div>
-                    <a href="#" className="text-sm text-primary hover:underline" data-testid="link-forgot-password">Esqueceu a senha?</a>
+                    <Link href="/forgot-password" className="text-sm text-primary hover:underline" data-testid="link-forgot-password">Esqueceu a senha?</Link>
                   </div>
                   
                   <Button type="submit" className="w-full" data-testid="button-submit-login">
@@ -303,7 +303,7 @@ export default function Landing() {
           </div>
         </div>
       </nav>
-
+      
       {/* Hero Section */}
       <section className="relative py-20 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-accent/5 to-secondary/5"></div>
