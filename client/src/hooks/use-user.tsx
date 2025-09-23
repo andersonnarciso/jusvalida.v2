@@ -131,7 +131,9 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   };
 
   const loading = supabaseLoading || backendLoading;
-  const isAuthenticated = !!supabaseUser && !!backendUserData;
+  // Considera autenticado se o usuário do Supabase estiver presente
+  // mesmo que os dados backend ainda estejam carregando
+  const isAuthenticated = !!supabaseUser;
   const isAdmin = backendUserData?.role === 'admin';
   const isSupport = backendUserData?.role === 'support';
 
