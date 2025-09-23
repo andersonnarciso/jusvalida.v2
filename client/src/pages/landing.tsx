@@ -98,6 +98,185 @@ export default function Landing() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      {/* Call to Action Section with Login/Register buttons - only for landing page to avoid duplication with header */}
+      <section className="py-6 border-b">
+        <div className="container mx-auto px-4">
+          <div className="flex justify-end space-x-4">
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="ghost">Entrar</Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Entrar na Conta</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={handleLogin} className="space-y-4">
+                  <div>
+                    <Label htmlFor="login-email">Email</Label>
+                    <Input
+                      id="login-email"
+                      type="email"
+                      placeholder="seu@email.com"
+                      value={loginForm.email}
+                      onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="login-password">Senha</Label>
+                    <div className="relative">
+                      <Input
+                        id="login-password"
+                        type={showPassword.login ? "text" : "password"}
+                        placeholder="••••••••"
+                        value={loginForm.password}
+                        onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                        required
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-2 top-1/2 transform -translate-y-1/2"
+                        onClick={() => setShowPassword({ ...showPassword, login: !showPassword.login })}
+                      >
+                        {showPassword.login ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="remember"
+                        checked={loginForm.remember}
+                        onCheckedChange={(checked) => setLoginForm({ ...loginForm, remember: !!checked })}
+                      />
+                      <Label htmlFor="remember" className="text-sm">Lembrar-me</Label>
+                    </div>
+                    <Link href="/forgot-password" className="text-sm text-primary hover:underline">Esqueceu a senha?</Link>
+                  </div>
+                  
+                  <Button type="submit" className="w-full">
+                    Entrar
+                  </Button>
+                </form>
+              </DialogContent>
+            </Dialog>
+
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button>Começar Grátis</Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Criar Conta</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={handleRegister} className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="firstName">Nome</Label>
+                      <Input
+                        id="firstName"
+                        placeholder="João"
+                        value={registerForm.firstName}
+                        onChange={(e) => setRegisterForm({ ...registerForm, firstName: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="lastName">Sobrenome</Label>
+                      <Input
+                        id="lastName"
+                        placeholder="Silva"
+                        value={registerForm.lastName}
+                        onChange={(e) => setRegisterForm({ ...registerForm, lastName: e.target.value })}
+                        required
+                      />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="username">Nome de usuário</Label>
+                    <Input
+                      id="username"
+                      placeholder="joaosilva"
+                      value={registerForm.username}
+                      onChange={(e) => setRegisterForm({ ...registerForm, username: e.target.value })}
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="register-email">Email</Label>
+                    <Input
+                      id="register-email"
+                      type="email"
+                      placeholder="seu@email.com"
+                      value={registerForm.email}
+                      onChange={(e) => setRegisterForm({ ...registerForm, email: e.target.value })}
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="register-password">Senha</Label>
+                    <div className="relative">
+                      <Input
+                        id="register-password"
+                        type={showPassword.register ? "text" : "password"}
+                        placeholder="••••••••"
+                        value={registerForm.password}
+                        onChange={(e) => setRegisterForm({ ...registerForm, password: e.target.value })}
+                        required
+                        minLength={8}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-2 top-1/2 transform -translate-y-1/2"
+                        onClick={() => setShowPassword({ ...showPassword, register: !showPassword.register })}
+                      >
+                        {showPassword.register ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Mínimo 8 caracteres com letras e números
+                    </p>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="saveData"
+                      checked={registerForm.saveData}
+                      onCheckedChange={(checked) => setRegisterForm({ ...registerForm, saveData: !!checked })}
+                    />
+                    <Label htmlFor="saveData" className="text-sm">Salvar dados de login</Label>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="acceptTerms"
+                      checked={registerForm.acceptTerms}
+                      onCheckedChange={(checked) => setRegisterForm({ ...registerForm, acceptTerms: !!checked })}
+                    />
+                    <Label htmlFor="acceptTerms" className="text-sm">
+                      Aceito os <a href="#" className="text-primary hover:underline">termos de uso</a> e <a href="#" className="text-primary hover:underline">política de privacidade</a>
+                    </Label>
+                  </div>
+                  
+                  <Button type="submit" className="w-full">
+                    Criar Conta
+                  </Button>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </div>
+      </section>
+      
       {/* Hero Section */}
       <section className="relative py-20 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-accent/5 to-secondary/5"></div>
