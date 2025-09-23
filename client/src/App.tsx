@@ -1,13 +1,15 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { CookieBanner } from "@/components/ui/cookie-banner";
 import { Footer } from "@/components/ui/footer";
-import { UserProvider } from "@/hooks/use-user";
+import { UserProvider, useUser } from "@/hooks/use-user";
 import { SupabaseAuthProvider } from "@/hooks/use-supabase-auth";
 import { CookieConsentProvider } from "@/hooks/use-cookie-preferences";
+import { LandingHeader } from "@/components/layout/landing-header";
+import { ProtectedHeader } from "@/components/layout/protected-header";
 import Landing from "@/pages/landing";
 import Dashboard from "@/pages/dashboard";
 import LoginSupabase from "@/pages/login-supabase";
@@ -28,9 +30,34 @@ import TermsOfService from "@/pages/terms-of-service";
 import Contact from "@/pages/contact";
 import NotFound from "@/pages/not-found";
 
+// Componente para renderizar o cabeçalho correto com base na rota e autenticação
+function Header() {
+  const [location] = useLocation();
+  const { isAuthenticated } = useUser();
+  
+  // Rotas públicas que devem usar o cabeçalho de landing
+  const publicRoutes = ['/', '/login', '/register', '/privacy-policy', '/cookie-policy', '/terms-of-service', '/contact'];
+  
+  // Verifica se está em uma rota pública
+  const isPublicRoute = publicRoutes.includes(location);
+  
+  if (isPublicRoute) {
+    return <LandingHeader />;
+  }
+  
+  // Para todas as outras rotas, mostrar o cabeçalho protegido se autenticado
+  if (isAuthenticated) {
+    return <ProtectedHeader />;
+  }
+  
+  // Se não autenticado e não em rota pública, não mostrar cabeçalho
+  return null;
+}
+
 function Router() {
   return (
     <div className="min-h-screen flex flex-col">
+      <Header />
       <main className="flex-1">
         <Switch>
           <Route path="/" component={Landing} />

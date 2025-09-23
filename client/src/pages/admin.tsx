@@ -4,7 +4,6 @@ import { useUser } from "@/hooks/use-user";
 import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { DashboardHeader } from "@/components/layout/dashboard-header";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -1600,8 +1599,6 @@ export default function Admin() {
 
   return (
     <div className="min-h-screen bg-background">
-      <DashboardHeader />
-
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-foreground mb-2">

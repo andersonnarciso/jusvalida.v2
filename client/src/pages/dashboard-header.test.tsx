@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-test('Dashboard header should be visible', async ({ page }) => {
+test('Protected header should be visible', async ({ page }) => {
   // Navegar para a página de dashboard
   await page.goto('/dashboard');
   

@@ -4,7 +4,6 @@ import { loadStripe } from '@stripe/stripe-js';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { DashboardHeader } from '@/components/layout/dashboard-header';
 import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
@@ -171,7 +170,6 @@ export default function Checkout() {
   if (isLoading || !selectedPackage) {
     return (
       <div className="min-h-screen bg-background">
-        <DashboardHeader />
         <div className="container mx-auto px-4 py-8">
           <div className="max-w-4xl mx-auto">
             <div className="mb-8">
@@ -204,8 +202,6 @@ export default function Checkout() {
 
   return (
     <div className="min-h-screen bg-background">
-      <DashboardHeader />
-      
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
           <div className="mb-8">
