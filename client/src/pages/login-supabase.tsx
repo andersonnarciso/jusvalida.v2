@@ -143,6 +143,12 @@ export default function LoginSupabase() {
             >
               {isLoading ? 'Entrando...' : 'Entrar'}
             </Button>
+            
+            <div className="text-center">
+              <Link href="/forgot-password" className="text-sm text-primary hover:underline">
+                Esqueceu a senha?
+              </Link>
+            </div>
           </form>
           
           <div className="mt-6 text-center text-sm text-muted-foreground">

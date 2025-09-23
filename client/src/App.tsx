@@ -14,6 +14,8 @@ import Landing from "@/pages/landing";
 import Dashboard from "@/pages/dashboard";
 import LoginSupabase from "@/pages/login-supabase";
 import RegisterSupabase from "@/pages/register-supabase";
+import ForgotPassword from "@/pages/forgot-password";
+import ResetPassword from "@/pages/reset-password";
 import Profile from "@/pages/profile";
 import Billing from "@/pages/billing";
 import Support from "@/pages/support";
@@ -36,7 +38,7 @@ function Header() {
   const { isAuthenticated } = useUser();
   
   // Rotas públicas que devem usar o cabeçalho de landing
-  const publicRoutes = ['/', '/login', '/register', '/privacy-policy', '/cookie-policy', '/terms-of-service', '/contact'];
+  const publicRoutes = ['/', '/login', '/register', '/forgot-password', '/reset-password', '/privacy-policy', '/cookie-policy', '/terms-of-service', '/contact'];
   
   // Verifica se está em uma rota pública
   const isPublicRoute = publicRoutes.includes(location);
@@ -63,6 +65,8 @@ function Router() {
           <Route path="/" component={Landing} />
           <Route path="/login" component={LoginSupabase} />
           <Route path="/register" component={RegisterSupabase} />
+          <Route path="/forgot-password" component={ForgotPassword} />
+          <Route path="/reset-password" component={ResetPassword} />
           <Route path="/dashboard" component={Dashboard} />
           <Route path="/profile" component={Profile} />
           <Route path="/billing" component={Billing} />

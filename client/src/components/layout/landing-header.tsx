@@ -155,7 +155,7 @@ export function LandingHeader({ onLoginSuccess, onRegisterSuccess }: LandingHead
                     />
                     <Label htmlFor="remember" className="text-sm">Lembrar-me</Label>
                   </div>
-                  <a href="#" className="text-sm text-primary hover:underline">Esqueceu a senha?</a>
+                  <Link href="/forgot-password" className="text-sm text-primary hover:underline">Esqueceu a senha?</Link>
                 </div>
                 
                 <Button type="submit" className="w-full">
