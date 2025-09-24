@@ -2,11 +2,19 @@ import { createClient } from '@supabase/supabase-js';
 
 // Função para obter as configurações do Supabase com múltiplas tentativas
 function getSupabaseConfig() {
-  // Tentativa 1: Variáveis de ambiente do Vite
+  // Tentativa 1: Variáveis de ambiente do Vite (VITE_)
   let supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
   let supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
   
-  // Tentativa 2: Variáveis globais do window (fallback)
+  // Tentativa 2: Variáveis de ambiente sem prefixo VITE_ (para Netlify)
+  if (!supabaseUrl) {
+    supabaseUrl = import.meta.env.SUPABASE_URL;
+  }
+  if (!supabaseAnonKey) {
+    supabaseAnonKey = import.meta.env.SUPABASE_ANON_KEY;
+  }
+  
+  // Tentativa 3: Variáveis globais do window (fallback)
   if (!supabaseUrl && typeof window !== 'undefined') {
     supabaseUrl = (window as any).__SUPABASE_URL__;
   }
@@ -14,7 +22,7 @@ function getSupabaseConfig() {
     supabaseAnonKey = (window as any).__SUPABASE_ANON_KEY__;
   }
   
-  // Tentativa 3: Valores hardcoded para produção (fallback final)
+  // Tentativa 4: Valores hardcoded para produção (fallback final)
   if (!supabaseUrl) {
     supabaseUrl = 'https://lwqeysdqcepqfzmwvwsq.supabase.co';
   }
@@ -37,6 +45,8 @@ if (typeof window !== 'undefined') {
     sources: {
       viteUrl: import.meta.env.VITE_SUPABASE_URL,
       viteKey: import.meta.env.VITE_SUPABASE_ANON_KEY ? '***' : 'undefined',
+      envUrl: import.meta.env.SUPABASE_URL,
+      envKey: import.meta.env.SUPABASE_ANON_KEY ? '***' : 'undefined',
       windowUrl: typeof window !== 'undefined' ? (window as any).__SUPABASE_URL__ : 'N/A',
       windowKey: typeof window !== 'undefined' ? ((window as any).__SUPABASE_ANON_KEY__ ? '***' : 'undefined') : 'N/A'
     }
@@ -177,5 +187,4 @@ export interface Database {
       [_ in never]: never;
     };
   };
-}
 }

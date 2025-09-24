@@ -16,12 +16,6 @@
   port = 5173
   targetPort = 5173
 
-# Environment variables for production
-[build.environment]
-  VITE_SUPABASE_URL = "https://lwqeysdqcepqfzmwvwsq.supabase.co"
-  VITE_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx3cWV5c2RxY2VwcWZ6bXd2d3NxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgwMjQ3OTksImV4cCI6MjA3MzYwMDc5OX0.5B6Jnpqh7zEIHHABF13ylltIZgttJ-ZKHC6AgzSMKlc"
-  NODE_ENV = "production"
-
 # Build settings
 [build.processing]
   skip_processing = false
