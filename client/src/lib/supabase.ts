@@ -1,62 +1,18 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Função para obter as configurações do Supabase com múltiplas tentativas
-function getSupabaseConfig() {
-  // Tentativa 1: Variáveis de ambiente do Vite (VITE_)
-  let supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-  let supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-  
-  // Tentativa 2: Variáveis de ambiente sem prefixo VITE_ (para Netlify)
-  if (!supabaseUrl) {
-    supabaseUrl = import.meta.env.SUPABASE_URL;
-  }
-  if (!supabaseAnonKey) {
-    supabaseAnonKey = import.meta.env.SUPABASE_ANON_KEY;
-  }
-  
-  // Tentativa 3: Variáveis globais do window (fallback)
-  if (!supabaseUrl && typeof window !== 'undefined') {
-    supabaseUrl = (window as any).__SUPABASE_URL__;
-  }
-  if (!supabaseAnonKey && typeof window !== 'undefined') {
-    supabaseAnonKey = (window as any).__SUPABASE_ANON_KEY__;
-  }
-  
-  // Tentativa 4: Valores hardcoded para produção (fallback final)
-  if (!supabaseUrl) {
-    supabaseUrl = 'https://lwqeysdqcepqfzmwvwsq.supabase.co';
-  }
-  if (!supabaseAnonKey) {
-    supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx3cWV5c2RxY2VwcWZ6bXd2d3NxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgwMjQ3OTksImV4cCI6MjA3MzYwMDc5OX0.5B6Jnpqh7zEIHHABF13ylltIZgttJ-ZKHC6AgzSMKlc';
-  }
-  
-  return { supabaseUrl, supabaseAnonKey };
-}
+// Configuração simples do Supabase
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://lwqeysdqcepqfzmwvwsq.supabase.co';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx3cWV5c2RxY2VwcWZ6bXd2d3NxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgwMjQ3OTksImV4cCI6MjA3MzYwMDc5OX0.5B6Jnpqh7zEIHHABF13ylltIZgttJ-ZKHC6AgzSMKlc';
 
-const { supabaseUrl, supabaseAnonKey } = getSupabaseConfig();
-
-// Debug logging detalhado
-if (typeof window !== 'undefined') {
-  console.log('🔧 Supabase Configuration Debug:', {
-    environment: import.meta.env.MODE,
-    url: supabaseUrl,
-    hasAnonKey: !!supabaseAnonKey,
-    anonKeyLength: supabaseAnonKey?.length || 0,
-    sources: {
-      viteUrl: import.meta.env.VITE_SUPABASE_URL,
-      viteKey: import.meta.env.VITE_SUPABASE_ANON_KEY ? '***' : 'undefined',
-      envUrl: import.meta.env.SUPABASE_URL,
-      envKey: import.meta.env.SUPABASE_ANON_KEY ? '***' : 'undefined',
-      windowUrl: typeof window !== 'undefined' ? (window as any).__SUPABASE_URL__ : 'N/A',
-      windowKey: typeof window !== 'undefined' ? ((window as any).__SUPABASE_ANON_KEY__ ? '***' : 'undefined') : 'N/A'
-    }
-  });
-}
+// Debug logging
+console.log('🔧 Supabase Config:', {
+  url: supabaseUrl,
+  hasKey: !!supabaseAnonKey,
+  keyLength: supabaseAnonKey?.length || 0
+});
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error('❌ Missing Supabase environment variables!');
-  console.error('URL:', supabaseUrl);
-  console.error('Anon Key:', supabaseAnonKey ? 'Present' : 'Missing');
 } else {
   console.log('✅ Supabase configuration loaded successfully');
 }
