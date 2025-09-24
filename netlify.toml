@@ -3,6 +3,15 @@
   publish = "dist/public"
   functions = "dist"
 
+[build.environment]
+  SUPABASE_URL = "https://lwqeysdqcepqfzmwvwsq.supabase.co"
+  SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx3cWV5c2RxY2VwcWZ6bXd2d3NxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgwMjQ3OTksImV4cCI6MjA3MzYwMDc5OX0.5B6Jnpqh7zEIHHABF13ylltIZgttJ-ZKHC6AgzSMKlc"
+  DATABASE_URL = "postgresql://postgres.lwqeysdqcepqfzmwvwsq:0y3MePUhzYDIEYRh@aws-1-sa-east-1.pooler.supabase.com:6543/postgres"
+  ENCRYPTION_KEY = "jus-valida-encryption-master-key-2025"
+  SUPABASE_SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx3cWV5c2RxY2VwcWZ6bXd2d3NxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1ODAyNDc5OSwiZXhwIjoyMDczNjAwNzk5fQ.kaRfwClHyI-gqTHFgm-A0WP_qx7EJl7gu93VKuKJXM"
+  SUPABASE_SERVICE_ROLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx3cWV5c2RxY2VwcWZ6bXd2d3NxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1ODAyNDc5OSwiZXhwIjoyMDczNjAwNzk5fQ.kaRfwClHyI-gqTHFgm-A0WP_qx7EJl7gu93VKuKJXM"
+  NODE_ENV = "production"
+
 [[redirects]]
   from = "/*"
   to = "/index.html"
