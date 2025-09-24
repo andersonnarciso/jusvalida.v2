@@ -1,30 +1,54 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Get environment variables with better fallbacks
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 
-  (typeof window !== 'undefined' && (window as any).__SUPABASE_URL__) ||
-  'https://lwqeysdqcepqfzmwvwsq.supabase.co'; // Fallback for development
+// Função para obter as configurações do Supabase com múltiplas tentativas
+function getSupabaseConfig() {
+  // Tentativa 1: Variáveis de ambiente do Vite
+  let supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  let supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+  
+  // Tentativa 2: Variáveis globais do window (fallback)
+  if (!supabaseUrl && typeof window !== 'undefined') {
+    supabaseUrl = (window as any).__SUPABASE_URL__;
+  }
+  if (!supabaseAnonKey && typeof window !== 'undefined') {
+    supabaseAnonKey = (window as any).__SUPABASE_ANON_KEY__;
+  }
+  
+  // Tentativa 3: Valores hardcoded para produção (fallback final)
+  if (!supabaseUrl) {
+    supabaseUrl = 'https://lwqeysdqcepqfzmwvwsq.supabase.co';
+  }
+  if (!supabaseAnonKey) {
+    supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx3cWV5c2RxY2VwcWZ6bXd2d3NxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgwMjQ3OTksImV4cCI6MjA3MzYwMDc5OX0.5B6Jnpqh7zEIHHABF13ylltIZgttJ-ZKHC6AgzSMKlc';
+  }
+  
+  return { supabaseUrl, supabaseAnonKey };
+}
 
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY ||
-  (typeof window !== 'undefined' && (window as any).__SUPABASE_ANON_KEY__) ||
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx3cWV5c2RxY2VwcWZ6bXd2d3NxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgwMjQ3OTksImV4cCI6MjA3MzYwMDc5OX0.5B6Jnpqh7zEIHHABF13ylltIZgttJ-ZKHC6AgzSMKlc'; // Fallback for development
+const { supabaseUrl, supabaseAnonKey } = getSupabaseConfig();
 
-// Debug logging for production
+// Debug logging detalhado
 if (typeof window !== 'undefined') {
-  console.log('Supabase Config:', {
+  console.log('🔧 Supabase Configuration Debug:', {
+    environment: import.meta.env.MODE,
     url: supabaseUrl,
     hasAnonKey: !!supabaseAnonKey,
-    env: {
-      VITE_SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL,
-      VITE_SUPABASE_ANON_KEY: import.meta.env.VITE_SUPABASE_ANON_KEY ? '***' : 'undefined'
+    anonKeyLength: supabaseAnonKey?.length || 0,
+    sources: {
+      viteUrl: import.meta.env.VITE_SUPABASE_URL,
+      viteKey: import.meta.env.VITE_SUPABASE_ANON_KEY ? '***' : 'undefined',
+      windowUrl: typeof window !== 'undefined' ? (window as any).__SUPABASE_URL__ : 'N/A',
+      windowKey: typeof window !== 'undefined' ? ((window as any).__SUPABASE_ANON_KEY__ ? '***' : 'undefined') : 'N/A'
     }
   });
 }
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('Missing Supabase environment variables. Using fallback values for development.');
+  console.error('❌ Missing Supabase environment variables!');
   console.error('URL:', supabaseUrl);
   console.error('Anon Key:', supabaseAnonKey ? 'Present' : 'Missing');
+} else {
+  console.log('✅ Supabase configuration loaded successfully');
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
@@ -32,14 +56,29 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
-    flowType: 'pkce'
+    flowType: 'pkce',
+    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+    storageKey: 'jusvalida-auth-token'
   },
   global: {
     headers: {
-      'X-Client-Info': 'jusvalida-web'
+      'X-Client-Info': 'jusvalida-web',
+      'X-Environment': import.meta.env.MODE || 'production'
     }
   }
 });
+
+// Teste de conectividade
+if (typeof window !== 'undefined') {
+  supabase.auth.getSession().then(({ data, error }) => {
+    if (error) {
+      console.error('❌ Supabase connection test failed:', error);
+    } else {
+      console.log('✅ Supabase connection test successful');
+      console.log('Current session:', data.session ? 'Active' : 'None');
+    }
+  });
+}
 
 // Database types for TypeScript
 export interface Database {
@@ -138,4 +177,5 @@ export interface Database {
       [_ in never]: never;
     };
   };
+}
 }

@@ -31,6 +31,22 @@ import CookiePolicy from "@/pages/cookie-policy";
 import TermsOfService from "@/pages/terms-of-service";
 import Contact from "@/pages/contact";
 import NotFound from "@/pages/not-found";
+import { useEffect } from "react";
+import { debugEnvironment, testSupabaseConnection } from "@/lib/debug";
+
+// Debug em produção
+function DebugComponent() {
+  useEffect(() => {
+    // Executar debug apenas em produção
+    if (import.meta.env.PROD) {
+      console.log('🚀 JusValida App Starting in Production Mode');
+      debugEnvironment();
+      testSupabaseConnection();
+    }
+  }, []);
+  
+  return null;
+}
 
 // Componente para renderizar o cabeçalho correto com base na rota e autenticação
 function Header() {
@@ -109,6 +125,7 @@ function App() {
         <SupabaseAuthProvider>
           <UserProvider>
             <TooltipProvider>
+            <DebugComponent />
             <Toaster />
             <Router />
             </TooltipProvider>
