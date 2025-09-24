@@ -34,8 +34,7 @@ import NotFound from "@/pages/not-found";
 
 // Componente para renderizar o cabeçalho correto com base na rota e autenticação
 function Header() {
-  const [location] = useLocation();
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const { isAuthenticated, loading } = useUser();
   
   // Rotas públicas que devem usar o cabeçalho de landing
