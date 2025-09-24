@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Try to get env vars from multiple sources in development
+// Get environment variables with better fallbacks
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 
   (typeof window !== 'undefined' && (window as any).__SUPABASE_URL__) ||
   'https://lwqeysdqcepqfzmwvwsq.supabase.co'; // Fallback for development
@@ -9,14 +9,35 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY ||
   (typeof window !== 'undefined' && (window as any).__SUPABASE_ANON_KEY__) ||
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx3cWV5c2RxY2VwcWZ6bXd2d3NxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgwMjQ3OTksImV4cCI6MjA3MzYwMDc5OX0.5B6Jnpqh7zEIHHABF13ylltIZgttJ-ZKHC6AgzSMKlc'; // Fallback for development
 
+// Debug logging for production
+if (typeof window !== 'undefined') {
+  console.log('Supabase Config:', {
+    url: supabaseUrl,
+    hasAnonKey: !!supabaseAnonKey,
+    env: {
+      VITE_SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL,
+      VITE_SUPABASE_ANON_KEY: import.meta.env.VITE_SUPABASE_ANON_KEY ? '***' : 'undefined'
+    }
+  });
+}
+
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error('Missing Supabase environment variables. Using fallback values for development.');
+  console.error('URL:', supabaseUrl);
+  console.error('Anon Key:', supabaseAnonKey ? 'Present' : 'Missing');
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
-    autoRefreshToken: true
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+    flowType: 'pkce'
+  },
+  global: {
+    headers: {
+      'X-Client-Info': 'jusvalida-web'
+    }
   }
 });
 

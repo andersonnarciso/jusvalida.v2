@@ -48,16 +48,28 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   // Track Supabase auth state
   useEffect(() => {
     const getInitialSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setSession(session);
-      setSupabaseUser(session?.user || null);
-      setSupabaseLoading(false);
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) {
+          console.error('Error getting initial session:', error);
+        }
+        setSession(session);
+        setSupabaseUser(session?.user || null);
+        setSupabaseLoading(false);
+        
+        console.log('UserProvider - initial session:', session);
+        console.log('UserProvider - user:', session?.user || null);
+      } catch (error) {
+        console.error('Error in getInitialSession:', error);
+        setSupabaseLoading(false);
+      }
     };
 
     getInitialSession();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('UserProvider - auth state change:', event, session);
         setSession(session);
         setSupabaseUser(session?.user || null);
         setSupabaseLoading(false);
@@ -68,28 +80,54 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Fetch backend user data when authenticated
-  const { data: backendUserData, isLoading: backendLoading } = useQuery({
+  const { data: backendUserData, isLoading: backendLoading, error: backendError } = useQuery({
     queryKey: ['/api/auth/me', supabaseUser?.id],
     queryFn: async () => {
       if (!supabaseUser) return null;
-      const response = await apiRequest('GET', '/api/auth/me');
-      const data = await response.json();
       
-      // Adicionar log para debug
-      console.log('UserProvider - backend user data:', data);
-      
-      return data.user as BackendUser;
+      try {
+        const response = await apiRequest('GET', '/api/auth/me');
+        const data = await response.json();
+        
+        console.log('UserProvider - backend user data:', data);
+        
+        return data.user as BackendUser;
+      } catch (error) {
+        console.error('Error fetching backend user data:', error);
+        throw error;
+      }
     },
     enabled: !!supabaseUser && !supabaseLoading,
-    retry: false
+    retry: (failureCount, error) => {
+      console.log('Retry attempt:', failureCount, error);
+      return failureCount < 2;
+    },
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
 
+  // Log backend errors
+  useEffect(() => {
+    if (backendError) {
+      console.error('Backend user data error:', backendError);
+    }
+  }, [backendError]);
+
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    return { error };
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      
+      if (error) {
+        console.error('Sign in error:', error);
+      }
+      
+      return { error };
+    } catch (error) {
+      console.error('Sign in exception:', error);
+      return { error };
+    }
   };
 
   const signUp = async (
@@ -97,22 +135,36 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     password: string, 
     metadata: { firstName: string; lastName: string; username: string }
   ) => {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          first_name: metadata.firstName,
-          last_name: metadata.lastName,
-          username: metadata.username,
+    try {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            first_name: metadata.firstName,
+            last_name: metadata.lastName,
+            username: metadata.username,
+          },
         },
-      },
-    });
-    return { error };
+      });
+      
+      if (error) {
+        console.error('Sign up error:', error);
+      }
+      
+      return { error };
+    } catch (error) {
+      console.error('Sign up exception:', error);
+      return { error };
+    }
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error('Sign out error:', error);
+    }
   };
 
   const updateProfile = async (updates: { 
@@ -120,14 +172,24 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     lastName?: string; 
     username?: string; 
   }) => {
-    const { error } = await supabase.auth.updateUser({
-      data: {
-        first_name: updates.firstName,
-        last_name: updates.lastName,
-        username: updates.username,
-      },
-    });
-    return { error };
+    try {
+      const { error } = await supabase.auth.updateUser({
+        data: {
+          first_name: updates.firstName,
+          last_name: updates.lastName,
+          username: updates.username,
+        },
+      });
+      
+      if (error) {
+        console.error('Update profile error:', error);
+      }
+      
+      return { error };
+    } catch (error) {
+      console.error('Update profile exception:', error);
+      return { error };
+    }
   };
 
   const loading = supabaseLoading || backendLoading;

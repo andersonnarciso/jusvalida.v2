@@ -4,21 +4,33 @@ import { supabase } from '@/lib/supabase';
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
+    console.error(`API Error ${res.status}:`, text);
     throw new Error(`${res.status}: ${text}`);
   }
 }
 
 // Helper function to get authorization headers
 async function getAuthHeaders(): Promise<Record<string, string>> {
-  const { data: { session } } = await supabase.auth.getSession();
-  
-  if (session?.access_token) {
-    return {
-      'Authorization': `Bearer ${session.access_token}`,
-    };
+  try {
+    const { data: { session }, error } = await supabase.auth.getSession();
+    
+    if (error) {
+      console.error('Error getting session for auth headers:', error);
+      return {};
+    }
+    
+    if (session?.access_token) {
+      return {
+        'Authorization': `Bearer ${session.access_token}`,
+      };
+    }
+    
+    console.log('No access token available for API request');
+    return {};
+  } catch (error) {
+    console.error('Error in getAuthHeaders:', error);
+    return {};
   }
-  
-  return {};
 }
 
 export async function apiRequest(
@@ -37,6 +49,12 @@ export async function apiRequest(
     ...(isFormData ? {} : (data ? { "Content-Type": "application/json" } : {})),
   };
   
+  console.log(`API Request: ${method} ${url}`, {
+    hasAuth: !!authHeaders.Authorization,
+    isFormData,
+    dataSize: data ? (isFormData ? 'FormData' : JSON.stringify(data).length) : 0
+  });
+  
   const res = await fetch(url, {
     method,
     headers,
@@ -54,19 +72,30 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    // Get authorization headers from Supabase
-    const authHeaders = await getAuthHeaders();
-    
-    const res = await fetch(queryKey.join("/") as string, {
-      headers: authHeaders,
-    });
+    try {
+      // Get authorization headers from Supabase
+      const authHeaders = await getAuthHeaders();
+      
+      const url = queryKey.join("/") as string;
+      console.log(`Query Request: ${url}`, {
+        hasAuth: !!authHeaders.Authorization
+      });
+      
+      const res = await fetch(url, {
+        headers: authHeaders,
+      });
 
-    if (unauthorizedBehavior === "returnNull" && res.status === 401) {
-      return null;
+      if (unauthorizedBehavior === "returnNull" && res.status === 401) {
+        console.log('Unauthorized request, returning null');
+        return null;
+      }
+
+      await throwIfResNotOk(res);
+      return await res.json();
+    } catch (error) {
+      console.error('Query function error:', error);
+      throw error;
     }
-
-    await throwIfResNotOk(res);
-    return await res.json();
   };
 
 export const queryClient = new QueryClient({
@@ -75,11 +104,19 @@ export const queryClient = new QueryClient({
       queryFn: getQueryFn({ on401: "throw" }),
       refetchInterval: false,
       refetchOnWindowFocus: false,
-      staleTime: Infinity,
-      retry: false,
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      retry: (failureCount, error) => {
+        console.log('Query retry:', failureCount, error);
+        return failureCount < 2;
+      },
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
     },
     mutations: {
-      retry: false,
+      retry: (failureCount, error) => {
+        console.log('Mutation retry:', failureCount, error);
+        return failureCount < 2;
+      },
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
     },
   },
 });
