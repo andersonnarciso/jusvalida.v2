@@ -4,12 +4,14 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://lwqeysdqcepqfzmwvwsq.supabase.co';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx3cWV5c2RxY2VwcWZ6bXd2d3NxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgwMjQ3OTksImV4cCI6MjA3MzYwMDc5OX0.5B6Jnpqh7zEIHHABF13ylltIZgttJ-ZKHC6AgzSMKlc';
 
-// Debug logging
-console.log('🔧 Supabase Config:', {
-  url: supabaseUrl,
-  hasKey: !!supabaseAnonKey,
-  keyLength: supabaseAnonKey?.length || 0
-});
+// Debug logging detalhado
+console.log('🔧 SUPABASE DEBUG - Environment Variables:');
+console.log('  VITE_SUPABASE_URL:', import.meta.env.VITE_SUPABASE_URL || 'NOT SET');
+console.log('  VITE_SUPABASE_ANON_KEY:', import.meta.env.VITE_SUPABASE_ANON_KEY ? 'SET' : 'NOT SET');
+console.log('  Final URL:', supabaseUrl);
+console.log('  Final Key:', supabaseAnonKey ? 'SET' : 'NOT SET');
+console.log('  Environment Mode:', import.meta.env.MODE);
+console.log('  Production Mode:', import.meta.env.PROD);
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error('❌ Missing Supabase environment variables!');
