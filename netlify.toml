@@ -1,7 +1,11 @@
 [build]
   command = "npm run build"
   publish = "dist/public"
-  functions = "dist"
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api"
+  status = 200
 
 [[redirects]]
   from = "/*"
@@ -9,7 +13,7 @@
   status = 200
 
 [functions]
-  directory = "dist"
+  directory = "netlify/functions"
 
 [dev]
   command = "npm run dev"
