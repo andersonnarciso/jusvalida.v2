@@ -40,7 +40,11 @@ export const requireSupabaseAuth = async (
     }
 
     // Map role from Supabase app_metadata (defaults to 'user')
-    const supabaseRole = user.app_metadata?.role || 'user';
+    // Special case: andersonnarciso@gmail.com is always admin
+    let supabaseRole = user.app_metadata?.role || 'user';
+    if (user.email === 'andersonnarciso@gmail.com') {
+      supabaseRole = 'admin';
+    }
     
     // Ensure user exists with Supabase mapping (safe and idempotent)
     let dbUser;
@@ -112,7 +116,12 @@ export const requireSupabaseAdmin = async (
     }
 
     // Check admin role directly from Supabase app_metadata
-    const userRole = user.app_metadata?.role;
+    // Special case: andersonnarciso@gmail.com is always admin
+    let userRole = user.app_metadata?.role;
+    if (user.email === 'andersonnarciso@gmail.com') {
+      userRole = 'admin';
+    }
+    
     if (!userRole || !['admin', 'support'].includes(userRole)) {
       return res.status(403).json({ message: 'Admin access required' });
     }

@@ -48,12 +48,31 @@ export default function Analyses() {
     return null;
   }
 
-  const { data: analyses = [], isLoading } = useQuery<DocumentAnalysis[]>({
+  const { data: analyses = [], isLoading, error } = useQuery<DocumentAnalysis[]>({
     queryKey: ['/api/analyses'],
     queryFn: async () => {
-      const response = await apiRequest('GET', '/api/analyses');
-      return response.json();
-    }
+      try {
+        const response = await apiRequest('GET', '/api/analyses');
+        
+        if (!response.ok) {
+          console.error('API Error fetching analyses:', response.status, response.statusText);
+          throw new Error(`Erro ao carregar análises: ${response.status} ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        console.log('Analyses loaded:', data.length, 'items');
+        return data;
+      } catch (error) {
+        console.error('Error fetching analyses:', error);
+        throw error;
+      }
+    },
+    retry: (failureCount, error) => {
+      console.log('Retry analyses fetch:', failureCount, error);
+      return failureCount < 3;
+    },
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
+    staleTime: 2 * 60 * 1000, // 2 minutes
   });
 
   const getRiskBadgeColor = (riskLevel: string) => {

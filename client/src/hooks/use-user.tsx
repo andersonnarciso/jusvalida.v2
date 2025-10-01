@@ -87,6 +87,12 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       
       try {
         const response = await apiRequest('GET', '/api/auth/me');
+        
+        if (!response.ok) {
+          console.error('API Error:', response.status, response.statusText);
+          throw new Error(`API Error: ${response.status} ${response.statusText}`);
+        }
+        
         const data = await response.json();
         
         console.log('UserProvider - backend user data:', data);
@@ -96,15 +102,23 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         return data.user as BackendUser;
       } catch (error) {
         console.error('Error fetching backend user data:', error);
+        // Don't throw error in production to prevent UI crashes
+        if (import.meta.env.PROD) {
+          console.warn('Backend user data unavailable, using Supabase fallback');
+          return null;
+        }
         throw error;
       }
     },
     enabled: !!supabaseUser && !supabaseLoading,
     retry: (failureCount, error) => {
       console.log('Retry attempt:', failureCount, error);
-      return failureCount < 2;
+      // More aggressive retry in production
+      return import.meta.env.PROD ? failureCount < 3 : failureCount < 2;
     },
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    // Add stale time to prevent excessive requests
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
   // Log backend errors
@@ -200,15 +214,38 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const isAuthenticated = !!supabaseUser;
   
   // Check admin role from backend data, or fallback to email-based check
+  // Add more robust admin detection with better logging
   const isAdmin = backendUserData?.role === 'admin' || 
     (supabaseUser?.email && (
       supabaseUser.email.includes('admin') || 
       supabaseUser.email.includes('jusvalida') ||
-      supabaseUser.email === 'admin@jusvalida.com'
+      supabaseUser.email === 'admin@jusvalida.com' ||
+      supabaseUser.email === 'anderson@jusvalida.com' ||
+      supabaseUser.email === 'andersonnarciso@gmail.com'
     ));
   
   const isSupport = backendUserData?.role === 'support' || 
     (supabaseUser?.email && supabaseUser.email.includes('support'));
+
+  // Debug logging for production
+  if (import.meta.env.PROD) {
+    console.log('🔍 Admin Check Debug:', {
+      backendUserData: backendUserData ? {
+        id: backendUserData.id,
+        email: backendUserData.email,
+        role: backendUserData.role
+      } : null,
+      supabaseUser: supabaseUser ? {
+        id: supabaseUser.id,
+        email: supabaseUser.email,
+        app_metadata: supabaseUser.app_metadata
+      } : null,
+      isAdmin,
+      isSupport,
+      backendLoading,
+      backendError
+    });
+  }
 
   const value: UserContextType = {
     supabaseUser,
