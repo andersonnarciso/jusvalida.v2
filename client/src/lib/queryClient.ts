@@ -1,5 +1,6 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 import { supabase } from '@/lib/supabase';
+import { config } from '@/lib/config';
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
@@ -44,18 +45,21 @@ export async function apiRequest(
   // Get authorization headers from Supabase
   const authHeaders = await getAuthHeaders();
   
+  // Build full URL
+  const fullUrl = url.startsWith('http') ? url : `${config.api.baseUrl}${url}`;
+  
   const headers = {
     ...authHeaders,
     ...(isFormData ? {} : (data ? { "Content-Type": "application/json" } : {})),
   };
   
-  console.log(`API Request: ${method} ${url}`, {
+  console.log(`API Request: ${method} ${fullUrl}`, {
     hasAuth: !!authHeaders.Authorization,
     isFormData,
     dataSize: data ? (isFormData ? 'FormData' : JSON.stringify(data).length) : 0
   });
   
-  const res = await fetch(url, {
+  const res = await fetch(fullUrl, {
     method,
     headers,
     body: isFormData ? data as FormData : (data ? JSON.stringify(data) : undefined),
@@ -77,11 +81,13 @@ export const getQueryFn: <T>(options: {
       const authHeaders = await getAuthHeaders();
       
       const url = queryKey.join("/") as string;
-      console.log(`Query Request: ${url}`, {
+      const fullUrl = url.startsWith('http') ? url : `${config.api.baseUrl}${url}`;
+      
+      console.log(`Query Request: ${fullUrl}`, {
         hasAuth: !!authHeaders.Authorization
       });
       
-      const res = await fetch(url, {
+      const res = await fetch(fullUrl, {
         headers: authHeaders,
       });
 
