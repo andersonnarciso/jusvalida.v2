@@ -1,0 +1,385 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - region "Notifications (F8)":
+    - list
+  - generic [ref=e3]:
+    - navigation [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e7]:
+          - img [ref=e9]
+          - generic [ref=e15]: JusValida
+        - generic [ref=e16]:
+          - link "Recursos" [ref=e17] [cursor=pointer]:
+            - /url: "#features"
+          - link "Preços" [ref=e18] [cursor=pointer]:
+            - /url: "#pricing"
+          - link "Sobre" [ref=e19] [cursor=pointer]:
+            - /url: "#about"
+          - link "Contato" [ref=e20] [cursor=pointer]:
+            - /url: "#contact"
+        - generic [ref=e21]:
+          - button "Entrar" [ref=e22] [cursor=pointer]
+          - button "Começar Grátis" [ref=e23] [cursor=pointer]
+    - main [ref=e24]:
+      - generic [ref=e25]:
+        - generic [ref=e29]:
+          - img [ref=e32]
+          - heading "Validação Jurídica com IA" [level=1] [ref=e35]
+          - paragraph [ref=e36]: Analise contratos, peças e documentos jurídicos com precisão. Nossa IA identifica falhas, brechas e sugere melhorias para seus documentos legais.
+          - link "Começar Agora" [ref=e38] [cursor=pointer]:
+            - /url: /dashboard
+            - button "Começar Agora" [ref=e39] [cursor=pointer]:
+              - img
+              - text: Começar Agora
+          - generic [ref=e40]:
+            - generic [ref=e41]:
+              - generic [ref=e42]: 0+
+              - generic [ref=e43]: Documentos Analisados
+            - generic [ref=e44]:
+              - generic [ref=e45]: 0%
+              - generic [ref=e46]: Precisão na Análise
+            - generic [ref=e47]:
+              - generic [ref=e48]: 0+
+              - generic [ref=e49]: Advogados Ativos
+        - generic [ref=e51]:
+          - generic [ref=e52]:
+            - heading "Recursos Avançados" [level=2] [ref=e53]
+            - paragraph [ref=e54]: Plataforma completa para validação e análise de documentos jurídicos
+          - generic [ref=e55]:
+            - generic [ref=e57]:
+              - img [ref=e59]
+              - heading "IA Multimodal" [level=3] [ref=e62]
+              - paragraph [ref=e63]: Integração com OpenAI, Google Gemini, Anthropic Claude e outros provedores de IA.
+              - list [ref=e64]:
+                - listitem [ref=e65]:
+                  - img [ref=e66]
+                  - text: Múltiplos provedores, insira sua API Key
+                - listitem [ref=e68]:
+                  - img [ref=e69]
+                  - text: APIs personalizadas
+                - listitem [ref=e71]:
+                  - img [ref=e72]
+                  - text: Comparação de custos
+            - generic [ref=e75]:
+              - img [ref=e77]
+              - heading "Upload Inteligente" [level=3] [ref=e80]
+              - paragraph [ref=e81]: Drag & drop para PDFs, DOCs ou cole o texto diretamente na plataforma.
+              - list [ref=e82]:
+                - listitem [ref=e83]:
+                  - img [ref=e84]
+                  - text: Múltiplos formatos
+                - listitem [ref=e86]:
+                  - img [ref=e87]
+                  - text: Validação automática
+                - listitem [ref=e89]:
+                  - img [ref=e90]
+                  - text: Preview em tempo real
+            - generic [ref=e93]:
+              - img [ref=e95]
+              - heading "Análise Completa" [level=3] [ref=e97]
+              - paragraph [ref=e98]: Detecta falhas, brechas legais e sugere melhorias nos seus documentos.
+              - list [ref=e99]:
+                - listitem [ref=e100]:
+                  - img [ref=e101]
+                  - text: Detecção de falhas
+                - listitem [ref=e103]:
+                  - img [ref=e104]
+                  - text: Análise de riscos
+                - listitem [ref=e106]:
+                  - img [ref=e107]
+                  - text: Sugestões de melhoria
+            - generic [ref=e110]:
+              - img [ref=e112]
+              - heading "Sistema de Créditos" [level=3] [ref=e114]
+              - paragraph [ref=e115]: Pague apenas pelo que usar com nosso sistema flexível de créditos.
+              - list [ref=e116]:
+                - listitem [ref=e117]:
+                  - img [ref=e118]
+                  - text: Pagamento via Carão de Crédito
+                - listitem [ref=e120]:
+                  - img [ref=e121]
+                  - text: Planos flexíveis
+                - listitem [ref=e123]:
+                  - img [ref=e124]
+                  - text: Histórico detalhado
+            - generic [ref=e127]:
+              - img [ref=e129]
+              - heading "Suporte Humanizado" [level=3] [ref=e131]
+              - paragraph [ref=e132]: Sistema completo de tickets para suporte técnico e jurídico.
+              - list [ref=e133]:
+                - listitem [ref=e134]:
+                  - img [ref=e135]
+                  - text: Chat em tempo real
+                - listitem [ref=e137]:
+                  - img [ref=e138]
+                  - text: Base de conhecimento
+                - listitem [ref=e140]:
+                  - img [ref=e141]
+                  - text: Suporte especializado
+            - generic [ref=e144]:
+              - img [ref=e146]
+              - heading "Analytics Avançado" [level=3] [ref=e149]
+              - paragraph [ref=e150]: Dashboard completo com histórico, estatísticas e insights.
+              - list [ref=e151]:
+                - listitem [ref=e152]:
+                  - img [ref=e153]
+                  - text: Relatórios detalhados
+                - listitem [ref=e155]:
+                  - img [ref=e156]
+                  - text: Métricas de uso
+                - listitem [ref=e158]:
+                  - img [ref=e159]
+                  - text: Exportação de dados
+        - generic [ref=e162]:
+          - generic [ref=e163]:
+            - heading "Planos e Preços" [level=2] [ref=e164]
+            - paragraph [ref=e165]: Escolha o plano ideal para suas necessidades jurídicas
+          - generic [ref=e166]:
+            - generic [ref=e168]:
+              - generic [ref=e169]:
+                - heading "Gratuito" [level=3] [ref=e170]
+                - generic [ref=e171]: R$ 0
+                - generic [ref=e172]: por mês
+              - list [ref=e173]:
+                - listitem [ref=e174]:
+                  - img [ref=e175]
+                  - generic [ref=e177]: 2 validações por mês
+                - listitem [ref=e178]:
+                  - img [ref=e179]
+                  - generic [ref=e181]: Documentos até 5 páginas
+                - listitem [ref=e182]:
+                  - img [ref=e183]
+                  - generic [ref=e185]: IA gratuita (menos eficiente)
+                - listitem [ref=e186]:
+                  - img [ref=e187]
+                  - generic [ref=e189]: Suporte em até 72 horas
+              - link "Começar Grátis" [ref=e190] [cursor=pointer]:
+                - /url: /register
+                - button "Começar Grátis" [ref=e191] [cursor=pointer]
+            - generic [ref=e192]:
+              - generic [ref=e194]: Mais Popular
+              - generic [ref=e195]:
+                - generic [ref=e196]:
+                  - heading "Profissional" [level=3] [ref=e197]
+                  - generic [ref=e198]: R$ 97
+                  - generic [ref=e199]: 75 créditos
+                - list [ref=e200]:
+                  - listitem [ref=e201]:
+                    - img [ref=e202]
+                    - generic [ref=e204]: 100 validações
+                  - listitem [ref=e205]:
+                    - img [ref=e206]
+                    - generic [ref=e208]: Documentos ilimitados
+                  - listitem [ref=e209]:
+                    - img [ref=e210]
+                    - generic [ref=e212]: Todas as IAs premium
+                  - listitem [ref=e213]:
+                    - img [ref=e214]
+                    - generic [ref=e216]: API Keys (Insira suas API Keys)
+                  - listitem [ref=e217]:
+                    - img [ref=e218]
+                    - generic [ref=e220]: Suporte prioritário
+                - link "Assinar Agora" [ref=e221] [cursor=pointer]:
+                  - /url: /checkout?plan=professional
+                  - button "Assinar Agora" [ref=e222] [cursor=pointer]
+            - generic [ref=e224]:
+              - generic [ref=e225]:
+                - heading "Empresarial" [level=3] [ref=e226]
+                - generic [ref=e227]: R$ 297
+                - generic [ref=e228]: 150 créditos
+              - list [ref=e229]:
+                - listitem [ref=e230]:
+                  - img [ref=e231]
+                  - generic [ref=e233]: 500 validações
+                - listitem [ref=e234]:
+                  - img [ref=e235]
+                  - generic [ref=e237]: Múltiplos usuários
+                - listitem [ref=e238]:
+                  - img [ref=e239]
+                  - generic [ref=e241]: Relatórios avançados
+                - listitem [ref=e242]:
+                  - img [ref=e243]
+                  - generic [ref=e245]: Integração API (Em breve)
+                - listitem [ref=e246]:
+                  - img [ref=e247]
+                  - generic [ref=e249]: Suporte dedicado
+              - button "Contatar Vendas" [ref=e250] [cursor=pointer]
+    - contentinfo [ref=e251]:
+      - generic [ref=e252]:
+        - generic [ref=e253]:
+          - generic [ref=e254]:
+            - generic [ref=e255]:
+              - img [ref=e257]
+              - generic [ref=e263]: JusValida
+            - paragraph [ref=e264]: Análise jurídica inteligente com IA avançada. Transformando a revisão de documentos jurídicos com tecnologia de ponta e expertise legal.
+            - generic [ref=e265]:
+              - generic [ref=e266]:
+                - img [ref=e267]
+                - generic [ref=e270]: São Paulo, SP - Brasil
+              - generic [ref=e271]:
+                - img [ref=e272]
+                - link "contato@jusvalida.com.br" [ref=e275] [cursor=pointer]:
+                  - /url: mailto:contato@jusvalida.com.br
+              - generic [ref=e276]:
+                - img [ref=e277]
+                - link "+55 (11) 3000-0000" [ref=e279] [cursor=pointer]:
+                  - /url: tel:+5511300000000
+          - generic [ref=e280]:
+            - heading "Plataforma" [level=3] [ref=e281]
+            - list [ref=e282]:
+              - listitem [ref=e283]:
+                - link "Dashboard" [ref=e284] [cursor=pointer]:
+                  - /url: /dashboard
+              - listitem [ref=e285]:
+                - link "Minhas Análises" [ref=e286] [cursor=pointer]:
+                  - /url: /analyses
+              - listitem [ref=e287]:
+                - link "Análise em Lote" [ref=e288] [cursor=pointer]:
+                  - /url: /batch
+              - listitem [ref=e289]:
+                - link "Planos e Créditos" [ref=e290] [cursor=pointer]:
+                  - /url: /billing
+              - listitem [ref=e291]:
+                - link "Suporte" [ref=e292] [cursor=pointer]:
+                  - /url: /support
+          - generic [ref=e293]:
+            - heading "Legal & Privacidade" [level=3] [ref=e294]:
+              - img [ref=e295]
+              - generic [ref=e297]: Legal & Privacidade
+            - list [ref=e298]:
+              - listitem [ref=e299]:
+                - link "Política de Privacidade" [ref=e300] [cursor=pointer]:
+                  - /url: /privacy-policy
+                  - img [ref=e301] [cursor=pointer]
+                  - text: Política de Privacidade
+              - listitem [ref=e304]:
+                - link "Política de Cookies" [ref=e305] [cursor=pointer]:
+                  - /url: /cookie-policy
+                  - img [ref=e306] [cursor=pointer]
+                  - text: Política de Cookies
+              - listitem [ref=e308]:
+                - button "Gerenciar Cookies" [ref=e309] [cursor=pointer]:
+                  - img [ref=e310] [cursor=pointer]
+                  - text: Gerenciar Cookies
+              - listitem [ref=e312]:
+                - link "Termos de Uso" [ref=e313] [cursor=pointer]:
+                  - /url: /terms-of-service
+                  - img [ref=e314] [cursor=pointer]
+                  - text: Termos de Uso
+            - generic [ref=e320]:
+              - heading "Encarregado de Dados (DPO)" [level=4] [ref=e321]
+              - generic [ref=e322]:
+                - generic [ref=e323]:
+                  - img [ref=e324]
+                  - link "dpo@jusvalida.com.br" [ref=e327] [cursor=pointer]:
+                    - /url: mailto:dpo@jusvalida.com.br
+                - generic [ref=e328]:
+                  - img [ref=e329]
+                  - link "+55 (11) 3000-0001" [ref=e331] [cursor=pointer]:
+                    - /url: tel:+5511300000001
+          - generic [ref=e332]:
+            - heading "Empresa" [level=3] [ref=e333]
+            - generic [ref=e334]:
+              - generic [ref=e336]:
+                - paragraph [ref=e337]:
+                  - strong [ref=e338]: "Razão Social:"
+                - paragraph [ref=e339]: JusValida Análise Jurídica por IA Ltda.
+                - paragraph [ref=e340]:
+                  - strong [ref=e341]: "CNPJ:"
+                - paragraph [ref=e342]: 12.345.678/0001-90
+                - paragraph [ref=e343]:
+                  - strong [ref=e344]: "Endereço:"
+                - paragraph [ref=e345]:
+                  - text: Av. Paulista, 1000 - 10º andar
+                  - text: Bela Vista, São Paulo - SP
+                  - text: CEP 01310-100
+              - generic [ref=e346]:
+                - heading "Siga-nos" [level=4] [ref=e347]
+                - list [ref=e348]:
+                  - listitem [ref=e349]:
+                    - link "LinkedIn" [ref=e350] [cursor=pointer]:
+                      - /url: "#"
+                      - img [ref=e351] [cursor=pointer]
+                      - text: LinkedIn
+                  - listitem [ref=e355]:
+                    - link "Twitter" [ref=e356] [cursor=pointer]:
+                      - /url: "#"
+                      - img [ref=e357] [cursor=pointer]
+                      - text: Twitter
+                  - listitem [ref=e359]:
+                    - link "Instagram" [ref=e360] [cursor=pointer]:
+                      - /url: "#"
+                      - img [ref=e361] [cursor=pointer]
+                      - text: Instagram
+                  - listitem [ref=e364]:
+                    - link "Facebook" [ref=e365] [cursor=pointer]:
+                      - /url: "#"
+                      - img [ref=e366] [cursor=pointer]
+                      - text: Facebook
+        - generic [ref=e368]:
+          - generic [ref=e369]:
+            - paragraph [ref=e370]: © 2025 JusValida. Todos os direitos reservados.
+            - generic [ref=e371]: •
+            - paragraph [ref=e372]: Desenvolvido com ❤️ para advogados
+          - generic [ref=e373]:
+            - generic [ref=e374]:
+              - img [ref=e375]
+              - generic [ref=e377]: LGPD
+            - generic [ref=e378]:
+              - img [ref=e379]
+              - generic [ref=e385]: OAB
+            - generic [ref=e386]:
+              - img [ref=e387]
+              - generic [ref=e390]: ISO 27001
+        - generic [ref=e393]:
+          - img [ref=e394]
+          - generic [ref=e396]:
+            - paragraph [ref=e397]: Aviso Regulatório Importante
+            - paragraph [ref=e398]: Os serviços do JusValida são ferramentas de apoio tecnológico e não substituem o aconselhamento jurídico profissional. As análises são geradas por inteligência artificial e podem conter limitações. Sempre consulte um advogado qualificado para decisões legais importantes. Este serviço está em conformidade com a LGPD (Lei 13.709/2018) e demais regulamentações aplicáveis.
+            - generic [ref=e399]:
+              - paragraph [ref=e400]: Ouvidoria ANPD
+              - paragraph [ref=e401]:
+                - text: "Em caso de questões sobre proteção de dados:"
+                - link "www.gov.br/anpd" [ref=e402] [cursor=pointer]:
+                  - /url: https://www.gov.br/anpd
+    - generic [ref=e405]:
+      - generic [ref=e406]:
+        - generic [ref=e407]:
+          - img [ref=e409]
+          - generic [ref=e411]:
+            - heading "Consentimento de Cookies" [level=3] [ref=e412]
+            - paragraph [ref=e413]: Conforme a LGPD (Lei Geral de Proteção de Dados)
+        - button [ref=e414] [cursor=pointer]:
+          - img
+      - generic [ref=e415]:
+        - generic [ref=e416]:
+          - paragraph [ref=e417]: Utilizamos cookies para melhorar sua experiência, personalizar conteúdo e analisar o uso do site. Você pode escolher quais categorias aceitar ou configurar suas preferências detalhadamente.
+          - generic [ref=e418]:
+            - generic [ref=e419]:
+              - img [ref=e420]
+              - generic [ref=e422]: Cookies Essenciais
+              - generic [ref=e423]: (Obrigatório)
+            - generic [ref=e424]:
+              - img [ref=e425]
+              - generic [ref=e436]: Cookies Funcionais
+            - generic [ref=e437]:
+              - img [ref=e438]
+              - generic [ref=e439]: Cookies de Análise
+          - generic [ref=e440]:
+            - link "Política de Cookies" [ref=e441] [cursor=pointer]:
+              - /url: /cookie-policy
+              - generic [ref=e442] [cursor=pointer]: Política de Cookies
+              - img [ref=e443] [cursor=pointer]
+            - link "Política de Privacidade" [ref=e447] [cursor=pointer]:
+              - /url: /privacy-policy
+              - generic [ref=e448] [cursor=pointer]: Política de Privacidade
+              - img [ref=e449] [cursor=pointer]
+        - generic [ref=e453]:
+          - button "Aceitar Todos" [ref=e454] [cursor=pointer]
+          - button "Apenas Essenciais" [ref=e455] [cursor=pointer]
+          - button "Personalizar" [ref=e456] [cursor=pointer]:
+            - img
+            - generic [ref=e457] [cursor=pointer]: Personalizar
+```

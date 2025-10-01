@@ -14,13 +14,23 @@ export function ProtectedHeader({ onLogout }: ProtectedHeaderProps) {
   const [, setLocation] = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  // Debug logs para verificar se o admin está sendo detectado
+  console.log('ProtectedHeader Debug:');
+  console.log('- user:', user);
+  console.log('- user.role:', user?.role);
+  console.log('- isAdmin:', isAdmin);
+  console.log('- isSupport:', isSupport);
+
+
   const handleLogout = async () => {
     await signOut();
     onLogout?.();
     setLocation('/');
   };
 
-  const userInitials = `${user?.firstName?.[0] || ''}${user?.lastName?.[0] || ''}`.toUpperCase();
+  const userInitials = user ? `${user?.firstName?.[0] || ''}${user?.lastName?.[0] || ''}`.toUpperCase() : 
+    supabaseUser ? `${supabaseUser.user_metadata?.first_name?.[0] || ''}${supabaseUser.user_metadata?.last_name?.[0] || ''}`.toUpperCase() : 
+    'U';
 
   // Função para fechar o menu mobile após clicar em um item
   const closeMobileMenu = () => {
@@ -75,7 +85,11 @@ export function ProtectedHeader({ onLogout }: ProtectedHeaderProps) {
                       {userInitials}
                     </span>
                   </div>
-                  <span className="hidden md:inline">{user?.firstName} {user?.lastName}</span>
+                  <span className="hidden md:inline">
+                    {user ? `${user.firstName} ${user.lastName}` : 
+                     supabaseUser ? `${supabaseUser.user_metadata?.first_name || ''} ${supabaseUser.user_metadata?.last_name || ''}`.trim() :
+                     supabaseUser?.email?.split('@')[0] || 'Usuário'}
+                  </span>
                   <ChevronDown size={16} />
                 </Button>
               </DropdownMenuTrigger>

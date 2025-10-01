@@ -8,6 +8,7 @@ import { batchProcessor } from "./services/batchProcessor";
 import { emailService } from "./services/email";
 import { requireSupabaseAuth, requireSupabaseAdmin, type AuthenticatedRequest } from "./middleware/supabase-auth";
 import { insertDocumentAnalysisSchema, insertSupportTicketSchema, insertTicketMessageSchema, adminTicketMessageSchema, adminUserUpdateSchema, insertAiProviderConfigSchema, insertCreditPackageSchema, insertDocumentTemplateSchema, insertLegalClauseSchema, insertTemplatePromptSchema, insertTemplateAnalysisRuleSchema, insertBatchJobSchema, insertBatchDocumentSchema, insertQueueJobSchema, insertSystemAiProviderSchema, users, creditTransactions, contactFormSchema, insertSiteConfigSchema, insertSmtpConfigSchema, insertAdminNotificationSchema, smtpTestSchema, insertStripeConfigSchema } from "@shared/schema";
+import { setupTestSpriteRoutes } from "./routes/testsprite";
 import { db } from "./db";
 import { sql, eq, desc, count, sum, gte, and } from "drizzle-orm";
 import multer from "multer";
@@ -2249,6 +2250,136 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return Math.round(complianceScores.reduce((sum, score) => sum + score, 0) / complianceScores.length);
   }
 
+  // Admin confirm user endpoint - bypasses email confirmation
+  app.post('/api/auth/admin-confirm', async (req, res) => {
+    try {
+      const { email } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ message: 'Email is required' });
+      }
+
+      console.log('🔄 Admin confirm requested for email:', email);
+      
+      // Get user from Supabase by email
+      const { data: { users }, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+      
+      if (listError) {
+        console.error('❌ Error listing users:', listError);
+        return res.status(500).json({ message: 'Failed to list users' });
+      }
+      
+      const supabaseUser = users.find(u => u.email === email);
+      
+      if (!supabaseUser) {
+        return res.status(404).json({ message: 'User not found in Supabase' });
+      }
+      
+      console.log('🔍 Found Supabase user for confirmation:', {
+        id: supabaseUser.id,
+        email: supabaseUser.email,
+        email_confirmed_at: supabaseUser.email_confirmed_at
+      });
+      
+      // Confirm the user via admin API
+      const { data: confirmData, error: confirmError } = await supabaseAdmin.auth.admin.updateUserById(
+        supabaseUser.id,
+        { email_confirm: true }
+      );
+      
+      if (confirmError) {
+        console.error('❌ Error confirming user:', confirmError);
+        return res.status(500).json({ message: 'Failed to confirm user', details: confirmError.message });
+      }
+      
+      console.log('✅ User confirmed successfully:', {
+        id: confirmData.user.id,
+        email: confirmData.user.email,
+        email_confirmed_at: confirmData.user.email_confirmed_at
+      });
+      
+      res.json({ 
+        success: true, 
+        message: 'User confirmed successfully',
+        user: {
+          id: confirmData.user.id,
+          email: confirmData.user.email,
+          email_confirmed_at: confirmData.user.email_confirmed_at
+        }
+      });
+      
+    } catch (error: any) {
+      console.error('❌ Admin confirm error:', error);
+      res.status(500).json({ message: 'Admin confirm failed', details: error.message });
+    }
+  });
+
+  // Force sync user endpoint - for unverified users
+  app.post('/api/auth/force-sync', async (req, res) => {
+    try {
+      const { email } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ message: 'Email is required' });
+      }
+
+      console.log('🔄 Force sync requested for email:', email);
+      
+      // Get user from Supabase by email
+      const { data: { users }, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+      
+      if (listError) {
+        console.error('❌ Error listing users:', listError);
+        return res.status(500).json({ message: 'Failed to list users' });
+      }
+      
+      const supabaseUser = users.find(u => u.email === email);
+      
+      if (!supabaseUser) {
+        return res.status(404).json({ message: 'User not found in Supabase' });
+      }
+      
+      console.log('🔍 Found Supabase user:', {
+        id: supabaseUser.id,
+        email: supabaseUser.email,
+        email_confirmed_at: supabaseUser.email_confirmed_at,
+        user_metadata: supabaseUser.user_metadata
+      });
+      
+      // Force sync user to local database
+      const dbUser = await storage.ensureUserBySupabase(
+        supabaseUser.id, 
+        supabaseUser.email || '', 
+        {
+          first_name: supabaseUser.user_metadata?.first_name,
+          last_name: supabaseUser.user_metadata?.last_name,
+          username: supabaseUser.user_metadata?.username,
+          role: supabaseUser.app_metadata?.role || 'user'
+        }
+      );
+      
+      console.log('✅ User force synced successfully:', {
+        id: dbUser.id,
+        email: dbUser.email,
+        role: dbUser.role
+      });
+      
+      res.json({ 
+        success: true, 
+        message: 'User synced successfully',
+        user: {
+          id: dbUser.id,
+          email: dbUser.email,
+          role: dbUser.role
+        }
+      });
+      
+    } catch (error: any) {
+      console.error('❌ Force sync error:', error);
+      res.status(500).json({ message: 'Force sync failed', details: error.message });
+    }
+  });
+
   // Contact form endpoint with validation and email sending
   app.post('/api/contact', async (req, res) => {
     try {
@@ -2659,6 +2790,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: error.message });
     }
   });
+
+  // Configurar rotas do TestSprite
+  setupTestSpriteRoutes(app);
 
   const httpServer = createServer(app);
   return httpServer;

@@ -1,2 +1,238 @@
-<testsuites id="" name="" tests="0" failures="0" skipped="0" errors="0" time="120.578298">
+<testsuites id="" name="" tests="11" failures="5" skipped="0" errors="0" time="29.424533">
+<testsuite name="landing.spec.ts" timestamp="2025-10-01T13:42:07.420Z" hostname="chromium" tests="11" failures="5" skipped="0" time="158.554" errors="0">
+<testcase name="Landing Page › should display the main hero section" classname="landing.spec.ts" time="12.794">
+</testcase>
+<testcase name="Landing Page › should display platform statistics" classname="landing.spec.ts" time="12.65">
+</testcase>
+<testcase name="Landing Page › should display all feature cards" classname="landing.spec.ts" time="13.847">
+</testcase>
+<testcase name="Landing Page › should display pricing plans" classname="landing.spec.ts" time="14.092">
+</testcase>
+<testcase name="Landing Page › should navigate to dashboard when start button is clicked" classname="landing.spec.ts" time="17.536">
+<failure message="landing.spec.ts:91:3 should navigate to dashboard when start button is clicked" type="FAILURE">
+<![CDATA[  [chromium] › landing.spec.ts:91:3 › Landing Page › should navigate to dashboard when start button is clicked 
+
+    Error: expect(page).toHaveURL(expected) failed
+
+    Expected string: "http://localhost:5000/dashboard"
+    Received string: "http://localhost:5000/login"
+    Timeout: 5000ms
+
+    Call log:
+      - Expect "toHaveURL" with timeout 5000ms
+        8 × unexpected value "http://localhost:5000/login"
+
+
+      94 |     
+      95 |     // Should navigate to dashboard
+    > 96 |     await expect(page).toHaveURL('/dashboard');
+         |                        ^
+      97 |   });
+      98 |
+      99 |   test('should navigate to register when free plan button is clicked', async ({ page }) => {
+        at C:\Users\Anderson Narciso\dyad-apps\JusValida\tests\e2e\landing.spec.ts:96:24
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ..\..\test-results\landing-Landing-Page-shoul-51008-hen-start-button-is-clicked-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ..\..\test-results\landing-Landing-Page-shoul-51008-hen-start-button-is-clicked-chromium\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ..\..\test-results\landing-Landing-Page-shoul-51008-hen-start-button-is-clicked-chromium\error-context.md
+]]>
+</failure>
+<system-out>
+<![CDATA[
+[[ATTACHMENT|landing-Landing-Page-shoul-51008-hen-start-button-is-clicked-chromium\test-failed-1.png]]
+
+[[ATTACHMENT|landing-Landing-Page-shoul-51008-hen-start-button-is-clicked-chromium\video.webm]]
+
+[[ATTACHMENT|landing-Landing-Page-shoul-51008-hen-start-button-is-clicked-chromium\error-context.md]]
+]]>
+</system-out>
+</testcase>
+<testcase name="Landing Page › should navigate to register when free plan button is clicked" classname="landing.spec.ts" time="13.576">
+</testcase>
+<testcase name="Landing Page › should navigate to checkout when professional plan button is clicked" classname="landing.spec.ts" time="18.77">
+<failure message="landing.spec.ts:110:3 should navigate to checkout when professional plan button is clicked" type="FAILURE">
+<![CDATA[  [chromium] › landing.spec.ts:110:3 › Landing Page › should navigate to checkout when professional plan button is clicked 
+
+    Error: expect(page).toHaveURL(expected) failed
+
+    Expected string: "http://localhost:5000/checkout?plan=professional"
+    Received string: "http://localhost:5000/login"
+    Timeout: 5000ms
+
+    Call log:
+      - Expect "toHaveURL" with timeout 5000ms
+        9 × unexpected value "http://localhost:5000/login"
+
+
+      116 |     
+      117 |     // Should navigate to checkout with plan parameter
+    > 118 |     await expect(page).toHaveURL('/checkout?plan=professional');
+          |                        ^
+      119 |   });
+      120 |
+      121 |   test('should be responsive on mobile devices', async ({ page }) => {
+        at C:\Users\Anderson Narciso\dyad-apps\JusValida\tests\e2e\landing.spec.ts:118:24
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ..\..\test-results\landing-Landing-Page-shoul-c4ef0-onal-plan-button-is-clicked-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ..\..\test-results\landing-Landing-Page-shoul-c4ef0-onal-plan-button-is-clicked-chromium\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ..\..\test-results\landing-Landing-Page-shoul-c4ef0-onal-plan-button-is-clicked-chromium\error-context.md
+]]>
+</failure>
+<system-out>
+<![CDATA[
+[[ATTACHMENT|landing-Landing-Page-shoul-c4ef0-onal-plan-button-is-clicked-chromium\test-failed-1.png]]
+
+[[ATTACHMENT|landing-Landing-Page-shoul-c4ef0-onal-plan-button-is-clicked-chromium\video.webm]]
+
+[[ATTACHMENT|landing-Landing-Page-shoul-c4ef0-onal-plan-button-is-clicked-chromium\error-context.md]]
+]]>
+</system-out>
+</testcase>
+<testcase name="Landing Page › should be responsive on mobile devices" classname="landing.spec.ts" time="14.173">
+</testcase>
+<testcase name="Landing Page › should have proper accessibility attributes" classname="landing.spec.ts" time="17.804">
+<failure message="landing.spec.ts:137:3 should have proper accessibility attributes" type="FAILURE">
+<![CDATA[  [chromium] › landing.spec.ts:137:3 › Landing Page › should have proper accessibility attributes ──
+
+    Error: expect(locator).toHaveAttribute(expected) failed
+
+    Locator: getByTestId('button-start-now')
+    Expected string: "button"
+    Received string: ""
+    Timeout: 5000ms
+
+    Call log:
+      - Expect "toHaveAttribute" with timeout 5000ms
+      - waiting for getByTestId('button-start-now')
+        8 × locator resolved to <button data-testid="button-start-now" class="inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 bg-primary text-primary-foreground hover:bg-primary/90 h-11 rounded-md px-8 py-4 text-lg">…</button>
+          - unexpected value "null"
+
+
+      142 |     // Check if buttons have proper labels
+      143 |     const startButton = page.getByTestId('button-start-now');
+    > 144 |     await expect(startButton).toHaveAttribute('role', 'button');
+          |                               ^
+      145 |     
+      146 |     // Check if links have proper href attributes
+      147 |     const freePlanLink = page.getByTestId('button-plan-free');
+        at C:\Users\Anderson Narciso\dyad-apps\JusValida\tests\e2e\landing.spec.ts:144:31
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ..\..\test-results\landing-Landing-Page-shoul-b20cf-er-accessibility-attributes-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ..\..\test-results\landing-Landing-Page-shoul-b20cf-er-accessibility-attributes-chromium\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ..\..\test-results\landing-Landing-Page-shoul-b20cf-er-accessibility-attributes-chromium\error-context.md
+]]>
+</failure>
+<system-out>
+<![CDATA[
+[[ATTACHMENT|landing-Landing-Page-shoul-b20cf-er-accessibility-attributes-chromium\test-failed-1.png]]
+
+[[ATTACHMENT|landing-Landing-Page-shoul-b20cf-er-accessibility-attributes-chromium\video.webm]]
+
+[[ATTACHMENT|landing-Landing-Page-shoul-b20cf-er-accessibility-attributes-chromium\error-context.md]]
+]]>
+</system-out>
+</testcase>
+<testcase name="Landing Page › should load within acceptable time" classname="landing.spec.ts" time="15.966">
+<failure message="landing.spec.ts:151:3 should load within acceptable time" type="FAILURE">
+<![CDATA[  [chromium] › landing.spec.ts:151:3 › Landing Page › should load within acceptable time ───────────
+
+    Error: expect(received).toBeLessThan(expected)
+
+    Expected: < 3000
+    Received:   4798
+
+      158 |     
+      159 |     // Should load within 3 seconds
+    > 160 |     expect(loadTime).toBeLessThan(3000);
+          |                      ^
+      161 |   });
+      162 |
+      163 |   test('should handle navigation menu interactions', async ({ page }) => {
+        at C:\Users\Anderson Narciso\dyad-apps\JusValida\tests\e2e\landing.spec.ts:160:22
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ..\..\test-results\landing-Landing-Page-should-load-within-acceptable-time-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ..\..\test-results\landing-Landing-Page-should-load-within-acceptable-time-chromium\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ..\..\test-results\landing-Landing-Page-should-load-within-acceptable-time-chromium\error-context.md
+]]>
+</failure>
+<system-out>
+<![CDATA[
+[[ATTACHMENT|landing-Landing-Page-should-load-within-acceptable-time-chromium\test-failed-1.png]]
+
+[[ATTACHMENT|landing-Landing-Page-should-load-within-acceptable-time-chromium\video.webm]]
+
+[[ATTACHMENT|landing-Landing-Page-should-load-within-acceptable-time-chromium\error-context.md]]
+]]>
+</system-out>
+</testcase>
+<testcase name="Landing Page › should handle navigation menu interactions" classname="landing.spec.ts" time="7.346">
+<failure message="landing.spec.ts:163:3 should handle navigation menu interactions" type="FAILURE">
+<![CDATA[  [chromium] › landing.spec.ts:163:3 › Landing Page › should handle navigation menu interactions ───
+
+    Error: expect(page).toHaveURL(expected) failed
+
+    Expected pattern: /^\//
+    Received string:  "http://localhost:5000/#features"
+    Timeout: 5000ms
+
+    Call log:
+      - Expect "toHaveURL" with timeout 5000ms
+        9 × unexpected value "http://localhost:5000/#features"
+
+
+      176 |       
+      177 |       // Should navigate to a valid page
+    > 178 |       await expect(page).toHaveURL(/^\//);
+          |                          ^
+      179 |     }
+      180 |   });
+      181 | });
+        at C:\Users\Anderson Narciso\dyad-apps\JusValida\tests\e2e\landing.spec.ts:178:26
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ..\..\test-results\landing-Landing-Page-shoul-e5ff9-avigation-menu-interactions-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ..\..\test-results\landing-Landing-Page-shoul-e5ff9-avigation-menu-interactions-chromium\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ..\..\test-results\landing-Landing-Page-shoul-e5ff9-avigation-menu-interactions-chromium\error-context.md
+]]>
+</failure>
+<system-out>
+<![CDATA[
+[[ATTACHMENT|landing-Landing-Page-shoul-e5ff9-avigation-menu-interactions-chromium\test-failed-1.png]]
+
+[[ATTACHMENT|landing-Landing-Page-shoul-e5ff9-avigation-menu-interactions-chromium\video.webm]]
+
+[[ATTACHMENT|landing-Landing-Page-shoul-e5ff9-avigation-menu-interactions-chromium\error-context.md]]
+]]>
+</system-out>
+</testcase>
+</testsuite>
 </testsuites>

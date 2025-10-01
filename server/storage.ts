@@ -228,6 +228,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async ensureUserBySupabase(supabaseId: string, email: string, supabaseUserData: any): Promise<User> {
+    console.log('🔍 ensureUserBySupabase - Starting:', { supabaseId, email });
+    
     const [userBySupabaseId] = await db
       .select()
       .from(users)
@@ -235,6 +237,7 @@ export class DatabaseStorage implements IStorage {
       .limit(1);
     
     if (userBySupabaseId) {
+      console.log('✅ ensureUserBySupabase - Found existing user by supabaseId:', userBySupabaseId.id);
       return userBySupabaseId;
     }
 
@@ -245,7 +248,9 @@ export class DatabaseStorage implements IStorage {
       .limit(1);
     
     if (userByEmail) {
+      console.log('✅ ensureUserBySupabase - Found existing user by email:', userByEmail.id);
       if (userByEmail.supabaseId !== supabaseId) {
+        console.log('🔄 ensureUserBySupabase - Updating existing user with supabaseId');
         const [updatedUser] = await db
           .update(users)
           .set({ supabaseId })
@@ -256,6 +261,7 @@ export class DatabaseStorage implements IStorage {
       return userByEmail;
     }
 
+    console.log('🆕 ensureUserBySupabase - Creating new user');
     const [newUser] = await db
       .insert(users)
       .values({
@@ -271,6 +277,7 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     
+    console.log('✅ ensureUserBySupabase - New user created:', newUser.id);
     return newUser;
   }
 

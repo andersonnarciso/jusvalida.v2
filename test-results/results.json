@@ -10,7 +10,9 @@
     "grep": {},
     "grepInvert": null,
     "maxFailures": 0,
-    "metadata": {},
+    "metadata": {
+      "actualWorkers": 10
+    },
     "preserveOutput": "always",
     "reporter": [
       [
@@ -40,7 +42,9 @@
         "outputDir": "C:/Users/Anderson Narciso/dyad-apps/JusValida/test-results",
         "repeatEach": 1,
         "retries": 0,
-        "metadata": {},
+        "metadata": {
+          "actualWorkers": 10
+        },
         "id": "chromium",
         "name": "chromium",
         "testDir": "C:/Users/Anderson Narciso/dyad-apps/JusValida/tests/e2e",
@@ -54,7 +58,9 @@
         "outputDir": "C:/Users/Anderson Narciso/dyad-apps/JusValida/test-results",
         "repeatEach": 1,
         "retries": 0,
-        "metadata": {},
+        "metadata": {
+          "actualWorkers": 10
+        },
         "id": "firefox",
         "name": "firefox",
         "testDir": "C:/Users/Anderson Narciso/dyad-apps/JusValida/tests/e2e",
@@ -68,7 +74,9 @@
         "outputDir": "C:/Users/Anderson Narciso/dyad-apps/JusValida/test-results",
         "repeatEach": 1,
         "retries": 0,
-        "metadata": {},
+        "metadata": {
+          "actualWorkers": 10
+        },
         "id": "webkit",
         "name": "webkit",
         "testDir": "C:/Users/Anderson Narciso/dyad-apps/JusValida/tests/e2e",
@@ -82,7 +90,9 @@
         "outputDir": "C:/Users/Anderson Narciso/dyad-apps/JusValida/test-results",
         "repeatEach": 1,
         "retries": 0,
-        "metadata": {},
+        "metadata": {
+          "actualWorkers": 10
+        },
         "id": "Mobile Chrome",
         "name": "Mobile Chrome",
         "testDir": "C:/Users/Anderson Narciso/dyad-apps/JusValida/tests/e2e",
@@ -96,7 +106,9 @@
         "outputDir": "C:/Users/Anderson Narciso/dyad-apps/JusValida/test-results",
         "repeatEach": 1,
         "retries": 0,
-        "metadata": {},
+        "metadata": {
+          "actualWorkers": 10
+        },
         "id": "Mobile Safari",
         "name": "Mobile Safari",
         "testDir": "C:/Users/Anderson Narciso/dyad-apps/JusValida/tests/e2e",
@@ -110,7 +122,9 @@
         "outputDir": "C:/Users/Anderson Narciso/dyad-apps/JusValida/test-results",
         "repeatEach": 1,
         "retries": 0,
-        "metadata": {},
+        "metadata": {
+          "actualWorkers": 10
+        },
         "id": "Microsoft Edge",
         "name": "Microsoft Edge",
         "testDir": "C:/Users/Anderson Narciso/dyad-apps/JusValida/tests/e2e",
@@ -124,7 +138,9 @@
         "outputDir": "C:/Users/Anderson Narciso/dyad-apps/JusValida/test-results",
         "repeatEach": 1,
         "retries": 0,
-        "metadata": {},
+        "metadata": {
+          "actualWorkers": 10
+        },
         "id": "Google Chrome",
         "name": "Google Chrome",
         "testDir": "C:/Users/Anderson Narciso/dyad-apps/JusValida/tests/e2e",
@@ -142,24 +158,611 @@
     "workers": 10,
     "webServer": {
       "command": "npm run dev",
-      "url": "http://localhost:5173",
+      "url": "http://localhost:5000",
       "reuseExistingServer": true,
       "timeout": 120000
     }
   },
-  "suites": [],
-  "errors": [
+  "suites": [
     {
-      "message": "Error: Timed out waiting 120000ms from config.webServer.",
-      "stack": "Error: Timed out waiting 120000ms from config.webServer."
+      "title": "landing.spec.ts",
+      "file": "landing.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Landing Page",
+          "file": "landing.spec.ts",
+          "line": 3,
+          "column": 6,
+          "specs": [
+            {
+              "title": "should display the main hero section",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 12794,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-10-01T13:42:08.490Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "4e5b49d369fd48ca0656-160c53481fba24af070d",
+              "file": "landing.spec.ts",
+              "line": 8,
+              "column": 3
+            },
+            {
+              "title": "should display platform statistics",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 12650,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-10-01T13:42:08.455Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "4e5b49d369fd48ca0656-c498cea4463cd1540199",
+              "file": "landing.spec.ts",
+              "line": 22,
+              "column": 3
+            },
+            {
+              "title": "should display all feature cards",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 2,
+                      "status": "passed",
+                      "duration": 13847,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-10-01T13:42:08.516Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "4e5b49d369fd48ca0656-e8f0a3c4871473abfd88",
+              "file": "landing.spec.ts",
+              "line": 48,
+              "column": 3
+            },
+            {
+              "title": "should display pricing plans",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 3,
+                      "status": "passed",
+                      "duration": 14092,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-10-01T13:42:08.470Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "4e5b49d369fd48ca0656-b30f31083cb16e52db15",
+              "file": "landing.spec.ts",
+              "line": 67,
+              "column": 3
+            },
+            {
+              "title": "should navigate to dashboard when start button is clicked",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 4,
+                      "parallelIndex": 4,
+                      "status": "failed",
+                      "duration": 17536,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mpage\u001b[39m\u001b[2m).\u001b[22mtoHaveURL\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nExpected string: \u001b[32m\"http://localhost:5000/\u001b[7mdashboard\u001b[27m\"\u001b[39m\nReceived string: \u001b[31m\"http://localhost:5000/\u001b[7mlogin\u001b[27m\"\u001b[39m\nTimeout: 5000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveURL\" with timeout 5000ms\u001b[22m\n\u001b[2m    8 × unexpected value \"http://localhost:5000/login\"\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mpage\u001b[39m\u001b[2m).\u001b[22mtoHaveURL\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nExpected string: \u001b[32m\"http://localhost:5000/\u001b[7mdashboard\u001b[27m\"\u001b[39m\nReceived string: \u001b[31m\"http://localhost:5000/\u001b[7mlogin\u001b[27m\"\u001b[39m\nTimeout: 5000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveURL\" with timeout 5000ms\u001b[22m\n\u001b[2m    8 × unexpected value \"http://localhost:5000/login\"\u001b[22m\n\n    at C:\\Users\\Anderson Narciso\\dyad-apps\\JusValida\\tests\\e2e\\landing.spec.ts:96:24",
+                        "location": {
+                          "file": "C:\\Users\\Anderson Narciso\\dyad-apps\\JusValida\\tests\\e2e\\landing.spec.ts",
+                          "column": 24,
+                          "line": 96
+                        },
+                        "snippet": "  94 |     \n  95 |     // Should navigate to dashboard\n> 96 |     await expect(page).toHaveURL('/dashboard');\n     |                        ^\n  97 |   });\n  98 |\n  99 |   test('should navigate to register when free plan button is clicked', async ({ page }) => {"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "C:\\Users\\Anderson Narciso\\dyad-apps\\JusValida\\tests\\e2e\\landing.spec.ts",
+                            "column": 24,
+                            "line": 96
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mpage\u001b[39m\u001b[2m).\u001b[22mtoHaveURL\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nExpected string: \u001b[32m\"http://localhost:5000/\u001b[7mdashboard\u001b[27m\"\u001b[39m\nReceived string: \u001b[31m\"http://localhost:5000/\u001b[7mlogin\u001b[27m\"\u001b[39m\nTimeout: 5000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveURL\" with timeout 5000ms\u001b[22m\n\u001b[2m    8 × unexpected value \"http://localhost:5000/login\"\u001b[22m\n\n\n  94 |     \n  95 |     // Should navigate to dashboard\n> 96 |     await expect(page).toHaveURL('/dashboard');\n     |                        ^\n  97 |   });\n  98 |\n  99 |   test('should navigate to register when free plan button is clicked', async ({ page }) => {\n    at C:\\Users\\Anderson Narciso\\dyad-apps\\JusValida\\tests\\e2e\\landing.spec.ts:96:24"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-10-01T13:42:08.517Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "C:\\Users\\Anderson Narciso\\dyad-apps\\JusValida\\test-results\\landing-Landing-Page-shoul-51008-hen-start-button-is-clicked-chromium\\test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "C:\\Users\\Anderson Narciso\\dyad-apps\\JusValida\\test-results\\landing-Landing-Page-shoul-51008-hen-start-button-is-clicked-chromium\\video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "C:\\Users\\Anderson Narciso\\dyad-apps\\JusValida\\test-results\\landing-Landing-Page-shoul-51008-hen-start-button-is-clicked-chromium\\error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "C:\\Users\\Anderson Narciso\\dyad-apps\\JusValida\\tests\\e2e\\landing.spec.ts",
+                        "column": 24,
+                        "line": 96
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "4e5b49d369fd48ca0656-09963d21ad6b87d5a52d",
+              "file": "landing.spec.ts",
+              "line": 91,
+              "column": 3
+            },
+            {
+              "title": "should navigate to register when free plan button is clicked",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 5,
+                      "parallelIndex": 5,
+                      "status": "passed",
+                      "duration": 13576,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-10-01T13:42:08.562Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "4e5b49d369fd48ca0656-2e9e9450c468fc108a2e",
+              "file": "landing.spec.ts",
+              "line": 99,
+              "column": 3
+            },
+            {
+              "title": "should navigate to checkout when professional plan button is clicked",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 6,
+                      "parallelIndex": 6,
+                      "status": "failed",
+                      "duration": 18770,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mpage\u001b[39m\u001b[2m).\u001b[22mtoHaveURL\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nExpected string: \u001b[32m\"http://localhost:5000/\u001b[7mcheckout?plan=professional\u001b[27m\"\u001b[39m\nReceived string: \u001b[31m\"http://localhost:5000/\u001b[7mlogin\u001b[27m\"\u001b[39m\nTimeout: 5000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveURL\" with timeout 5000ms\u001b[22m\n\u001b[2m    9 × unexpected value \"http://localhost:5000/login\"\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mpage\u001b[39m\u001b[2m).\u001b[22mtoHaveURL\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nExpected string: \u001b[32m\"http://localhost:5000/\u001b[7mcheckout?plan=professional\u001b[27m\"\u001b[39m\nReceived string: \u001b[31m\"http://localhost:5000/\u001b[7mlogin\u001b[27m\"\u001b[39m\nTimeout: 5000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveURL\" with timeout 5000ms\u001b[22m\n\u001b[2m    9 × unexpected value \"http://localhost:5000/login\"\u001b[22m\n\n    at C:\\Users\\Anderson Narciso\\dyad-apps\\JusValida\\tests\\e2e\\landing.spec.ts:118:24",
+                        "location": {
+                          "file": "C:\\Users\\Anderson Narciso\\dyad-apps\\JusValida\\tests\\e2e\\landing.spec.ts",
+                          "column": 24,
+                          "line": 118
+                        },
+                        "snippet": "  116 |     \n  117 |     // Should navigate to checkout with plan parameter\n> 118 |     await expect(page).toHaveURL('/checkout?plan=professional');\n      |                        ^\n  119 |   });\n  120 |\n  121 |   test('should be responsive on mobile devices', async ({ page }) => {"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "C:\\Users\\Anderson Narciso\\dyad-apps\\JusValida\\tests\\e2e\\landing.spec.ts",
+                            "column": 24,
+                            "line": 118
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mpage\u001b[39m\u001b[2m).\u001b[22mtoHaveURL\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nExpected string: \u001b[32m\"http://localhost:5000/\u001b[7mcheckout?plan=professional\u001b[27m\"\u001b[39m\nReceived string: \u001b[31m\"http://localhost:5000/\u001b[7mlogin\u001b[27m\"\u001b[39m\nTimeout: 5000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveURL\" with timeout 5000ms\u001b[22m\n\u001b[2m    9 × unexpected value \"http://localhost:5000/login\"\u001b[22m\n\n\n  116 |     \n  117 |     // Should navigate to checkout with plan parameter\n> 118 |     await expect(page).toHaveURL('/checkout?plan=professional');\n      |                        ^\n  119 |   });\n  120 |\n  121 |   test('should be responsive on mobile devices', async ({ page }) => {\n    at C:\\Users\\Anderson Narciso\\dyad-apps\\JusValida\\tests\\e2e\\landing.spec.ts:118:24"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-10-01T13:42:08.577Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "C:\\Users\\Anderson Narciso\\dyad-apps\\JusValida\\test-results\\landing-Landing-Page-shoul-c4ef0-onal-plan-button-is-clicked-chromium\\test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "C:\\Users\\Anderson Narciso\\dyad-apps\\JusValida\\test-results\\landing-Landing-Page-shoul-c4ef0-onal-plan-button-is-clicked-chromium\\video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "C:\\Users\\Anderson Narciso\\dyad-apps\\JusValida\\test-results\\landing-Landing-Page-shoul-c4ef0-onal-plan-button-is-clicked-chromium\\error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "C:\\Users\\Anderson Narciso\\dyad-apps\\JusValida\\tests\\e2e\\landing.spec.ts",
+                        "column": 24,
+                        "line": 118
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "4e5b49d369fd48ca0656-ba99e131ce8d51bf4943",
+              "file": "landing.spec.ts",
+              "line": 110,
+              "column": 3
+            },
+            {
+              "title": "should be responsive on mobile devices",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 7,
+                      "parallelIndex": 7,
+                      "status": "passed",
+                      "duration": 14173,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-10-01T13:42:08.532Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "4e5b49d369fd48ca0656-b5869544ecd71d7e82ca",
+              "file": "landing.spec.ts",
+              "line": 121,
+              "column": 3
+            },
+            {
+              "title": "should have proper accessibility attributes",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 8,
+                      "parallelIndex": 8,
+                      "status": "failed",
+                      "duration": 17804,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveAttribute\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('button-start-now')\nExpected string: \u001b[32m\"button\"\u001b[39m\nReceived string: \u001b[31m\"\"\u001b[39m\nTimeout: 5000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveAttribute\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('button-start-now')\u001b[22m\n\u001b[2m    8 × locator resolved to <button data-testid=\"button-start-now\" class=\"inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 bg-primary text-primary-foreground hover:bg-primary/90 h-11 rounded-md px-8 py-4 text-lg\">…</button>\u001b[22m\n\u001b[2m      - unexpected value \"null\"\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveAttribute\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('button-start-now')\nExpected string: \u001b[32m\"button\"\u001b[39m\nReceived string: \u001b[31m\"\"\u001b[39m\nTimeout: 5000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveAttribute\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('button-start-now')\u001b[22m\n\u001b[2m    8 × locator resolved to <button data-testid=\"button-start-now\" class=\"inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 bg-primary text-primary-foreground hover:bg-primary/90 h-11 rounded-md px-8 py-4 text-lg\">…</button>\u001b[22m\n\u001b[2m      - unexpected value \"null\"\u001b[22m\n\n    at C:\\Users\\Anderson Narciso\\dyad-apps\\JusValida\\tests\\e2e\\landing.spec.ts:144:31",
+                        "location": {
+                          "file": "C:\\Users\\Anderson Narciso\\dyad-apps\\JusValida\\tests\\e2e\\landing.spec.ts",
+                          "column": 31,
+                          "line": 144
+                        },
+                        "snippet": "  142 |     // Check if buttons have proper labels\n  143 |     const startButton = page.getByTestId('button-start-now');\n> 144 |     await expect(startButton).toHaveAttribute('role', 'button');\n      |                               ^\n  145 |     \n  146 |     // Check if links have proper href attributes\n  147 |     const freePlanLink = page.getByTestId('button-plan-free');"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "C:\\Users\\Anderson Narciso\\dyad-apps\\JusValida\\tests\\e2e\\landing.spec.ts",
+                            "column": 31,
+                            "line": 144
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveAttribute\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('button-start-now')\nExpected string: \u001b[32m\"button\"\u001b[39m\nReceived string: \u001b[31m\"\"\u001b[39m\nTimeout: 5000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveAttribute\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('button-start-now')\u001b[22m\n\u001b[2m    8 × locator resolved to <button data-testid=\"button-start-now\" class=\"inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 bg-primary text-primary-foreground hover:bg-primary/90 h-11 rounded-md px-8 py-4 text-lg\">…</button>\u001b[22m\n\u001b[2m      - unexpected value \"null\"\u001b[22m\n\n\n  142 |     // Check if buttons have proper labels\n  143 |     const startButton = page.getByTestId('button-start-now');\n> 144 |     await expect(startButton).toHaveAttribute('role', 'button');\n      |                               ^\n  145 |     \n  146 |     // Check if links have proper href attributes\n  147 |     const freePlanLink = page.getByTestId('button-plan-free');\n    at C:\\Users\\Anderson Narciso\\dyad-apps\\JusValida\\tests\\e2e\\landing.spec.ts:144:31"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-10-01T13:42:08.592Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "C:\\Users\\Anderson Narciso\\dyad-apps\\JusValida\\test-results\\landing-Landing-Page-shoul-b20cf-er-accessibility-attributes-chromium\\test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "C:\\Users\\Anderson Narciso\\dyad-apps\\JusValida\\test-results\\landing-Landing-Page-shoul-b20cf-er-accessibility-attributes-chromium\\video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "C:\\Users\\Anderson Narciso\\dyad-apps\\JusValida\\test-results\\landing-Landing-Page-shoul-b20cf-er-accessibility-attributes-chromium\\error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "C:\\Users\\Anderson Narciso\\dyad-apps\\JusValida\\tests\\e2e\\landing.spec.ts",
+                        "column": 31,
+                        "line": 144
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "4e5b49d369fd48ca0656-25b8edf593a0b7effa69",
+              "file": "landing.spec.ts",
+              "line": 137,
+              "column": 3
+            },
+            {
+              "title": "should load within acceptable time",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 9,
+                      "parallelIndex": 9,
+                      "status": "failed",
+                      "duration": 15966,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeLessThan\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected: < \u001b[32m3000\u001b[39m\nReceived:   \u001b[31m4798\u001b[39m",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeLessThan\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected: < \u001b[32m3000\u001b[39m\nReceived:   \u001b[31m4798\u001b[39m\n    at C:\\Users\\Anderson Narciso\\dyad-apps\\JusValida\\tests\\e2e\\landing.spec.ts:160:22",
+                        "location": {
+                          "file": "C:\\Users\\Anderson Narciso\\dyad-apps\\JusValida\\tests\\e2e\\landing.spec.ts",
+                          "column": 22,
+                          "line": 160
+                        },
+                        "snippet": "  158 |     \n  159 |     // Should load within 3 seconds\n> 160 |     expect(loadTime).toBeLessThan(3000);\n      |                      ^\n  161 |   });\n  162 |\n  163 |   test('should handle navigation menu interactions', async ({ page }) => {"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "C:\\Users\\Anderson Narciso\\dyad-apps\\JusValida\\tests\\e2e\\landing.spec.ts",
+                            "column": 22,
+                            "line": 160
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeLessThan\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected: < \u001b[32m3000\u001b[39m\nReceived:   \u001b[31m4798\u001b[39m\n\n  158 |     \n  159 |     // Should load within 3 seconds\n> 160 |     expect(loadTime).toBeLessThan(3000);\n      |                      ^\n  161 |   });\n  162 |\n  163 |   test('should handle navigation menu interactions', async ({ page }) => {\n    at C:\\Users\\Anderson Narciso\\dyad-apps\\JusValida\\tests\\e2e\\landing.spec.ts:160:22"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-10-01T13:42:08.609Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "C:\\Users\\Anderson Narciso\\dyad-apps\\JusValida\\test-results\\landing-Landing-Page-should-load-within-acceptable-time-chromium\\test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "C:\\Users\\Anderson Narciso\\dyad-apps\\JusValida\\test-results\\landing-Landing-Page-should-load-within-acceptable-time-chromium\\video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "C:\\Users\\Anderson Narciso\\dyad-apps\\JusValida\\test-results\\landing-Landing-Page-should-load-within-acceptable-time-chromium\\error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "C:\\Users\\Anderson Narciso\\dyad-apps\\JusValida\\tests\\e2e\\landing.spec.ts",
+                        "column": 22,
+                        "line": 160
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "4e5b49d369fd48ca0656-201ca5e224d3d31b6afe",
+              "file": "landing.spec.ts",
+              "line": 151,
+              "column": 3
+            },
+            {
+              "title": "should handle navigation menu interactions",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "failed",
+                      "duration": 7346,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mpage\u001b[39m\u001b[2m).\u001b[22mtoHaveURL\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nExpected pattern: \u001b[32m/^\\//\u001b[39m\nReceived string:  \u001b[31m\"http://localhost:5000/#features\"\u001b[39m\nTimeout: 5000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveURL\" with timeout 5000ms\u001b[22m\n\u001b[2m    9 × unexpected value \"http://localhost:5000/#features\"\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mpage\u001b[39m\u001b[2m).\u001b[22mtoHaveURL\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nExpected pattern: \u001b[32m/^\\//\u001b[39m\nReceived string:  \u001b[31m\"http://localhost:5000/#features\"\u001b[39m\nTimeout: 5000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveURL\" with timeout 5000ms\u001b[22m\n\u001b[2m    9 × unexpected value \"http://localhost:5000/#features\"\u001b[22m\n\n    at C:\\Users\\Anderson Narciso\\dyad-apps\\JusValida\\tests\\e2e\\landing.spec.ts:178:26",
+                        "location": {
+                          "file": "C:\\Users\\Anderson Narciso\\dyad-apps\\JusValida\\tests\\e2e\\landing.spec.ts",
+                          "column": 26,
+                          "line": 178
+                        },
+                        "snippet": "  176 |       \n  177 |       // Should navigate to a valid page\n> 178 |       await expect(page).toHaveURL(/^\\//);\n      |                          ^\n  179 |     }\n  180 |   });\n  181 | });"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "C:\\Users\\Anderson Narciso\\dyad-apps\\JusValida\\tests\\e2e\\landing.spec.ts",
+                            "column": 26,
+                            "line": 178
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mpage\u001b[39m\u001b[2m).\u001b[22mtoHaveURL\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nExpected pattern: \u001b[32m/^\\//\u001b[39m\nReceived string:  \u001b[31m\"http://localhost:5000/#features\"\u001b[39m\nTimeout: 5000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveURL\" with timeout 5000ms\u001b[22m\n\u001b[2m    9 × unexpected value \"http://localhost:5000/#features\"\u001b[22m\n\n\n  176 |       \n  177 |       // Should navigate to a valid page\n> 178 |       await expect(page).toHaveURL(/^\\//);\n      |                          ^\n  179 |     }\n  180 |   });\n  181 | });\n    at C:\\Users\\Anderson Narciso\\dyad-apps\\JusValida\\tests\\e2e\\landing.spec.ts:178:26"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-10-01T13:42:23.040Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "C:\\Users\\Anderson Narciso\\dyad-apps\\JusValida\\test-results\\landing-Landing-Page-shoul-e5ff9-avigation-menu-interactions-chromium\\test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "C:\\Users\\Anderson Narciso\\dyad-apps\\JusValida\\test-results\\landing-Landing-Page-shoul-e5ff9-avigation-menu-interactions-chromium\\video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "C:\\Users\\Anderson Narciso\\dyad-apps\\JusValida\\test-results\\landing-Landing-Page-shoul-e5ff9-avigation-menu-interactions-chromium\\error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "C:\\Users\\Anderson Narciso\\dyad-apps\\JusValida\\tests\\e2e\\landing.spec.ts",
+                        "column": 26,
+                        "line": 178
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "4e5b49d369fd48ca0656-931aa772ef77a547b180",
+              "file": "landing.spec.ts",
+              "line": 163,
+              "column": 3
+            }
+          ]
+        }
+      ]
     }
   ],
+  "errors": [],
   "stats": {
-    "startTime": "2025-09-24T02:05:52.021Z",
-    "duration": 120578.29800000001,
-    "expected": 0,
+    "startTime": "2025-10-01T13:42:01.236Z",
+    "duration": 29424.533,
+    "expected": 6,
     "skipped": 0,
-    "unexpected": 0,
+    "unexpected": 5,
     "flaky": 0
   }
 }

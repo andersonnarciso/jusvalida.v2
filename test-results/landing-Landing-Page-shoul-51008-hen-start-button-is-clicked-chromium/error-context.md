@@ -1,0 +1,225 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - region "Notifications (F8)":
+    - list
+  - generic [ref=e3]:
+    - navigation [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e7]:
+          - img [ref=e9]
+          - generic [ref=e15]: JusValida
+        - generic [ref=e16]:
+          - link "Recursos" [ref=e17] [cursor=pointer]:
+            - /url: "#features"
+          - link "Preços" [ref=e18] [cursor=pointer]:
+            - /url: "#pricing"
+          - link "Sobre" [ref=e19] [cursor=pointer]:
+            - /url: "#about"
+          - link "Contato" [ref=e20] [cursor=pointer]:
+            - /url: "#contact"
+        - generic [ref=e21]:
+          - button "Entrar" [ref=e22] [cursor=pointer]
+          - button "Começar Grátis" [ref=e23] [cursor=pointer]
+    - main [ref=e24]:
+      - generic [ref=e26]:
+        - generic [ref=e27]:
+          - img [ref=e30]
+          - generic [ref=e36]: Entrar no JusValida
+          - generic [ref=e37]: Faça login para acessar sua conta e analisar documentos jurídicos
+        - generic [ref=e38]:
+          - generic [ref=e39]:
+            - generic [ref=e40]:
+              - generic [ref=e41]: Email
+              - textbox "Email" [ref=e42]
+            - generic [ref=e43]:
+              - generic [ref=e44]: Senha
+              - generic [ref=e45]:
+                - textbox "Senha" [ref=e46]
+                - button [ref=e47] [cursor=pointer]:
+                  - img
+            - button "Entrar" [ref=e48] [cursor=pointer]
+            - link "Esqueceu a senha?" [ref=e50] [cursor=pointer]:
+              - /url: /forgot-password
+          - generic [ref=e51]:
+            - text: Não tem uma conta?
+            - link "Criar conta" [ref=e52] [cursor=pointer]:
+              - /url: /register
+    - contentinfo [ref=e53]:
+      - generic [ref=e54]:
+        - generic [ref=e55]:
+          - generic [ref=e56]:
+            - generic [ref=e57]:
+              - img [ref=e59]
+              - generic [ref=e65]: JusValida
+            - paragraph [ref=e66]: Análise jurídica inteligente com IA avançada. Transformando a revisão de documentos jurídicos com tecnologia de ponta e expertise legal.
+            - generic [ref=e67]:
+              - generic [ref=e68]:
+                - img [ref=e69]
+                - generic [ref=e72]: São Paulo, SP - Brasil
+              - generic [ref=e73]:
+                - img [ref=e74]
+                - link "contato@jusvalida.com.br" [ref=e77] [cursor=pointer]:
+                  - /url: mailto:contato@jusvalida.com.br
+              - generic [ref=e78]:
+                - img [ref=e79]
+                - link "+55 (11) 3000-0000" [ref=e81] [cursor=pointer]:
+                  - /url: tel:+5511300000000
+          - generic [ref=e82]:
+            - heading "Plataforma" [level=3] [ref=e83]
+            - list [ref=e84]:
+              - listitem [ref=e85]:
+                - link "Dashboard" [ref=e86] [cursor=pointer]:
+                  - /url: /dashboard
+              - listitem [ref=e87]:
+                - link "Minhas Análises" [ref=e88] [cursor=pointer]:
+                  - /url: /analyses
+              - listitem [ref=e89]:
+                - link "Análise em Lote" [ref=e90] [cursor=pointer]:
+                  - /url: /batch
+              - listitem [ref=e91]:
+                - link "Planos e Créditos" [ref=e92] [cursor=pointer]:
+                  - /url: /billing
+              - listitem [ref=e93]:
+                - link "Suporte" [ref=e94] [cursor=pointer]:
+                  - /url: /support
+          - generic [ref=e95]:
+            - heading "Legal & Privacidade" [level=3] [ref=e96]:
+              - img [ref=e97]
+              - generic [ref=e99]: Legal & Privacidade
+            - list [ref=e100]:
+              - listitem [ref=e101]:
+                - link "Política de Privacidade" [ref=e102] [cursor=pointer]:
+                  - /url: /privacy-policy
+                  - img [ref=e103] [cursor=pointer]
+                  - text: Política de Privacidade
+              - listitem [ref=e106]:
+                - link "Política de Cookies" [ref=e107] [cursor=pointer]:
+                  - /url: /cookie-policy
+                  - img [ref=e108] [cursor=pointer]
+                  - text: Política de Cookies
+              - listitem [ref=e110]:
+                - button "Gerenciar Cookies" [ref=e111] [cursor=pointer]:
+                  - img [ref=e112] [cursor=pointer]
+                  - text: Gerenciar Cookies
+              - listitem [ref=e114]:
+                - link "Termos de Uso" [ref=e115] [cursor=pointer]:
+                  - /url: /terms-of-service
+                  - img [ref=e116] [cursor=pointer]
+                  - text: Termos de Uso
+            - generic [ref=e122]:
+              - heading "Encarregado de Dados (DPO)" [level=4] [ref=e123]
+              - generic [ref=e124]:
+                - generic [ref=e125]:
+                  - img [ref=e126]
+                  - link "dpo@jusvalida.com.br" [ref=e129] [cursor=pointer]:
+                    - /url: mailto:dpo@jusvalida.com.br
+                - generic [ref=e130]:
+                  - img [ref=e131]
+                  - link "+55 (11) 3000-0001" [ref=e133] [cursor=pointer]:
+                    - /url: tel:+5511300000001
+          - generic [ref=e134]:
+            - heading "Empresa" [level=3] [ref=e135]
+            - generic [ref=e136]:
+              - generic [ref=e138]:
+                - paragraph [ref=e139]:
+                  - strong [ref=e140]: "Razão Social:"
+                - paragraph [ref=e141]: JusValida Análise Jurídica por IA Ltda.
+                - paragraph [ref=e142]:
+                  - strong [ref=e143]: "CNPJ:"
+                - paragraph [ref=e144]: 12.345.678/0001-90
+                - paragraph [ref=e145]:
+                  - strong [ref=e146]: "Endereço:"
+                - paragraph [ref=e147]:
+                  - text: Av. Paulista, 1000 - 10º andar
+                  - text: Bela Vista, São Paulo - SP
+                  - text: CEP 01310-100
+              - generic [ref=e148]:
+                - heading "Siga-nos" [level=4] [ref=e149]
+                - list [ref=e150]:
+                  - listitem [ref=e151]:
+                    - link "LinkedIn" [ref=e152] [cursor=pointer]:
+                      - /url: "#"
+                      - img [ref=e153] [cursor=pointer]
+                      - text: LinkedIn
+                  - listitem [ref=e157]:
+                    - link "Twitter" [ref=e158] [cursor=pointer]:
+                      - /url: "#"
+                      - img [ref=e159] [cursor=pointer]
+                      - text: Twitter
+                  - listitem [ref=e161]:
+                    - link "Instagram" [ref=e162] [cursor=pointer]:
+                      - /url: "#"
+                      - img [ref=e163] [cursor=pointer]
+                      - text: Instagram
+                  - listitem [ref=e166]:
+                    - link "Facebook" [ref=e167] [cursor=pointer]:
+                      - /url: "#"
+                      - img [ref=e168] [cursor=pointer]
+                      - text: Facebook
+        - generic [ref=e170]:
+          - generic [ref=e171]:
+            - paragraph [ref=e172]: © 2025 JusValida. Todos os direitos reservados.
+            - generic [ref=e173]: •
+            - paragraph [ref=e174]: Desenvolvido com ❤️ para advogados
+          - generic [ref=e175]:
+            - generic [ref=e176]:
+              - img [ref=e177]
+              - generic [ref=e179]: LGPD
+            - generic [ref=e180]:
+              - img [ref=e181]
+              - generic [ref=e187]: OAB
+            - generic [ref=e188]:
+              - img [ref=e189]
+              - generic [ref=e192]: ISO 27001
+        - generic [ref=e195]:
+          - img [ref=e196]
+          - generic [ref=e198]:
+            - paragraph [ref=e199]: Aviso Regulatório Importante
+            - paragraph [ref=e200]: Os serviços do JusValida são ferramentas de apoio tecnológico e não substituem o aconselhamento jurídico profissional. As análises são geradas por inteligência artificial e podem conter limitações. Sempre consulte um advogado qualificado para decisões legais importantes. Este serviço está em conformidade com a LGPD (Lei 13.709/2018) e demais regulamentações aplicáveis.
+            - generic [ref=e201]:
+              - paragraph [ref=e202]: Ouvidoria ANPD
+              - paragraph [ref=e203]:
+                - text: "Em caso de questões sobre proteção de dados:"
+                - link "www.gov.br/anpd" [ref=e204] [cursor=pointer]:
+                  - /url: https://www.gov.br/anpd
+    - generic [ref=e207]:
+      - generic [ref=e208]:
+        - generic [ref=e209]:
+          - img [ref=e211]
+          - generic [ref=e213]:
+            - heading "Consentimento de Cookies" [level=3] [ref=e214]
+            - paragraph [ref=e215]: Conforme a LGPD (Lei Geral de Proteção de Dados)
+        - button [ref=e216] [cursor=pointer]:
+          - img
+      - generic [ref=e217]:
+        - generic [ref=e218]:
+          - paragraph [ref=e219]: Utilizamos cookies para melhorar sua experiência, personalizar conteúdo e analisar o uso do site. Você pode escolher quais categorias aceitar ou configurar suas preferências detalhadamente.
+          - generic [ref=e220]:
+            - generic [ref=e221]:
+              - img [ref=e222]
+              - generic [ref=e224]: Cookies Essenciais
+              - generic [ref=e225]: (Obrigatório)
+            - generic [ref=e226]:
+              - img [ref=e227]
+              - generic [ref=e238]: Cookies Funcionais
+            - generic [ref=e239]:
+              - img [ref=e240]
+              - generic [ref=e241]: Cookies de Análise
+          - generic [ref=e242]:
+            - link "Política de Cookies" [ref=e243] [cursor=pointer]:
+              - /url: /cookie-policy
+              - generic [ref=e244] [cursor=pointer]: Política de Cookies
+              - img [ref=e245] [cursor=pointer]
+            - link "Política de Privacidade" [ref=e249] [cursor=pointer]:
+              - /url: /privacy-policy
+              - generic [ref=e250] [cursor=pointer]: Política de Privacidade
+              - img [ref=e251] [cursor=pointer]
+        - generic [ref=e255]:
+          - button "Aceitar Todos" [ref=e256] [cursor=pointer]
+          - button "Apenas Essenciais" [ref=e257] [cursor=pointer]
+          - button "Personalizar" [ref=e258] [cursor=pointer]:
+            - img
+            - generic [ref=e259] [cursor=pointer]: Personalizar
+```

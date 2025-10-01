@@ -45,14 +45,27 @@ export const requireSupabaseAuth = async (
     // Ensure user exists with Supabase mapping (safe and idempotent)
     let dbUser;
     try {
+      console.log('🔍 Auth Debug - Creating/updating user:', {
+        supabaseId: user.id,
+        email: user.email,
+        role: supabaseRole,
+        metadata: user.user_metadata
+      });
+      
       dbUser = await storage.ensureUserBySupabase(user.id, user.email || '', {
         first_name: user.user_metadata?.first_name,
         last_name: user.user_metadata?.last_name,
         username: user.user_metadata?.username,
         role: supabaseRole
       });
+      
+      console.log('✅ Auth Debug - User ensured successfully:', {
+        id: dbUser.id,
+        email: dbUser.email,
+        role: dbUser.role
+      });
     } catch (ensureError: any) {
-      console.error('User ensure failed:', ensureError);
+      console.error('❌ User ensure failed:', ensureError);
       return res.status(500).json({ message: 'User setup failed', details: ensureError.message });
     }
     

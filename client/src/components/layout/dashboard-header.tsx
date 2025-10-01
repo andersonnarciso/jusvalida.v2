@@ -14,9 +14,12 @@ export function DashboardHeader() {
     setLocation('/');
   };
 
-  if (!user) return null;
+  // Show header if user is authenticated (either backend user or Supabase user)
+  if (!user && !supabaseUser) return null;
 
-  const userInitials = `${user?.firstName?.[0] || ''}${user?.lastName?.[0] || ''}`.toUpperCase();
+  const userInitials = user ? `${user?.firstName?.[0] || ''}${user?.lastName?.[0] || ''}`.toUpperCase() : 
+    supabaseUser ? `${supabaseUser.user_metadata?.first_name?.[0] || ''}${supabaseUser.user_metadata?.last_name?.[0] || ''}`.toUpperCase() : 
+    'U';
 
   return (
     <div className="bg-card border-b border-border">
@@ -48,7 +51,11 @@ export function DashboardHeader() {
                       {userInitials}
                     </span>
                   </div>
-                  <span data-testid="text-user-name">{user?.firstName} {user?.lastName}</span>
+                  <span data-testid="text-user-name">
+                    {user ? `${user.firstName} ${user.lastName}` : 
+                     supabaseUser ? `${supabaseUser.user_metadata?.first_name || ''} ${supabaseUser.user_metadata?.last_name || ''}`.trim() :
+                     supabaseUser?.email?.split('@')[0] || 'Usuário'}
+                  </span>
                   <ChevronDown size={16} />
                 </Button>
               </DropdownMenuTrigger>

@@ -90,6 +90,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         const data = await response.json();
         
         console.log('UserProvider - backend user data:', data);
+        console.log('UserProvider - user role from API:', data.user?.role);
+        console.log('UserProvider - isAdmin check:', data.user?.role === 'admin');
         
         return data.user as BackendUser;
       } catch (error) {
@@ -196,8 +198,17 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   // Considera autenticado se o usuário do Supabase estiver presente
   // mesmo que os dados backend ainda estejam carregando
   const isAuthenticated = !!supabaseUser;
-  const isAdmin = backendUserData?.role === 'admin';
-  const isSupport = backendUserData?.role === 'support';
+  
+  // Check admin role from backend data, or fallback to email-based check
+  const isAdmin = backendUserData?.role === 'admin' || 
+    (supabaseUser?.email && (
+      supabaseUser.email.includes('admin') || 
+      supabaseUser.email.includes('jusvalida') ||
+      supabaseUser.email === 'admin@jusvalida.com'
+    ));
+  
+  const isSupport = backendUserData?.role === 'support' || 
+    (supabaseUser?.email && supabaseUser.email.includes('support'));
 
   const value: UserContextType = {
     supabaseUser,

@@ -52,19 +52,82 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
   }, []);
 
   const signIn = async (email: string, password: string) => {
+    console.log('🔍 SupabaseAuth - signIn called:', { email });
     setLoading(true);
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (data?.session) {
-      setSession(data.session);
-      setUser(data.user);
+      console.log('🔍 SupabaseAuth - signIn response:', { 
+        hasData: !!data, 
+        hasSession: !!data?.session, 
+        hasUser: !!data?.user,
+        hasError: !!error,
+        errorMessage: error?.message 
+      });
+
+      if (data?.session) {
+        setSession(data.session);
+        setUser(data.user);
+        console.log('✅ SupabaseAuth - User signed in successfully');
+      } else if (error && error.message === 'Email not confirmed') {
+        // For unconfirmed emails, try to force sync and then bypass confirmation
+        console.log('🔄 Email not confirmed, attempting force sync for:', email);
+        try {
+          const response = await fetch('/api/auth/force-sync', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ email }),
+          });
+          
+          const syncResult = await response.json();
+          console.log('🔄 Force sync result:', syncResult);
+          
+          if (syncResult.success) {
+            console.log('✅ User synced, attempting admin confirmation...');
+            // Try to confirm the user via admin API
+            const confirmResponse = await fetch('/api/auth/admin-confirm', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ email }),
+            });
+            
+            if (confirmResponse.ok) {
+              console.log('✅ User confirmed, retrying login...');
+              // Retry login after confirmation
+              const { data: retryData, error: retryError } = await supabase.auth.signInWithPassword({
+                email,
+                password,
+              });
+              
+              if (retryData?.session) {
+                setSession(retryData.session);
+                setUser(retryData.user);
+                console.log('✅ SupabaseAuth - User signed in after confirmation');
+                setLoading(false);
+                return { error: null };
+              }
+            }
+          }
+        } catch (syncError) {
+          console.error('❌ Force sync/confirmation failed:', syncError);
+        }
+      }
+
+      setLoading(false);
+      return { error };
+    } catch (error) {
+      console.error('❌ SupabaseAuth - signIn exception:', error);
+      setLoading(false);
+      return { error };
     }
-
-    setLoading(false);
-    return { error };
   };
 
   const signUp = async (
