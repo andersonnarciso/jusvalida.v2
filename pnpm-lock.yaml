@@ -154,10 +154,10 @@ importers:
         version: 17.2.2
       drizzle-orm:
         specifier: ^0.39.1
-        version: 0.39.3(@neondatabase/serverless@0.10.4)(@types/pg@8.15.5)(pg@8.16.3)
+        version: 0.39.3(@neondatabase/serverless@0.10.4)(@types/pg@8.15.5)(pg@8.16.3)(postgres@3.4.7)
       drizzle-zod:
         specifier: ^0.7.0
-        version: 0.7.1(drizzle-orm@0.39.3(@neondatabase/serverless@0.10.4)(@types/pg@8.15.5)(pg@8.16.3))(zod@3.25.76)
+        version: 0.7.1(drizzle-orm@0.39.3(@neondatabase/serverless@0.10.4)(@types/pg@8.15.5)(pg@8.16.3)(postgres@3.4.7))(zod@3.25.76)
       embla-carousel-react:
         specifier: ^8.6.0
         version: 8.6.0(react@18.3.1)
@@ -203,6 +203,9 @@ importers:
       pdf-parse:
         specifier: ^1.1.1
         version: 1.1.1
+      postgres:
+        specifier: ^3.4.7
+        version: 3.4.7
       punycode:
         specifier: ^2.3.1
         version: 2.3.1
@@ -325,8 +328,8 @@ importers:
         specifier: ^10.4.20
         version: 10.4.21(postcss@8.5.6)
       cross-env:
-        specifier: ^10.0.0
-        version: 10.0.0
+        specifier: ^10.1.0
+        version: 10.1.0
       drizzle-kit:
         specifier: ^0.31.4
         version: 0.31.4
@@ -3144,8 +3147,8 @@ packages:
     resolution: {integrity: sha512-KIHbLJqu73RGr/hnbrO9uBeixNGuvSQjul/jdFvS/KFSIH1hWVd1ng7zOHx+YrEfInLG7q4n6GHQ9cDtxv/P6g==}
     engines: {node: '>= 0.10'}
 
-  cross-env@10.0.0:
-    resolution: {integrity: sha512-aU8qlEK/nHYtVuN4p7UQgAwVljzMg8hB4YK5ThRqD2l/ziSnryncPNn7bMLt5cFYsKVKBh8HqLqyCoTupEUu7Q==}
+  cross-env@10.1.0:
+    resolution: {integrity: sha512-GsYosgnACZTADcmEyJctkJIoqAhHjttw7RsFrVoJNXbsWWqaq6Ym+7kZjq6mS45O0jij6vtiReppKQEtqWy6Dw==}
     engines: {node: '>=20'}
     hasBin: true
 
@@ -4734,6 +4737,10 @@ packages:
 
   postgres-range@1.1.4:
     resolution: {integrity: sha512-i/hbxIE9803Alj/6ytL7UHQxRvZkI9O4Sy+J3HGc4F4oo/2eQAjTSNJ0bfxyse3bH0nuVesCk+3IRLaMtG3H6w==}
+
+  postgres@3.4.7:
+    resolution: {integrity: sha512-Jtc2612XINuBjIl/QTWsV5UvE8UHuNblcO3vVADSrKsrc6RqGX6lOW1cEo3CM2v0XG4Nat8nI+YM7/f26VxXLw==}
+    engines: {node: '>=12'}
 
   pretty-format@27.5.1:
     resolution: {integrity: sha512-Qb1gy5OrP5+zDf2Bvnzdl3jsTf1qXVMazbvCoKhtKqVs4/YK4ozX4gKQJJVyNe+cajNPn0KoC0MC3FUmaHWEmQ==}
@@ -8747,7 +8754,7 @@ snapshots:
       object-assign: 4.1.1
       vary: 1.1.2
 
-  cross-env@10.0.0:
+  cross-env@10.1.0:
     dependencies:
       '@epic-web/invariant': 1.0.0
       cross-spawn: 7.0.6
@@ -8876,15 +8883,16 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  drizzle-orm@0.39.3(@neondatabase/serverless@0.10.4)(@types/pg@8.15.5)(pg@8.16.3):
+  drizzle-orm@0.39.3(@neondatabase/serverless@0.10.4)(@types/pg@8.15.5)(pg@8.16.3)(postgres@3.4.7):
     optionalDependencies:
       '@neondatabase/serverless': 0.10.4
       '@types/pg': 8.15.5
       pg: 8.16.3
+      postgres: 3.4.7
 
-  drizzle-zod@0.7.1(drizzle-orm@0.39.3(@neondatabase/serverless@0.10.4)(@types/pg@8.15.5)(pg@8.16.3))(zod@3.25.76):
+  drizzle-zod@0.7.1(drizzle-orm@0.39.3(@neondatabase/serverless@0.10.4)(@types/pg@8.15.5)(pg@8.16.3)(postgres@3.4.7))(zod@3.25.76):
     dependencies:
-      drizzle-orm: 0.39.3(@neondatabase/serverless@0.10.4)(@types/pg@8.15.5)(pg@8.16.3)
+      drizzle-orm: 0.39.3(@neondatabase/serverless@0.10.4)(@types/pg@8.15.5)(pg@8.16.3)(postgres@3.4.7)
       zod: 3.25.76
 
   duck@0.1.12:
@@ -10421,6 +10429,8 @@ snapshots:
   postgres-interval@3.0.0: {}
 
   postgres-range@1.1.4: {}
+
+  postgres@3.4.7: {}
 
   pretty-format@27.5.1:
     dependencies:
