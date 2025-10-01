@@ -81,6 +81,10 @@ export default function Dashboard() {
   // Load user profile data including credits
   const { data: userProfile } = useQuery<{userProfile: {credits: number, firstName: string}}>({
     queryKey: ['/api/user/profile'],
+    queryFn: async () => {
+      const response = await apiRequest('GET', '/api/user/profile');
+      return response.json();
+    },
     enabled: !!user // Only run when user is authenticated
   });
 

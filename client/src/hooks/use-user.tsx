@@ -81,12 +81,12 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   // Fetch backend user data when authenticated
   const { data: backendUserData, isLoading: backendLoading, error: backendError } = useQuery({
-    queryKey: ['/api/auth/me', supabaseUser?.id],
+    queryKey: ['/api/user/profile', supabaseUser?.id],
     queryFn: async () => {
       if (!supabaseUser) return null;
       
       try {
-        const response = await apiRequest('GET', '/api/auth/me');
+        const response = await apiRequest('GET', '/api/user/profile');
         
         if (!response.ok) {
           console.error('API Error:', response.status, response.statusText);
