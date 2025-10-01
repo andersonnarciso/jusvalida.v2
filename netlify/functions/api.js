@@ -137,6 +137,54 @@ exports.handler = async (event, context) => {
       return createResponse(200, mockData.credits);
     }
 
+    // User profile endpoint - ESSENCIAL!
+    if (path === '/api/user/profile' && httpMethod === 'GET') {
+      const authHeader = headers.authorization || headers.Authorization;
+      
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return createResponse(401, { message: 'Authentication required' });
+      }
+
+      // Mock user profile data
+      return createResponse(200, {
+        userProfile: {
+          id: 'test-user-id',
+          email: 'andersonnarciso@gmail.com',
+          firstName: 'Anderson',
+          lastName: 'Narciso',
+          username: 'andersonnarciso',
+          credits: 5,
+          role: 'admin',
+          stripeCustomerId: null,
+          stripeMode: 'test',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }
+      });
+    }
+
+    // Document analyses endpoint
+    if (path === '/api/analyses' && httpMethod === 'GET') {
+      const authHeader = headers.authorization || headers.Authorization;
+      
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return createResponse(401, { message: 'Authentication required' });
+      }
+
+      // Mock analyses data
+      return createResponse(200, [
+        {
+          id: 'test-analysis-1',
+          title: 'Contrato de Prestação de Serviços',
+          content: 'Análise de contrato...',
+          analysisType: 'contract',
+          status: 'completed',
+          createdAt: new Date().toISOString(),
+          userId: 'test-user-id'
+        }
+      ]);
+    }
+
     if (path === '/api/billing/plans' && httpMethod === 'GET') {
       return createResponse(200, [
         {
