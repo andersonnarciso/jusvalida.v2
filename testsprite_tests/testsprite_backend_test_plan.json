@@ -1,0 +1,210 @@
+[
+  {
+    "id": "TC_BE001",
+    "title": "API Authentication Endpoint",
+    "description": "Test authentication API endpoints for login, registration, and token validation",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Test POST /api/auth/login with valid credentials"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response contains valid JWT token"
+      },
+      {
+        "type": "action",
+        "description": "Test POST /api/auth/register with valid user data"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify user is created in database"
+      },
+      {
+        "type": "action",
+        "description": "Test GET /api/auth/me with valid token"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify user data is returned correctly"
+      }
+    ]
+  },
+  {
+    "id": "TC_BE002",
+    "title": "Document Analysis API",
+    "description": "Test document analysis endpoints for file upload, processing, and result retrieval",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Test POST /api/analyses with valid document"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify analysis is created and processing starts"
+      },
+      {
+        "type": "action",
+        "description": "Test GET /api/analyses/:id for analysis status"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify analysis result is returned when completed"
+      }
+    ]
+  },
+  {
+    "id": "TC_BE003",
+    "title": "Credit System API",
+    "description": "Test credit management and billing endpoints",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Test GET /api/billing/credits for user credit balance"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify correct credit balance is returned"
+      },
+      {
+        "type": "action",
+        "description": "Test POST /api/billing/purchase-credits"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify credit transaction is recorded"
+      }
+    ]
+  },
+  {
+    "id": "TC_BE004",
+    "title": "Batch Processing API",
+    "description": "Test batch document processing endpoints",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Test POST /api/batch/create with multiple documents"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify batch job is created successfully"
+      },
+      {
+        "type": "action",
+        "description": "Test GET /api/batch/:id for batch status"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify batch progress is tracked correctly"
+      }
+    ]
+  },
+  {
+    "id": "TC_BE005",
+    "title": "Admin API Endpoints",
+    "description": "Test administrative endpoints for user management and system configuration",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Test GET /api/admin/users with admin credentials"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify user list is returned"
+      },
+      {
+        "type": "action",
+        "description": "Test POST /api/admin/users/:id/role with admin credentials"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify user role is updated successfully"
+      }
+    ]
+  },
+  {
+    "id": "TC_BE006",
+    "title": "Error Handling",
+    "description": "Test API error handling and validation",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Test API endpoints with invalid data"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify appropriate error messages are returned"
+      },
+      {
+        "type": "action",
+        "description": "Test API endpoints without authentication"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify 401 Unauthorized is returned"
+      }
+    ]
+  },
+  {
+    "id": "TC_BE007",
+    "title": "Database Operations",
+    "description": "Test database connectivity and data persistence",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Test database connection"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify database is accessible"
+      },
+      {
+        "type": "action",
+        "description": "Test data insertion and retrieval"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify data is persisted correctly"
+      }
+    ]
+  },
+  {
+    "id": "TC_BE008",
+    "title": "File Upload API",
+    "description": "Test file upload and processing endpoints",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Test POST /api/upload with valid file"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify file is uploaded successfully"
+      },
+      {
+        "type": "action",
+        "description": "Test file validation and processing"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify file is processed correctly"
+      }
+    ]
+  }
+]

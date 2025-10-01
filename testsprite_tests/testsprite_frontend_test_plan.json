@@ -1,0 +1,618 @@
+[
+  {
+    "id": "TC001",
+    "title": "User Registration with valid data",
+    "description": "Ensure a new user can register with valid details, receives free credits, and receives confirmation email",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to registration page"
+      },
+      {
+        "type": "action",
+        "description": "Input valid user details (email, password, name)"
+      },
+      {
+        "type": "action",
+        "description": "Submit the registration form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify registration is successful and user is created in database"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify user account starts with free credits"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify confirmation email is received"
+      }
+    ]
+  },
+  {
+    "id": "TC002",
+    "title": "User Login with correct credentials",
+    "description": "Verify that user can log in successfully with correct credentials and redirected to dashboard",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to login page"
+      },
+      {
+        "type": "action",
+        "description": "Input valid email and password"
+      },
+      {
+        "type": "action",
+        "description": "Submit login form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify user is authenticated and redirected to user dashboard"
+      }
+    ]
+  },
+  {
+    "id": "TC003",
+    "title": "Login failure with incorrect credentials",
+    "description": "Verify system prevents login with invalid credentials and shows proper error message",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to login page"
+      },
+      {
+        "type": "action",
+        "description": "Input invalid email or password"
+      },
+      {
+        "type": "action",
+        "description": "Submit login form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify login fails and proper error message 'invalid credentials' is displayed"
+      }
+    ]
+  },
+  {
+    "id": "TC004",
+    "title": "Password recovery process",
+    "description": "Verify user can trigger password recovery and reset password via received email link",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to forgot password page"
+      },
+      {
+        "type": "action",
+        "description": "Enter registered email address and submit"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify password recovery email is sent"
+      },
+      {
+        "type": "action",
+        "description": "Click password reset link in email"
+      },
+      {
+        "type": "action",
+        "description": "Input new valid password and confirm"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify password has been successfully reset and login with new password works"
+      }
+    ]
+  },
+  {
+    "id": "TC005",
+    "title": "Document Upload with valid supported file",
+    "description": "Verify user can upload legal document files in supported formats and see them listed for analysis",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Log in and navigate to document upload page"
+      },
+      {
+        "type": "action",
+        "description": "Upload supported legal document file (e.g. PDF, DOCX)"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify file is accepted and visible in document list for analysis"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify automatic validation confirms file format and content correctness"
+      }
+    ]
+  },
+  {
+    "id": "TC006",
+    "title": "Text input document analysis initiation",
+    "description": "Validate that user can input legal document text manually and initiate AI analysis",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to text input document analysis page"
+      },
+      {
+        "type": "action",
+        "description": "Paste or type valid legal document text"
+      },
+      {
+        "type": "action",
+        "description": "Select AI provider (OpenAI, Anthropic, or Google Gemini)"
+      },
+      {
+        "type": "action",
+        "description": "Select appropriate Brazilian law template for analysis"
+      },
+      {
+        "type": "action",
+        "description": "Submit for analysis"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify credit deduction matches expected cost"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify AI analysis completes successfully and results are displayed"
+      }
+    ]
+  },
+  {
+    "id": "TC007",
+    "title": "AI analysis accuracy with different providers",
+    "description": "Verify that the AI analysis results are correctly returned and relevant for each AI provider across document types",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Upload or input document text"
+      },
+      {
+        "type": "action",
+        "description": "Select AI provider: OpenAI GPT-5"
+      },
+      {
+        "type": "action",
+        "description": "Start analysis and wait for results"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify analysis is accurate and includes risk identification and improvement suggestions"
+      },
+      {
+        "type": "action",
+        "description": "Repeat above steps selecting Anthropic Claude Sonnet 4"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify similar output quality and correctness"
+      },
+      {
+        "type": "action",
+        "description": "Repeat above steps selecting Google Gemini 2.5 Pro"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify AI output meets product standard for accuracy and relevance"
+      }
+    ]
+  },
+  {
+    "id": "TC008",
+    "title": "Batch document processing with queue and progress tracking",
+    "description": "Verify user can upload and submit a batch of documents, monitor queue status, and receive individual results",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Log in and navigate to batch processing page"
+      },
+      {
+        "type": "action",
+        "description": "Upload multiple documents (mixed valid and invalid formats)"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify documents with invalid formats are flagged with error"
+      },
+      {
+        "type": "action",
+        "description": "Submit valid documents for batch analysis"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify batch queue shows correct status and progress for each document"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify each document's analysis completes correctly with individual results"
+      }
+    ]
+  },
+  {
+    "id": "TC009",
+    "title": "Credit deduction and payment handling via Stripe",
+    "description": "Ensure credits are deducted properly after each analysis and payments can be made through Stripe with plan selection",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Perform multiple document analyses to consume credits"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify credit balance updates correctly after each analysis"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to billing/checkout page"
+      },
+      {
+        "type": "action",
+        "description": "Select a subscription plan"
+      },
+      {
+        "type": "action",
+        "description": "Make payment through Stripe payment gateway"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify payment is processed successfully and credits are added correctly"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify transaction history shows correct details"
+      }
+    ]
+  },
+  {
+    "id": "TC010",
+    "title": "Administrative dashboard user management and analytics",
+    "description": "Validate admin user can view, modify user roles, and see system analytics correctly",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Log in as admin and navigate to admin dashboard"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify user list is displayed with roles and statuses"
+      },
+      {
+        "type": "action",
+        "description": "Change a user's role and save changes"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify role change persists and user privileges update accordingly"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify system analytics (usage stats, payment reports) are visible and accurate"
+      }
+    ]
+  },
+  {
+    "id": "TC011",
+    "title": "Customer support ticket creation and messaging",
+    "description": "Verify users can create support tickets, send and receive messages with real-time updates",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Log in and navigate to support ticket page"
+      },
+      {
+        "type": "action",
+        "description": "Create a new support ticket with subject and detailed description"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify ticket is created and visible in user's ticket list"
+      },
+      {
+        "type": "action",
+        "description": "Send a message in the created ticket"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify message appears immediately and is acknowledged by support agent"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify ticket priority can be set and updated"
+      }
+    ]
+  },
+  {
+    "id": "TC012",
+    "title": "Landing page displays correct product and pricing details",
+    "description": "Validate landing page loads and displays accurate product descriptions, features, pricing, and authentication options",
+    "category": "ui",
+    "priority": "Low",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the landing page URL"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify landing page contains product overview and core features"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify pricing plans and payment options are displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify login and registration links/buttons are present and functional"
+      }
+    ]
+  },
+  {
+    "id": "TC013",
+    "title": "Dashboard analytics and recent analyses display",
+    "description": "Verify that after login the dashboard presents analytics widgets, recent documents, and quick action buttons correctly",
+    "category": "ui",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Log in and navigate to the dashboard"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify analytics are accurate and up to date"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify recent analyses list shows correct documents and statuses"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify quick action buttons for new analysis, profile, and billing are present and functional"
+      }
+    ]
+  },
+  {
+    "id": "TC014",
+    "title": "Profile update and account management",
+    "description": "Verify user can edit profile details, change password, and update billing information",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Log in and navigate to profile management page"
+      },
+      {
+        "type": "action",
+        "description": "Update profile information (name, contact details)"
+      },
+      {
+        "type": "action",
+        "description": "Submit changes and verify update success notification"
+      },
+      {
+        "type": "action",
+        "description": "Change password with valid current and new passwords"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify password change is successful"
+      }
+    ]
+  },
+  {
+    "id": "TC015",
+    "title": "Soft delete (trash) management with recovery",
+    "description": "Verify that deleted document analyses go to trash and can be restored or permanently deleted",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Delete a document analysis from the list"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify document analysis moves to trash folder"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to trash management page"
+      },
+      {
+        "type": "action",
+        "description": "Restore deleted document analysis"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify analysis is restored to original list and accessible"
+      },
+      {
+        "type": "action",
+        "description": "Delete an analysis permanently from trash"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify analysis is removed permanently and not accessible"
+      }
+    ]
+  },
+  {
+    "id": "TC016",
+    "title": "Email notification system with SMTP integration",
+    "description": "Verify system sends emails for registration, password recovery, payment receipts, and support ticket updates correctly",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Trigger user registration and verify confirmation email sent"
+      },
+      {
+        "type": "action",
+        "description": "Trigger password recovery email"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify email contents, subject and links are correct"
+      },
+      {
+        "type": "action",
+        "description": "Trigger payment processing and verify payment receipt email"
+      },
+      {
+        "type": "action",
+        "description": "Trigger support ticket creation and reply notification emails"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify all emails are delivered and comply with privacy policy"
+      }
+    ]
+  },
+  {
+    "id": "TC017",
+    "title": "Data encryption at rest and in transit",
+    "description": "Verify sensitive data is encrypted in storage and transmitted securely through the platform",
+    "category": "security",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Save sensitive user data (passwords, payment info, document contents)"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify data is encrypted in the database (at rest)"
+      },
+      {
+        "type": "action",
+        "description": "Perform data transmission actions (login, document upload, payment)"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify data is transmitted over HTTPS with valid TLS"
+      }
+    ]
+  },
+  {
+    "id": "TC018",
+    "title": "API endpoints comprehensive coverage",
+    "description": "Test all RESTful API endpoints for authentication, analyses, users, batch processing, and admin functions with valid and invalid data",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Authenticate user with valid and invalid tokens"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify access control and appropriate error responses"
+      },
+      {
+        "type": "action",
+        "description": "Call document analysis API with valid and invalid inputs"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify correct response, validation errors, and error handling"
+      },
+      {
+        "type": "action",
+        "description": "Call batch processing APIs to submit, monitor, and cancel batches"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify status updates and correct queue behavior"
+      },
+      {
+        "type": "action",
+        "description": "Call admin APIs for user management and analytics"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify permissions and data accuracy"
+      }
+    ]
+  },
+  {
+    "id": "TC019",
+    "title": "UI responsiveness and accessibility",
+    "description": "Verify user interface is responsive across devices and accessible per WCAG standards on landing, dashboard, upload, and support pages",
+    "category": "ui",
+    "priority": "Low",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Test UI layouts on mobile, tablet, and desktop screen sizes"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify elements resize and reposition correctly without overlappings"
+      },
+      {
+        "type": "action",
+        "description": "Use keyboard navigation and screen reader on key pages"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify all interactive elements are reachable and labeled correctly"
+      }
+    ]
+  },
+  {
+    "id": "TC020",
+    "title": "Error handling and system uptime monitoring",
+    "description": "Ensure system gracefully handles errors with user-friendly messages and maintains uptime > 99.9%",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Induce API failure scenarios (network timeout, service unavailable)"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify error messages are informative and do not expose sensitive info"
+      },
+      {
+        "type": "action",
+        "description": "Simulate high load/batch queue overflow"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify system maintains availability and user operations are queued or rate limited properly"
+      }
+    ]
+  }
+]
