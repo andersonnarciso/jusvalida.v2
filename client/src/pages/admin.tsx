@@ -1183,9 +1183,19 @@ export default function Admin() {
       isSupport,
       usersData,
       usersLoading,
-      usersError
+      usersError,
+      userPage
     });
-  }, [loading, isAdmin, isSupport, usersData, usersLoading, usersError]);
+  }, [loading, isAdmin, isSupport, usersData, usersLoading, usersError, userPage]);
+
+  // Additional debug for authentication
+  useEffect(() => {
+    console.log('🔍 Auth Debug:', {
+      isAuthenticated,
+      user,
+      supabaseUser: user?.email
+    });
+  }, [isAuthenticated, user]);
 
   // Fetch platform analytics
   const { data: analytics, isLoading: analyticsLoading } =
