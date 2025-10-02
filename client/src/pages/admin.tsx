@@ -1152,7 +1152,7 @@ function NotificationForm({
 }
 
 export default function Admin() {
-  const { isAdmin, isSupport, loading } = useUser();
+  const { isAdmin, isSupport, loading, isAuthenticated, user } = useUser();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [userPage, setUserPage] = useState(1);
