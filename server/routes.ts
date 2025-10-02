@@ -44,13 +44,31 @@ function validateFileType(file: Express.Multer.File): boolean {
   return allowedTypes.includes(file.mimetype);
 }
 
-// Função para criar cliente Stripe dinamicamente usando configuração do admin
-async function getStripeClient(operationMode: 'test' | 'live' = 'test'): Promise<Stripe> {
+// Função para obter configuração do Stripe (prioriza variáveis de ambiente)
+async function getStripeConfig() {
+  // Primeiro, tenta usar variáveis de ambiente (produção)
+  if (process.env.STRIPE_IS_ACTIVE === 'true') {
+    const operationMode = process.env.STRIPE_OPERATION_MODE as 'test' | 'live' || 'live';
+    const secretKey = operationMode === 'live' 
+      ? process.env.STRIPE_LIVE_SECRET_KEY 
+      : process.env.STRIPE_TEST_SECRET_KEY;
+    
+    if (secretKey) {
+      return {
+        secretKey,
+        operationMode,
+        isActive: true
+      };
+    }
+  }
+  
+  // Fallback para configuração do banco de dados
   const config = await storage.getStripeConfig();
   if (!config || !config.isActive) {
     throw new Error('Stripe não está configurado ou ativo');
   }
   
+  const operationMode = config.operationMode || 'test';
   const secretKey = operationMode === 'live' ? config.liveSecretKey : config.testSecretKey;
   if (!secretKey) {
     throw new Error(`Chave ${operationMode} do Stripe não configurada`);
@@ -60,7 +78,18 @@ async function getStripeClient(operationMode: 'test' | 'live' = 'test'): Promise
   const { decryptApiKey } = await import('./lib/encryption');
   const decryptedKey = await decryptApiKey(secretKey);
   
-  return new Stripe(decryptedKey, {
+  return {
+    secretKey: decryptedKey,
+    operationMode,
+    isActive: true
+  };
+}
+
+// Função para criar cliente Stripe dinamicamente
+async function getStripeClient(operationMode: 'test' | 'live' = 'test'): Promise<Stripe> {
+  const config = await getStripeConfig();
+  
+  return new Stripe(config.secretKey, {
     apiVersion: "2024-08-16", // Versão válida
   });
 }
@@ -442,8 +471,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/user/profile", requireSupabaseAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      console.log('🔍 API /api/user/profile - Request received:', {
+        userId: req.user?.id,
+        email: req.user?.email,
+        role: req.user?.role
+      });
+
       // Get user from local database to get credits and other local data
       const localUser = await storage.getUser(req.user.id);
+      console.log('🔍 API /api/user/profile - Local user data:', localUser);
       
       // Combine Supabase user data with local database data
       const userProfile = {
@@ -460,6 +496,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updatedAt: req.user?.updatedAt || new Date().toISOString()
       };
 
+      console.log('✅ API /api/user/profile - Response data:', userProfile);
+
       res.set({
         'Cache-Control': 'no-store, no-cache, must-revalidate',
         'Pragma': 'no-cache',
@@ -469,8 +507,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json({ userProfile });
     } catch (error) {
-      console.error('Error fetching user profile:', error);
-      res.status(500).json({ message: 'Error fetching user profile' });
+      console.error('❌ API /api/user/profile - Error:', error);
+      res.status(500).json({ message: 'Error fetching user profile', error: error.message });
     }
   });
 
@@ -640,10 +678,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/analyses", requireSupabaseAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      console.log('🔍 API /api/analyses - Request received:', {
+        userId: req.user?.id,
+        email: req.user?.email,
+        limit: req.query.limit
+      });
+
       const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
       const analyses = await storage.getDocumentAnalyses(req.user.id, limit);
+      
+      console.log('✅ API /api/analyses - Response data:', {
+        count: analyses.length,
+        analyses: analyses.map(a => ({ id: a.id, title: a.title, status: a.status }))
+      });
+
       res.json(analyses);
     } catch (error: any) {
+      console.error('❌ API /api/analyses - Error:', error);
       res.status(500).json({ message: error.message });
     }
   });
@@ -801,10 +852,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Stripe webhook endpoint (no auth required - Stripe handles verification)
   app.post("/api/stripe-webhook", express.raw({ type: 'application/json' }), async (req, res) => {
     const sig = req.headers['stripe-signature'];
-    const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    
+    // Prioriza variável de ambiente, depois configuração do banco
+    let webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    
+    if (!webhookSecret) {
+      try {
+        const config = await storage.getStripeConfig();
+        if (config?.webhookSecret) {
+          const { decryptApiKey } = await import('./lib/encryption');
+          webhookSecret = await decryptApiKey(config.webhookSecret);
+        }
+      } catch (error) {
+        console.error('❌ Error getting webhook secret from database:', error);
+      }
+    }
 
-    if (!endpointSecret) {
-      console.error('❌ Missing STRIPE_WEBHOOK_SECRET environment variable');
+    if (!webhookSecret) {
+      console.error('❌ Missing STRIPE_WEBHOOK_SECRET environment variable or database config');
       return res.status(400).json({ error: 'Webhook secret not configured' });
     }
 
@@ -1078,9 +1143,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/credit-packages", async (req, res) => {
     try {
-      const packages = await storage.getCreditPackages();
+      let packages = await storage.getCreditPackages();
+      
+      // Se não há pacotes, criar pacotes padrão
+      if (packages.length === 0) {
+        console.log('🔧 Creating default credit packages...');
+        
+        const defaultPackages = [
+          {
+            id: crypto.randomUUID(),
+            packageId: crypto.randomUUID(),
+            name: 'Pacote Básico',
+            description: 'Ideal para começar',
+            credits: 10,
+            price: '29.90',
+            features: ['Análise de contratos', 'Suporte por email', 'Relatórios básicos'],
+            isPopular: false,
+            isActive: true,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          },
+          {
+            id: crypto.randomUUID(),
+            packageId: crypto.randomUUID(),
+            name: 'Pacote Profissional',
+            description: 'Mais popular',
+            credits: 50,
+            price: '99.90',
+            features: ['Análise de contratos', 'Análise de documentos', 'Suporte prioritário', 'Relatórios detalhados'],
+            isPopular: true,
+            isActive: true,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          },
+          {
+            id: crypto.randomUUID(),
+            packageId: crypto.randomUUID(),
+            name: 'Pacote Empresarial',
+            description: 'Para empresas',
+            credits: 200,
+            price: '299.90',
+            features: ['Análise ilimitada', 'Suporte 24/7', 'Relatórios personalizados', 'API access'],
+            isPopular: false,
+            isActive: true,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          }
+        ];
+        
+        for (const pkg of defaultPackages) {
+          await storage.createCreditPackage(pkg);
+        }
+        
+        packages = await storage.getCreditPackages();
+        console.log('✅ Default credit packages created:', packages.length);
+      }
+      
       res.json(packages);
     } catch (error: any) {
+      console.error('❌ Error fetching credit packages:', error);
       res.status(500).json({ message: error.message });
     }
   });

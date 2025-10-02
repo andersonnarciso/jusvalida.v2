@@ -60,7 +60,7 @@ export function ProtectedHeader({ onLogout }: ProtectedHeaderProps) {
               <a className="text-muted-foreground hover:text-foreground transition-colors">Análises</a>
             </Link>
             <Link href="/batch">
-              <a className="text-muted-foreground hover:text-foreground transition-colors">Lote</a>
+              <a className="text-muted-foreground hover:text-foreground transition-colors">Análise em Massa</a>
             </Link>
             <Link href="/support">
               <a className="text-muted-foreground hover:text-foreground transition-colors">Suporte</a>
@@ -177,7 +177,7 @@ export function ProtectedHeader({ onLogout }: ProtectedHeaderProps) {
                 <a className="text-muted-foreground hover:text-foreground transition-colors">Análises</a>
               </Link>
               <Link href="/batch" onClick={closeMobileMenu}>
-                <a className="text-muted-foreground hover:text-foreground transition-colors">Lote</a>
+                <a className="text-muted-foreground hover:text-foreground transition-colors">Análise em Massa</a>
               </Link>
               <Link href="/support" onClick={closeMobileMenu}>
                 <a className="text-muted-foreground hover:text-foreground transition-colors">Suporte</a>

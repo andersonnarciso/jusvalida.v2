@@ -96,10 +96,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         const data = await response.json();
         
         console.log('UserProvider - backend user data:', data);
-        console.log('UserProvider - user role from API:', data.user?.role);
-        console.log('UserProvider - isAdmin check:', data.user?.role === 'admin');
+        console.log('UserProvider - user role from API:', data.userProfile?.role);
+        console.log('UserProvider - isAdmin check:', data.userProfile?.role === 'admin');
         
-        return data.user as BackendUser;
+        return data.userProfile as BackendUser;
       } catch (error) {
         console.error('Error fetching backend user data:', error);
         // Don't throw error in production to prevent UI crashes

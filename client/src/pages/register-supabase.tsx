@@ -34,11 +34,67 @@ export default function RegisterSupabase() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.firstName || !formData.lastName || !formData.username || 
-        !formData.email || !formData.password || !formData.confirmPassword) {
+    // Validação de campos obrigatórios
+    if (!formData.firstName?.trim()) {
       toast({
-        title: "Campos obrigatórios",
-        description: "Por favor, preencha todos os campos.",
+        title: "Nome obrigatório",
+        description: "Por favor, preencha o campo Nome.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!formData.lastName?.trim()) {
+      toast({
+        title: "Sobrenome obrigatório",
+        description: "Por favor, preencha o campo Sobrenome.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!formData.username?.trim()) {
+      toast({
+        title: "Username obrigatório",
+        description: "Por favor, preencha o campo Username.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!formData.email?.trim()) {
+      toast({
+        title: "Email obrigatório",
+        description: "Por favor, preencha o campo Email.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validação de formato de email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      toast({
+        title: "Email inválido",
+        description: "Por favor, insira um email válido.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!formData.password) {
+      toast({
+        title: "Senha obrigatória",
+        description: "Por favor, preencha o campo Senha.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!formData.confirmPassword) {
+      toast({
+        title: "Confirmação de senha obrigatória",
+        description: "Por favor, confirme sua senha.",
         variant: "destructive",
       });
       return;
@@ -72,13 +128,34 @@ export default function RegisterSupabase() {
       });
 
       if (error) {
-        toast({
-          title: "Erro no Cadastro",
-          description: error.message === 'User already registered' 
-            ? "Este email já está cadastrado."
-            : "Erro inesperado. Tente novamente.",
-          variant: "destructive",
-        });
+        console.log('🔍 Register - Error received:', error);
+        
+        // Handle specific error codes
+        if (error.code === 'EMAIL_ALREADY_EXISTS') {
+          toast({
+            title: "Email já cadastrado",
+            description: error.message,
+            variant: "destructive",
+          });
+        } else if (error.code === 'INVALID_EMAIL') {
+          toast({
+            title: "Email inválido",
+            description: error.message,
+            variant: "destructive",
+          });
+        } else if (error.code === 'WEAK_PASSWORD') {
+          toast({
+            title: "Senha fraca",
+            description: error.message,
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Erro no Cadastro",
+            description: error.message || "Erro inesperado. Tente novamente.",
+            variant: "destructive",
+          });
+        }
         return;
       }
 

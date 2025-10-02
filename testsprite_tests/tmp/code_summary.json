@@ -2,200 +2,106 @@
   "tech_stack": [
     "TypeScript",
     "React",
+    "Vite",
     "Express.js",
-    "PostgreSQL",
-    "Drizzle ORM",
     "Supabase",
+    "PostgreSQL",
     "Tailwind CSS",
     "Radix UI",
-    "Vite",
-    "Stripe",
-    "OpenAI",
-    "Anthropic",
-    "Google Gemini"
+    "TanStack Query",
+    "Drizzle ORM",
+    "Netlify Functions"
   ],
   "features": [
     {
-      "name": "Authentication System",
-      "description": "Complete authentication system with Supabase integration, user management, and role-based access control",
+      "name": "User Authentication",
+      "description": "Supabase-based authentication system with login, register, and password reset functionality",
       "files": [
         "client/src/hooks/use-supabase-auth.tsx",
         "client/src/hooks/use-user.tsx",
-        "server/middleware/supabase-auth.ts",
-        "client/src/pages/login-supabase.tsx",
-        "client/src/pages/register-supabase.tsx",
-        "client/src/pages/forgot-password.tsx",
-        "client/src/pages/reset-password.tsx"
+        "client/src/lib/supabase.ts",
+        "server/middleware/supabase-auth.ts"
       ]
     },
     {
-      "name": "Document Analysis Engine",
-      "description": "AI-powered document analysis system with multiple AI providers (OpenAI, Anthropic, Google Gemini) and template-based analysis",
+      "name": "Document Analysis",
+      "description": "AI-powered document analysis system with multiple providers and templates",
       "files": [
-        "server/services/ai.ts",
+        "client/src/pages/dashboard.tsx",
         "client/src/pages/analyses.tsx",
-        "client/src/pages/analysis-details.tsx",
-        "client/src/components/ui/ai-provider-selector.tsx",
-        "client/src/components/ui/template-selector.tsx"
-      ]
-    },
-    {
-      "name": "Batch Processing System",
-      "description": "Batch document processing with queue management and progress tracking",
-      "files": [
-        "server/services/batchProcessor.ts",
-        "client/src/pages/batch.tsx",
-        "server/routes/batch.ts"
+        "server/services/ai.ts",
+        "server/routes.ts"
       ]
     },
     {
       "name": "Credit System",
-      "description": "Credit-based payment system with Stripe integration and transaction tracking",
+      "description": "Credit-based billing system with transactions and analytics",
       "files": [
         "client/src/pages/billing.tsx",
-        "client/src/pages/checkout.tsx",
-        "client/src/pages/payment-success.tsx",
-        "server/services/costCalculator.ts"
+        "server/services/costCalculator.ts",
+        "server/routes.ts"
       ]
     },
     {
       "name": "Admin Dashboard",
-      "description": "Administrative interface for user management, system configuration, and analytics",
+      "description": "Administrative interface for user management and platform analytics",
       "files": [
         "client/src/pages/admin.tsx",
-        "server/routes/admin.ts"
+        "server/routes.ts"
       ]
     },
     {
-      "name": "Support System",
-      "description": "Customer support ticket system with messaging and priority management",
+      "name": "API Layer",
+      "description": "RESTful API with Express.js backend and Netlify Functions",
       "files": [
-        "client/src/pages/support.tsx",
-        "server/routes/support.ts"
+        "server/index.ts",
+        "server/routes.ts",
+        "netlify/functions/api.js",
+        "client/src/lib/queryClient.ts"
       ]
     },
     {
-      "name": "Landing Page",
-      "description": "Marketing landing page with features showcase, pricing, and authentication",
+      "name": "Database Layer",
+      "description": "PostgreSQL database with Drizzle ORM and Supabase integration",
       "files": [
-        "client/src/pages/landing.tsx",
-        "client/src/components/layout/landing-header.tsx"
-      ]
-    },
-    {
-      "name": "Dashboard",
-      "description": "Main user dashboard with analytics, recent analyses, and quick actions",
-      "files": [
-        "client/src/pages/dashboard.tsx",
-        "client/src/components/layout/dashboard-header.tsx"
-      ]
-    },
-    {
-      "name": "User Profile Management",
-      "description": "User profile editing and account management",
-      "files": [
-        "client/src/pages/profile.tsx"
-      ]
-    },
-    {
-      "name": "Document Templates",
-      "description": "Template-based document analysis with predefined legal document types",
-      "files": [
-        "server/routes/templates.ts"
-      ]
-    },
-    {
-      "name": "Email Service",
-      "description": "Email notification system with SMTP configuration",
-      "files": [
-        "server/services/email.ts",
-        "server/routes/email.ts"
-      ]
-    },
-    {
-      "name": "Database Schema",
-      "description": "Comprehensive database schema with Drizzle ORM for all application entities",
-      "files": [
+        "server/db.ts",
+        "server/storage.ts",
         "shared/schema.ts",
-        "server/db.ts"
+        "drizzle.config.ts"
       ]
     },
     {
       "name": "UI Components",
       "description": "Reusable UI components built with Radix UI and Tailwind CSS",
       "files": [
-        "client/src/components/ui/button.tsx",
-        "client/src/components/ui/card.tsx",
-        "client/src/components/ui/dialog.tsx",
-        "client/src/components/ui/form.tsx",
-        "client/src/components/ui/input.tsx",
-        "client/src/components/ui/table.tsx",
-        "client/src/components/ui/toast.tsx"
+        "client/src/components/ui/",
+        "client/src/components/layout/",
+        "client/src/pages/"
       ]
     },
     {
-      "name": "File Upload System",
-      "description": "File upload handling with validation and processing",
+      "name": "File Upload",
+      "description": "File upload system for document analysis with batch processing",
       "files": [
-        "client/src/components/ui/file-upload.tsx",
-        "server/routes/upload.ts"
+        "client/src/pages/dashboard.tsx",
+        "server/services/batchProcessor.ts",
+        "server/routes.ts"
       ]
     },
     {
-      "name": "Legal Compliance",
-      "description": "Legal compliance features including privacy policy, terms of service, and cookie management",
+      "name": "Email Service",
+      "description": "Email notification system for user communications",
       "files": [
-        "client/src/pages/privacy-policy.tsx",
-        "client/src/pages/terms-of-service.tsx",
-        "client/src/pages/cookie-policy.tsx",
-        "client/src/components/ui/cookie-banner.tsx",
-        "client/src/hooks/use-cookie-preferences.tsx"
+        "server/services/email.ts",
+        "server/routes.ts"
       ]
     },
     {
-      "name": "Trash Management",
-      "description": "Soft delete system for document analyses with recovery options",
+      "name": "Encryption Service",
+      "description": "Data encryption and security utilities",
       "files": [
-        "client/src/pages/trash.tsx"
-      ]
-    },
-    {
-      "name": "Contact System",
-      "description": "Contact form and communication system",
-      "files": [
-        "client/src/pages/contact.tsx"
-      ]
-    },
-    {
-      "name": "Encryption System",
-      "description": "Data encryption and security features",
-      "files": [
-        "server/lib/encryption.ts"
-      ]
-    },
-    {
-      "name": "Storage Management",
-      "description": "File storage and cleanup system",
-      "files": [
+        "server/lib/encryption.ts",
         "server/storage.ts"
-      ]
-    },
-    {
-      "name": "API Routes",
-      "description": "RESTful API endpoints for all application functionality",
-      "files": [
-        "server/routes.ts",
-        "server/routes/auth.ts",
-        "server/routes/analyses.ts",
-        "server/routes/users.ts"
-      ]
-    },
-    {
-      "name": "TestSprite Integration",
-      "description": "TestSprite API integration for automated testing",
-      "files": [
-        "server/routes/testsprite.ts",
-        "docs/testsprite-api.md"
       ]
     }
   ]

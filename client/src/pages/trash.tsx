@@ -188,7 +188,7 @@ export default function Trash() {
                             </div>
                             <div className="flex items-center gap-1">
                               <Coins className="h-4 w-4 text-primary" />
-                              <span>{analysis.creditsUsed} créditos</span>
+                              <span>{analysis.creditsUsed || 0} créditos</span>
                             </div>
                           </div>
                           

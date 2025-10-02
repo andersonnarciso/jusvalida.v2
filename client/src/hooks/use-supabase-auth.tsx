@@ -135,7 +135,9 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
     password: string, 
     metadata: { firstName: string; lastName: string; username: string }
   ) => {
-    const { error } = await supabase.auth.signUp({
+    console.log('🔍 SupabaseAuth - signUp called:', { email, metadata });
+    
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -146,6 +148,68 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
         },
       },
     });
+
+    console.log('🔍 SupabaseAuth - signUp response:', {
+      hasData: !!data,
+      hasUser: !!data?.user,
+      hasError: !!error,
+      errorMessage: error?.message
+    });
+
+    // Handle specific error cases
+    if (error) {
+      console.log('🔍 SupabaseAuth - signUp error details:', {
+        message: error.message,
+        status: error.status,
+        statusText: error.statusText
+      });
+
+      // Check for duplicate email errors (multiple variations)
+      if (error.message.includes('already registered') || 
+          error.message.includes('User already registered') ||
+          error.message.includes('already been registered') ||
+          error.message.includes('already exists') ||
+          error.message.includes('duplicate') ||
+          error.message.includes('already in use') ||
+          error.message.includes('email address is already registered') ||
+          error.message.includes('user with this email already exists') ||
+          error.status === 422 ||
+          error.status === 409) {
+        return { 
+          error: { 
+            message: 'Este email já está cadastrado. Tente fazer login ou use outro email.',
+            code: 'EMAIL_ALREADY_EXISTS'
+          } 
+        };
+      }
+      
+      if (error.message.includes('Invalid email')) {
+        return { 
+          error: { 
+            message: 'Email inválido. Verifique o formato do email.',
+            code: 'INVALID_EMAIL'
+          } 
+        };
+      }
+      
+      if (error.message.includes('Password should be at least')) {
+        return { 
+          error: { 
+            message: 'A senha deve ter pelo menos 6 caracteres.',
+            code: 'WEAK_PASSWORD'
+          } 
+        };
+      }
+
+      // Generic error handling
+      return { 
+        error: { 
+          message: error.message || 'Erro inesperado. Tente novamente.',
+          code: 'GENERIC_ERROR'
+        } 
+      };
+    }
+
     return { error };
   };
 

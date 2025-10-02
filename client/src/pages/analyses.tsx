@@ -181,7 +181,7 @@ export default function Analyses() {
                       </div>
                       <div className="flex items-center gap-1">
                         <Coins className="h-4 w-4 text-primary" />
-                        <span className="text-sm text-muted-foreground">{analysis.creditsUsed}</span>
+                        <span className="text-sm text-muted-foreground">{analysis.creditsUsed || 0}</span>
                       </div>
                     </div>
 

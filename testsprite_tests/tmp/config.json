@@ -1,19 +1,20 @@
 {
   "status": "commited",
-  "type": "backend",
+  "type": "frontend",
   "scope": "codebase",
   "localEndpoint": "http://localhost:3000",
-  "backendAuthType": "basic token",
-  "backendUsername": "andersonnarciso@gmail.com",
-  "backendPassword": "q1q2q3q4q5",
+  "loginUser": "andersonnarciso@gmail.com",
+  "loginPassword": "admin123",
   "executionArgs": {
     "projectName": "JusValida",
     "projectPath": "C:\\Users\\Anderson Narciso\\dyad-apps\\JusValida",
-    "testIds": [],
-    "additionalInstruction": "Execute comprehensive frontend tests to identify and fix any issues in the JusValida application, focusing on user interface, authentication flows, document analysis features, and overall user experience.",
+    "testIds": [
+      "TC002"
+    ],
+    "additionalInstruction": "Teste especificamente o TC002 - User Registration with Existing Email. Verifique se agora o sistema mostra corretamente o erro de email duplicado em vez de redirecionar para login.",
     "envs": {
       "API_KEY": "sk-user-zAwqDJJEbZuixajJ_sY-hQL5lRd2SRnuuH_UYVuSX0wa8IwxmLYm-HjNHvdupB8eWPZKkMD-6rLyJSTO9rkQoKjA6PY5BraDsurX_eaYx4C-RtWC20rqA9uReORFJ6uQ0rI"
     }
   },
-  "proxy": "http://65f9db6a-fc29-451e-84c8-1f8fbece61db:IsDSS5aKDBR50DwBYC4kRPwy8qRUJkqa@tun.testsprite.com:8080"
+  "proxy": "http://66b8b660-c9ae-4d46-9fe3-80dac5e53936:XgFx6N4WJAtSKrG2pNsOyyZ0MwPYwOLw@tun.testsprite.com:8080"
 }

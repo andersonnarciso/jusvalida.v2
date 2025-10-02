@@ -32,7 +32,7 @@ export function FileUpload({
       if (rejection.errors[0]?.code === 'file-too-large') {
         setError('Arquivo muito grande. Tamanho máximo: 10MB');
       } else if (rejection.errors[0]?.code === 'file-invalid-type') {
-        setError('Tipo de arquivo não suportado');
+        setError('Tipo de arquivo não suportado. Use apenas PDF, DOC, DOCX ou TXT');
       } else {
         setError('Erro no upload do arquivo');
       }
@@ -40,7 +40,18 @@ export function FileUpload({
     }
 
     if (acceptedFiles.length > 0) {
-      onFileSelect(acceptedFiles[0]);
+      const file = acceptedFiles[0];
+      
+      // Additional validation for dangerous file types
+      const dangerousExtensions = ['.exe', '.bat', '.cmd', '.scr', '.pif', '.com', '.vbs', '.js', '.jar'];
+      const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
+      
+      if (dangerousExtensions.includes(fileExtension)) {
+        setError('Tipo de arquivo não permitido por segurança. Use apenas documentos (PDF, DOC, DOCX, TXT)');
+        return;
+      }
+      
+      onFileSelect(file);
     }
   }, [onFileSelect]);
 

@@ -13,6 +13,7 @@ import { AIProviderSelector } from '@/components/ui/ai-provider-selector';
 import { TemplateSelector } from '@/components/ui/template-selector';
 import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
 import { useToast } from '@/hooks/use-toast';
+import { useLocation } from 'wouter';
 import { apiRequest } from '@/lib/queryClient';
 import { FileText, AlertTriangle, Clock, Coins, Eye, CheckCircle, AlertCircle, TrendingUp } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
@@ -47,8 +48,8 @@ interface DocumentAnalysis {
 
 export default function Dashboard() {
   const { user, loading } = useSupabaseAuth();
-  const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const { toast } = useToast();
   const queryClient = useQueryClient();
 
   // Adicionar log para verificar se o componente está sendo montado
@@ -266,7 +267,7 @@ export default function Dashboard() {
                 <div>
                   <p className="text-muted-foreground text-sm">Tempo Economizado</p>
                   <p className="text-2xl font-bold text-green-600" data-testid="text-stat-time-saved">
-                    {Math.round(recentAnalyses.reduce((acc, analysis) => acc + (analysis.creditsUsed * 0.5), 0) * 10) / 10}h
+                    {Math.round(recentAnalyses.reduce((acc, analysis) => acc + ((analysis.creditsUsed || 0) * 0.5), 0) * 10) / 10}h
                   </p>
                 </div>
                 <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
@@ -447,11 +448,14 @@ export default function Dashboard() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle data-testid="text-recent-title">Análises Recentes</CardTitle>
-              <Link href="/analyses">
-                <Button variant="ghost" size="sm" data-testid="button-view-all">
-                  Ver todas
-                </Button>
-              </Link>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                data-testid="button-view-all"
+                onClick={() => setLocation('/analyses')}
+              >
+                Ver todas
+              </Button>
             </div>
           </CardHeader>
           <CardContent>

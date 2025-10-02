@@ -229,9 +229,9 @@ export default function BatchProcessingPage() {
   return (
     <div className="container mx-auto py-8 space-y-8">
       <div>
-        <h1 className="text-3xl font-bold" data-testid="text-page-title">Batch Document Processing</h1>
+        <h1 className="text-3xl font-bold" data-testid="text-page-title">Análise em Massa</h1>
         <p className="text-muted-foreground mt-2">
-          Process multiple documents simultaneously with AI analysis
+          Processe múltiplos documentos simultaneamente com análise de IA
         </p>
       </div>
 
@@ -240,25 +240,25 @@ export default function BatchProcessingPage() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="pb-2">
-              <CardDescription>Total Batches</CardDescription>
+              <CardDescription>Total de Lotes</CardDescription>
               <CardTitle className="text-2xl" data-testid="text-total-batches">{statistics.totalBatches}</CardTitle>
             </CardHeader>
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardDescription>Completed</CardDescription>
+              <CardDescription>Concluídos</CardDescription>
               <CardTitle className="text-2xl text-green-600" data-testid="text-completed-batches">{statistics.completedBatches}</CardTitle>
             </CardHeader>
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardDescription>Documents Processed</CardDescription>
+              <CardDescription>Documentos Processados</CardDescription>
               <CardTitle className="text-2xl" data-testid="text-documents-processed">{statistics.totalDocumentsProcessed}</CardTitle>
             </CardHeader>
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardDescription>Avg Processing Time</CardDescription>
+              <CardDescription>Tempo Médio de Processamento</CardDescription>
               <CardTitle className="text-2xl" data-testid="text-avg-processing-time">
                 {statistics.averageProcessingTime ? `${Math.round(statistics.averageProcessingTime)}s` : '0s'}
               </CardTitle>
@@ -273,62 +273,62 @@ export default function BatchProcessingPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Upload className="h-5 w-5" />
-              Create New Batch
+              Criar Novo Lote
             </CardTitle>
             <CardDescription>
-              Upload multiple documents for batch processing
+              Faça upload de múltiplos documentos para processamento em lote
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             {/* Batch Details */}
             <div className="space-y-4">
               <div>
-                <Label htmlFor="batch-name">Batch Name *</Label>
+                <Label htmlFor="batch-name">Nome do Lote *</Label>
                 <Input
                   id="batch-name"
                   data-testid="input-batch-name"
                   value={batchName}
                   onChange={(e) => setBatchName(e.target.value)}
-                  placeholder="Enter batch name"
+                  placeholder="Digite o nome do lote"
                 />
               </div>
               
               <div>
-                <Label htmlFor="batch-description">Description</Label>
+                <Label htmlFor="batch-description">Descrição</Label>
                 <Textarea
                   id="batch-description"
                   data-testid="input-batch-description"
                   value={batchDescription}
                   onChange={(e) => setBatchDescription(e.target.value)}
-                  placeholder="Optional batch description"
+                  placeholder="Descrição opcional do lote"
                   rows={3}
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="analysis-type">Analysis Type *</Label>
+                  <Label htmlFor="analysis-type">Tipo de Análise *</Label>
                   <Select value={analysisType} onValueChange={setAnalysisType}>
                     <SelectTrigger data-testid="select-analysis-type">
-                      <SelectValue placeholder="Select analysis type" />
+                      <SelectValue placeholder="Selecione o tipo de análise" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="risk_assessment">Risk Assessment</SelectItem>
-                      <SelectItem value="compliance_check">Compliance Check</SelectItem>
-                      <SelectItem value="contract_review">Contract Review</SelectItem>
-                      <SelectItem value="legal_summary">Legal Summary</SelectItem>
+                      <SelectItem value="risk_assessment">Avaliação de Risco</SelectItem>
+                      <SelectItem value="compliance_check">Verificação de Conformidade</SelectItem>
+                      <SelectItem value="contract_review">Revisão de Contrato</SelectItem>
+                      <SelectItem value="legal_summary">Resumo Jurídico</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div>
-                  <Label htmlFor="template">Template (Optional)</Label>
+                  <Label htmlFor="template">Modelo (Opcional)</Label>
                   <Select value={templateId} onValueChange={setTemplateId}>
                     <SelectTrigger data-testid="select-template">
-                      <SelectValue placeholder="Select template" />
+                      <SelectValue placeholder="Selecione um modelo" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="no-template">No template</SelectItem>
+                      <SelectItem value="no-template">Sem modelo</SelectItem>
                       {templates.map((template) => (
                         <SelectItem key={template.id} value={template.id}>
                           {template.name}
@@ -341,7 +341,7 @@ export default function BatchProcessingPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="ai-provider">AI Provider</Label>
+                  <Label htmlFor="ai-provider">Provedor de IA</Label>
                   <Select value={aiProvider} onValueChange={setAiProvider}>
                     <SelectTrigger data-testid="select-ai-provider">
                       <SelectValue />
@@ -355,7 +355,7 @@ export default function BatchProcessingPage() {
                 </div>
 
                 <div>
-                  <Label htmlFor="ai-model">AI Model</Label>
+                  <Label htmlFor="ai-model">Modelo de IA</Label>
                   <Select value={aiModel} onValueChange={setAiModel}>
                     <SelectTrigger data-testid="select-ai-model">
                       <SelectValue />
@@ -394,20 +394,20 @@ export default function BatchProcessingPage() {
               <input {...getInputProps()} />
               <Upload className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
               <h3 className="text-lg font-medium mb-2">
-                {isDragActive ? 'Drop files here' : 'Upload Documents'}
+                {isDragActive ? 'Solte os arquivos aqui' : 'Fazer Upload de Documentos'}
               </h3>
               <p className="text-muted-foreground mb-4">
-                Drag & drop files here, or click to select files
+                Arraste e solte arquivos aqui, ou clique para selecionar arquivos
               </p>
               <p className="text-sm text-muted-foreground">
-                Supports PDF, DOC, DOCX, TXT files up to 50MB each
+                Suporta arquivos PDF, DOC, DOCX, TXT de até 50MB cada
               </p>
             </div>
 
             {/* Selected Files */}
             {selectedFiles.length > 0 && (
               <div>
-                <h4 className="font-medium mb-3">Selected Files ({selectedFiles.length})</h4>
+                <h4 className="font-medium mb-3">Arquivos Selecionados ({selectedFiles.length})</h4>
                 <div className="space-y-2 max-h-40 overflow-y-auto">
                   {selectedFiles.map(({ file, id, status }) => (
                     <div
@@ -444,9 +444,9 @@ export default function BatchProcessingPage() {
                 <Calculator className="h-4 w-4" />
                 <AlertDescription>
                   <div className="flex items-center justify-between">
-                    <span>Estimated Credits: <strong>{estimatedCredits}</strong></span>
+                    <span>Créditos Estimados: <strong>{estimatedCredits}</strong></span>
                     <span className="text-sm text-muted-foreground">
-                      {getProviderCredits(`${aiProvider}-${aiModel}`)} credits × {selectedFiles.length} files
+                      {getProviderCredits(`${aiProvider}-${aiModel}`)} créditos × {selectedFiles.length} arquivos
                     </span>
                   </div>
                 </AlertDescription>
@@ -461,7 +461,7 @@ export default function BatchProcessingPage() {
               data-testid="button-create-batch"
             >
               <Play className="h-4 w-4 mr-2" />
-              {createBatchMutation.isPending ? 'Creating Batch...' : `Create Batch (${estimatedCredits} credits)`}
+              {createBatchMutation.isPending ? 'Criando Lote...' : `Criar Lote (${estimatedCredits} créditos)`}
             </Button>
           </CardContent>
         </Card>
@@ -469,9 +469,9 @@ export default function BatchProcessingPage() {
         {/* Recent Batches */}
         <Card>
           <CardHeader>
-            <CardTitle>Recent Batch Jobs</CardTitle>
+            <CardTitle>Lotes Recentes</CardTitle>
             <CardDescription>
-              Your recent batch processing jobs
+              Seus trabalhos de processamento em lote recentes
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -484,8 +484,8 @@ export default function BatchProcessingPage() {
             ) : batchJobs.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>No batch jobs yet</p>
-                <p className="text-sm">Create your first batch to get started</p>
+                <p>Nenhum lote ainda</p>
+                <p className="text-sm">Crie seu primeiro lote para começar</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -504,8 +504,8 @@ export default function BatchProcessingPage() {
                     </div>
                     
                     <div className="flex items-center justify-between text-sm text-muted-foreground">
-                      <span>{job.totalDocuments} documents</span>
-                      <span>{job.totalCreditsUsed || job.totalCreditsEstimated} credits</span>
+                      <span>{job.totalDocuments} documentos</span>
+                      <span>{job.totalCreditsUsed || job.totalCreditsEstimated} créditos</span>
                     </div>
 
                     {job.status === 'processing' && (
@@ -516,8 +516,8 @@ export default function BatchProcessingPage() {
                     )}
 
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>Created {new Date(job.createdAt).toLocaleDateString()}</span>
-                      <span>{job.processedDocuments}/{job.totalDocuments} processed</span>
+                      <span>Criado em {new Date(job.createdAt).toLocaleDateString()}</span>
+                      <span>{job.processedDocuments}/{job.totalDocuments} processados</span>
                     </div>
                   </div>
                 ))}

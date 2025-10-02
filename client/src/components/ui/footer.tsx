@@ -76,7 +76,7 @@ export function Footer() {
               </li>
               <li>
                 <Link href="/batch" className="text-muted-foreground hover:text-primary text-sm transition-colors block">
-                  Análise em Lote
+                  Análise em Massa
                 </Link>
               </li>
               <li>

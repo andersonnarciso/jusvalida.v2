@@ -64,9 +64,39 @@ export function LandingHeader({ onLoginSuccess, onRegisterSuccess }: LandingHead
         lastName: registerForm.lastName,
         username: registerForm.username
       });
+      
       if (error) {
-        throw error;
+        console.log('🔍 Header Register - Error received:', error);
+        
+        // Handle specific error codes
+        if (error.code === 'EMAIL_ALREADY_EXISTS') {
+          toast({
+            title: "Email já cadastrado",
+            description: error.message,
+            variant: "destructive",
+          });
+        } else if (error.code === 'INVALID_EMAIL') {
+          toast({
+            title: "Email inválido",
+            description: error.message,
+            variant: "destructive",
+          });
+        } else if (error.code === 'WEAK_PASSWORD') {
+          toast({
+            title: "Senha fraca",
+            description: error.message,
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Erro no Cadastro",
+            description: error.message || "Erro ao criar conta",
+            variant: "destructive",
+          });
+        }
+        return;
       }
+      
       toast({
         title: "Conta criada com sucesso!",
         description: "Bem-vindo ao JusValida! Você recebeu 10 créditos gratuitos.",
@@ -74,6 +104,7 @@ export function LandingHeader({ onLoginSuccess, onRegisterSuccess }: LandingHead
       });
       onRegisterSuccess?.();
     } catch (error: any) {
+      console.error('Header Register error:', error);
       toast({
         title: "Erro no Cadastro",
         description: error.message || "Erro ao criar conta",

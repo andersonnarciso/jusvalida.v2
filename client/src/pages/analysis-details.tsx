@@ -226,7 +226,7 @@ export default function AnalysisDetails() {
                     </div>
                     <div className="flex items-center gap-1">
                       <Coins className="h-4 w-4 text-primary" />
-                      <span>{analysis.creditsUsed} créditos</span>
+                      <span>{analysis.creditsUsed || 0} créditos</span>
                     </div>
                   </div>
                 </CardDescription>
@@ -403,7 +403,7 @@ export default function AnalysisDetails() {
               </div>
               <div>
                 <span className="text-muted-foreground">Créditos:</span>
-                <p className="font-medium">{analysis.creditsUsed}</p>
+                <p className="font-medium">{analysis.creditsUsed || 0}</p>
               </div>
             </div>
           </CardContent>
