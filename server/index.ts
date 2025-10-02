@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 dotenv.config({ path: '../.env' });
 
 import express, { type Request, Response, NextFunction } from "express";
+import cors from "cors";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import bcrypt from "bcrypt";
@@ -12,6 +13,20 @@ import fs from "fs";
 import path from "path";
 
 const app = express();
+
+// CORS configuration
+app.use(cors({
+  origin: [
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'https://app.jusvalida.com.br',
+    'https://jusvalida.netlify.app'
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
+
 // SECURITY: Set body size limits to prevent payload attacks
 // Regular JSON requests limited to 50MB for batch metadata
 app.use(express.json({ limit: '50mb' }));
