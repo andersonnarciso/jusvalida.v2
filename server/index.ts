@@ -1,9 +1,6 @@
-   import dotenv from 'dotenv';
-   dotenv.config();
-
-
 // SECURITY: Load environment variables first, before any other imports
-dotenv.config();
+import dotenv from 'dotenv';
+dotenv.config({ path: '../.env' });
 
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
