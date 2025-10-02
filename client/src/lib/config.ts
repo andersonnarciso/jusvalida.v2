@@ -11,7 +11,7 @@ export const config = {
   api: {
     baseUrl: import.meta.env.VITE_API_URL || 
              import.meta.env.API_URL || 
-             (import.meta.env.PROD ? 'https://jusvalida.netlify.app' : 'http://localhost:3000')
+             'http://localhost:3000'
   }
 };
 
