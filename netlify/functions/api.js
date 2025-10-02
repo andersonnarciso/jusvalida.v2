@@ -385,7 +385,104 @@ exports.handler = async (event, context) => {
       });
     }
 
-    // Admin endpoints
+    // Admin endpoints - API routes
+    if (path === '/api/admin/users' && httpMethod === 'GET') {
+      const page = queryStringParameters?.page || '1';
+      const limit = queryStringParameters?.limit || '10';
+      
+      return createResponse(200, {
+        users: [
+          { id: '1', email: 'andersonnarciso@gmail.com', name: 'Anderson Narciso', role: 'admin', createdAt: new Date().toISOString() },
+          { id: '2', email: 'test@example.com', name: 'Test User', role: 'user', createdAt: new Date().toISOString() }
+        ],
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total: 2,
+          totalPages: 1
+        }
+      });
+    }
+
+    if (path === '/api/admin/analytics' && httpMethod === 'GET') {
+      return createResponse(200, {
+        totalUsers: 25,
+        totalDocuments: 150,
+        totalAnalyses: 200,
+        totalCredits: 5000,
+        revenue: 15000
+      });
+    }
+
+    if (path === '/api/admin/ai-usage' && httpMethod === 'GET') {
+      return createResponse(200, {
+        openai: { requests: 100, tokens: 50000 },
+        anthropic: { requests: 50, tokens: 25000 },
+        total: { requests: 150, tokens: 75000 }
+      });
+    }
+
+    if (path === '/api/admin/financial-details' && httpMethod === 'GET') {
+      return createResponse(200, {
+        revenue: 15000,
+        expenses: 5000,
+        profit: 10000,
+        transactions: 25
+      });
+    }
+
+    if (path === '/api/admin/credit-trends' && httpMethod === 'GET') {
+      return createResponse(200, {
+        trends: [
+          { date: '2024-01-01', credits: 100 },
+          { date: '2024-01-02', credits: 150 },
+          { date: '2024-01-03', credits: 200 }
+        ]
+      });
+    }
+
+    if (path === '/api/admin/system-api-keys' && httpMethod === 'GET') {
+      return createResponse(200, {
+        openai: { key: 'sk-***', status: 'active' },
+        anthropic: { key: 'sk-ant-***', status: 'active' }
+      });
+    }
+
+    if (path === '/api/admin/site-config' && httpMethod === 'GET') {
+      return createResponse(200, {
+        siteName: 'JusValida',
+        maintenanceMode: false,
+        version: '1.0.0'
+      });
+    }
+
+    if (path === '/api/admin/smtp-config' && httpMethod === 'GET') {
+      return createResponse(200, {
+        host: 'smtp.example.com',
+        port: 587,
+        secure: false,
+        status: 'active'
+      });
+    }
+
+    if (path === '/api/admin/notifications' && httpMethod === 'GET') {
+      return createResponse(200, {
+        notifications: [
+          { id: '1', message: 'System updated', type: 'info', createdAt: new Date().toISOString() }
+        ]
+      });
+    }
+
+    if (path === '/api/admin/stripe-config' && httpMethod === 'GET') {
+      return createResponse(200, {
+        isActive: true,
+        mode: 'test',
+        publishableKey: 'pk_test_***',
+        webhookSecret: 'whsec_***'
+      });
+    }
+
+    // Legacy admin endpoints (without /api prefix)
     if (path === '/admin/users' && httpMethod === 'GET') {
       return createResponse(200, mockData.users);
     }
