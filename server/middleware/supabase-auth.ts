@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { supabaseAdmin } from '../../lib/supabase';
+import { supabaseAdmin, createSupabaseClient } from '../../lib/supabase';
 import { storage } from '../storage';
 
 export interface AuthenticatedRequest extends Request {
@@ -32,8 +32,9 @@ export const requireSupabaseAuth = async (
 
     const token = authHeader.split(' ')[1];
     
-    // Verify the token with Supabase
-    const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
+    // Verify the token with Supabase using the normal client
+    const supabase = createSupabaseClient();
+    const { data: { user }, error } = await supabase.auth.getUser(token);
     
     if (error || !user) {
       return res.status(401).json({ message: 'Invalid or expired token' });
@@ -108,8 +109,9 @@ export const requireSupabaseAdmin = async (
 
     const token = authHeader.split(' ')[1];
     
-    // Verify the token with Supabase
-    const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
+    // Verify the token with Supabase using the normal client
+    const supabase = createSupabaseClient();
+    const { data: { user }, error } = await supabase.auth.getUser(token);
     
     if (error || !user) {
       return res.status(401).json({ message: 'Invalid or expired token' });
