@@ -1159,18 +1159,33 @@ export default function Admin() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
   // Fetch users with pagination
-  const { data: usersData, isLoading: usersLoading } =
+  const { data: usersData, isLoading: usersLoading, error: usersError } =
     useQuery<UserListResponse>({
       queryKey: ["/api/admin/users", userPage],
       queryFn: async () => {
+        console.log('🔍 Admin - Fetching users, page:', userPage);
         const response = await apiRequest(
           "GET",
           `/api/admin/users?page=${userPage}&limit=10`,
         );
-        return response.json();
+        const data = await response.json();
+        console.log('🔍 Admin - Users response:', data);
+        return data;
       },
       enabled: !loading && (isAdmin || isSupport),
     });
+
+  // Debug logging
+  useEffect(() => {
+    console.log('🔍 Admin Debug:', {
+      loading,
+      isAdmin,
+      isSupport,
+      usersData,
+      usersLoading,
+      usersError
+    });
+  }, [loading, isAdmin, isSupport, usersData, usersLoading, usersError]);
 
   // Fetch platform analytics
   const { data: analytics, isLoading: analyticsLoading } =
