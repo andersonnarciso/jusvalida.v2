@@ -410,15 +410,30 @@ exports.handler = async (event, context) => {
         totalDocuments: 150,
         totalAnalyses: 200,
         totalCredits: 5000,
-        revenue: 15000
+        totalRevenue: 15000,
+        totalCreditsUsed: 1200,
+        totalCreditsPurchased: 5000,
+        userGrowth: [],
+        analysisGrowth: [],
+        supportTicketsStats: {
+          open: 5,
+          pending: 3,
+          resolved: 12,
+          closed: 8
+        }
       });
     }
 
     if (path === '/api/admin/ai-usage' && httpMethod === 'GET') {
       return createResponse(200, {
-        openai: { requests: 100, tokens: 50000 },
-        anthropic: { requests: 50, tokens: 25000 },
-        total: { requests: 150, tokens: 75000 }
+        providerUsage: [
+          { provider: 'openai', model: 'gpt-4', count: 100, totalCredits: 50000 },
+          { provider: 'anthropic', model: 'claude-3', count: 50, totalCredits: 25000 }
+        ],
+        errorRates: [
+          { provider: 'openai', model: 'gpt-4', successRate: 95.5 },
+          { provider: 'anthropic', model: 'claude-3', successRate: 98.2 }
+        ]
       });
     }
 

@@ -2188,7 +2188,7 @@ export default function Admin() {
                                     <span
                                       data-testid={`text-success-rate-${index}`}
                                     >
-                                      {errorRate
+                                      {errorRate && errorRate.successRate
                                         ? `${errorRate.successRate.toFixed(1)}%`
                                         : "N/A"}
                                     </span>
