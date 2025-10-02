@@ -224,11 +224,11 @@ function SiteConfigForm({
 
   // Get specific config values
   const getConfigValue = (section: string, key: string) => {
-    return configs.find(c => c.section === section && c.key === key)?.value || "";
+    return configs?.find(c => c.section === section && c.key === key)?.value || "";
   };
 
   const updateConfig = (section: string, key: string, value: string) => {
-    const existingConfig = configs.find(c => c.section === section && c.key === key);
+    const existingConfig = configs?.find(c => c.section === section && c.key === key);
     
     if (existingConfig) {
       onUpdate({ id: existingConfig.id, data: { value } });
@@ -1321,7 +1321,7 @@ export default function Admin() {
   // Create or update system API key mutation
   const saveSystemApiKeyMutation = useMutation({
     mutationFn: ({ provider, apiKey, isActive }: { provider: string; apiKey: string; isActive: boolean }) => {
-      const existingProvider = systemApiKeys?.providers.find(p => p.provider === provider);
+      const existingProvider = systemApiKeys?.providers?.find(p => p.provider === provider);
       
       if (existingProvider) {
         // Update existing key
@@ -1875,8 +1875,8 @@ export default function Admin() {
                   </div>
                 ) : (
                   ['openai', 'anthropic', 'gemini'].map((providerType) => {
-                    const providerStatus = systemApiKeys?.status.find(s => s.provider === providerType);
-                    const providerData = systemApiKeys?.providers.find(p => p.provider === providerType);
+                    const providerStatus = systemApiKeys?.status?.find(s => s.provider === providerType);
+                    const providerData = systemApiKeys?.providers?.find(p => p.provider === providerType);
                     const isConfigured = providerStatus?.configured || false;
                     const isActive = providerStatus?.isActive || false;
                     const isEditing = editingProvider === providerType;
@@ -2149,7 +2149,7 @@ export default function Admin() {
                             },
                             index: number,
                           ) => {
-                            const errorRate = aiUsage?.errorRates.find(
+                            const errorRate = aiUsage?.errorRates?.find(
                               (e: {
                                 provider: string;
                                 model: string;
